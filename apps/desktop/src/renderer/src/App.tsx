@@ -2,6 +2,7 @@ import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type {
   ExternalRevisionEvent,
   OpenSourceDocumentsResult,
+  PdfExportProgress,
   ReadingPosition,
   ReadSourceDocumentResult,
   SourceDocumentData,
@@ -13,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  FileDown,
   FolderOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -72,6 +74,7 @@ import {
 } from '@/finished-document';
 import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
+import { PdfExportPanel } from '@/pdf-export-panel';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 
@@ -165,6 +168,8 @@ export function App(): React.JSX.Element {
   const [externalRevisionStatuses, setExternalRevisionStatuses] = useState(
     () => new Map<string, ExternalRevisionStatus>(),
   );
+  const [pdfExportProgress, setPdfExportProgress] = useState<PdfExportProgress>();
+  const [pdfExportStarting, setPdfExportStarting] = useState(false);
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
   const frameControllers = useRef(new Map<string, FinishedDocumentController>());
   const findInput = useRef<HTMLInputElement>(null);
@@ -175,6 +180,7 @@ export function App(): React.JSX.Element {
   const recentDocumentCache = useRef(new Map<string, FinishedSourceDocument>());
   const visibleFrameIdRef = useRef<string | undefined>(undefined);
   const updatedStatusTimers = useRef(new Map<string, number>());
+  const pdfExportDismissTimer = useRef<number | undefined>(undefined);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
@@ -289,6 +295,23 @@ export function App(): React.JSX.Element {
 
   useEffect(() => window.fuxian.onExternalRevision(beginExternalRevision), [beginExternalRevision]);
 
+  useEffect(
+    () =>
+      window.fuxian.onPdfExportProgress((progress) => {
+        setPdfExportProgress(progress);
+        setPdfExportStarting(false);
+        if (pdfExportDismissTimer.current) window.clearTimeout(pdfExportDismissTimer.current);
+        if (progress.status === 'completed' || progress.status === 'cancelled') {
+          pdfExportDismissTimer.current = window.setTimeout(() => {
+            setPdfExportProgress((current) =>
+              current?.exportId === progress.exportId ? undefined : current,
+            );
+          }, 4_000);
+        }
+      }),
+    [],
+  );
+
   const openWatchConfiguration = JSON.stringify(
     session.openDocuments.flatMap((document) =>
       document.status === 'available'
@@ -387,6 +410,7 @@ export function App(): React.JSX.Element {
       controllers.clear();
       for (const timer of statusTimers.values()) window.clearTimeout(timer);
       statusTimers.clear();
+      if (pdfExportDismissTimer.current) window.clearTimeout(pdfExportDismissTimer.current);
     };
   }, []);
 
@@ -858,6 +882,54 @@ export function App(): React.JSX.Element {
     }
   };
 
+  const startPdfExport = async (): Promise<void> => {
+    const path = sessionRef.current.activeDocumentPath;
+    const document = sessionRef.current.openDocuments.find(
+      (item): item is SessionDocument => item.status === 'available' && item.document.path === path,
+    );
+    if (!path || !document || pdfExportStarting || pdfExportProgress?.status === 'running') return;
+    setPdfExportStarting(true);
+    try {
+      const result = await window.fuxian.startPdfExport({
+        path,
+        preferences,
+        source: document.document.source,
+      });
+      if (result.status === 'started') {
+        setPdfExportProgress((current) =>
+          current?.exportId === result.exportId
+            ? current
+            : {
+                exportId: result.exportId,
+                progress: 5,
+                stage: 'preparing',
+                status: 'running',
+              },
+        );
+      } else if (result.status === 'failed') {
+        setPdfExportProgress({
+          exportId: `failed:${Date.now()}`,
+          message: result.message,
+          status: 'failed',
+        });
+      }
+    } catch {
+      setPdfExportProgress({
+        exportId: `failed:${Date.now()}`,
+        message: '应用暂时无法启动 PDF 导出。',
+        status: 'failed',
+      });
+    } finally {
+      setPdfExportStarting(false);
+    }
+  };
+
+  const cancelPdfExport = (): void => {
+    if (pdfExportProgress?.status === 'running') {
+      void window.fuxian.cancelPdfExport(pdfExportProgress.exportId);
+    }
+  };
+
   const showNewContent = (): void => {
     const path = sessionRef.current.activeDocumentPath;
     const controller = finishedDocumentController.current;
@@ -1124,6 +1196,20 @@ export function App(): React.JSX.Element {
                   onChange={(documentWidth) => updatePreferences({ ...preferences, documentWidth })}
                   value={preferences.documentWidth}
                 />
+                <Button
+                  aria-label="导出 PDF"
+                  disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
+                  onClick={() => void startPdfExport()}
+                  size="icon-sm"
+                  title="导出 PDF"
+                  variant="ghost"
+                >
+                  {pdfExportStarting ? (
+                    <Spinner aria-hidden="true" />
+                  ) : (
+                    <FileDown aria-hidden="true" />
+                  )}
+                </Button>
                 {findOpen ? (
                   <div className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs">
                     <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
@@ -1206,7 +1292,7 @@ export function App(): React.JSX.Element {
               )}
             >
               <main
-                className="grid min-h-0 bg-background p-3"
+                className="relative grid min-h-0 bg-background p-3"
                 aria-label="Finished-document region"
               >
                 {documentFrames.map((frame) => (
@@ -1219,6 +1305,14 @@ export function App(): React.JSX.Element {
                     visible={frame.id === visibleFrame.id}
                   />
                 ))}
+                {pdfExportProgress ? (
+                  <PdfExportPanel
+                    key={pdfExportProgress.exportId}
+                    onCancel={cancelPdfExport}
+                    onRetry={() => void startPdfExport()}
+                    progress={pdfExportProgress}
+                  />
+                ) : null}
               </main>
               {sourceDiagram ? (
                 <DiagramSourceDrawer

@@ -7,22 +7,32 @@ import {
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
   type OpenDocumentWatchesRequest,
+  type PdfExportPayload,
+  type PdfExportProgress,
+  type PdfExportReadySignal,
+  type PdfExportRenderProgress,
   type PlantUmlRenderRequest,
   type PlantUmlRenderResult,
   type PlantUmlServerValidationResult,
   type PersistedDocumentSession,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
+  type StartPdfExportRequest,
+  type StartPdfExportResult,
 } from '@fuxian/shared-types';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 const bridge: FuxianDesktopBridge = Object.freeze({
+  cancelPdfExport: async (exportId: string): Promise<void> =>
+    ipcRenderer.invoke(desktopIpcChannels.cancelPdfExport, exportId),
   cancelPlantUmlRender: (requestId: string): void =>
     ipcRenderer.send(desktopIpcChannels.cancelPlantUmlRender, requestId),
   configureOpenDocumentWatches: async (request: OpenDocumentWatchesRequest): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.configureOpenDocumentWatches, request),
   copyText: async (text: string): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.copyText, text),
+  getPdfExportPayload: async (exportId: string): Promise<PdfExportPayload> =>
+    ipcRenderer.invoke(desktopIpcChannels.getPdfExportPayload, exportId),
   loadDocumentSession: async (): Promise<LoadDocumentSessionResult> =>
     ipcRenderer.invoke(desktopIpcChannels.loadDocumentSession),
   loadReaderPreferences: async (): Promise<ReaderPreferences> =>
@@ -54,6 +64,12 @@ const bridge: FuxianDesktopBridge = Object.freeze({
         handleExternalRevision,
       );
   },
+  onPdfExportProgress: (listener: (progress: PdfExportProgress) => void): (() => void) => {
+    const handleProgress = (_event: Electron.IpcRendererEvent, progress: PdfExportProgress): void =>
+      listener(progress);
+    ipcRenderer.on(desktopIpcChannels.pdfExportProgress, handleProgress);
+    return () => ipcRenderer.removeListener(desktopIpcChannels.pdfExportProgress, handleProgress);
+  },
   openDroppedSourceDocuments: async (files: File[]): Promise<OpenSourceDocumentsResult> => {
     if (!Array.isArray(files) || files.length > 100) {
       throw new TypeError('Dropped documents must be an array containing at most 100 files.');
@@ -67,12 +83,18 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.openSourceDocuments),
   renderPlantUml: async (request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult> =>
     ipcRenderer.invoke(desktopIpcChannels.renderPlantUml, request),
+  reportPdfExportProgress: (progress: PdfExportRenderProgress): void =>
+    ipcRenderer.send(desktopIpcChannels.reportPdfExportProgress, progress),
   retrySourceDocument: async (path: string): Promise<ReadSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.retrySourceDocument, path),
   saveDocumentSession: async (session: PersistedDocumentSession): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.saveDocumentSession, session),
   saveReaderPreferences: async (preferences: ReaderPreferences): Promise<ReaderPreferences> =>
     ipcRenderer.invoke(desktopIpcChannels.saveReaderPreferences, preferences),
+  signalPdfExportReady: (signal: PdfExportReadySignal): void =>
+    ipcRenderer.send(desktopIpcChannels.pdfExportReady, signal),
+  startPdfExport: async (request: StartPdfExportRequest): Promise<StartPdfExportResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.startPdfExport, request),
   validatePlantUmlServer: async (serverUrl: string): Promise<PlantUmlServerValidationResult> =>
     ipcRenderer.invoke(desktopIpcChannels.validatePlantUmlServer, serverUrl),
 });

@@ -7,15 +7,22 @@ import {
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
   type OpenDocumentWatchesRequest,
+  type PdfExportPayload,
+  type PdfExportProgress,
+  type PdfExportReadySignal,
+  type PdfExportRenderProgress,
   type PlantUmlRenderRequest,
   type PlantUmlRenderResult,
   type PlantUmlServerValidationResult,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
   type SourceDocumentData,
+  type StartPdfExportRequest,
+  type StartPdfExportResult,
 } from '@fuxian/shared-types';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, protocol, shell } from 'electron';
-import { readFile, realpath } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
@@ -47,11 +54,43 @@ const rendererDocumentWatches = new Map<number, RendererDocumentWatches>();
 const documentWatchConfigurationGenerations = new Map<number, number>();
 const documentWatchCleanupRegistered = new Set<number>();
 
+interface PdfExportJob {
+  cancelled: boolean;
+  exportWindow: BrowserWindow;
+  id: string;
+  originWindow: BrowserWindow;
+  outputPath: string;
+  payload: PdfExportPayload;
+  printing: boolean;
+  temporaryPath: string;
+  timeout?: ReturnType<typeof setTimeout>;
+}
+
+const pdfExportJobs = new Map<string, PdfExportJob>();
+
 const plantUmlRequestKey = (webContentsId: number, requestId: string): string =>
   `${webContentsId}:${requestId}`;
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error && error.message ? error.message : 'PlantUML Server 验证失败。';
+
+const sendPdfExportProgress = (job: PdfExportJob, progress: PdfExportProgress): void => {
+  if (!job.originWindow.isDestroyed()) {
+    job.originWindow.webContents.send(desktopIpcChannels.pdfExportProgress, progress);
+  }
+};
+
+const closePdfExportJob = (job: PdfExportJob): void => {
+  pdfExportJobs.delete(job.id);
+  if (job.timeout) clearTimeout(job.timeout);
+  if (!job.exportWindow.isDestroyed()) job.exportWindow.destroy();
+};
+
+const failPdfExportJob = (job: PdfExportJob, message: string): void => {
+  if (pdfExportJobs.get(job.id) !== job || job.cancelled) return;
+  sendPdfExportProgress(job, { exportId: job.id, message, status: 'failed' });
+  closePdfExportJob(job);
+};
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -173,6 +212,23 @@ const readSourceDocuments = async (
 const openSourceDocuments = async (): Promise<OpenSourceDocumentsResult> => {
   const selectedPaths = await chooseSourceDocuments();
   return selectedPaths ? readSourceDocuments(selectedPaths) : { status: 'cancelled' };
+};
+
+const choosePdfExportPath = async (
+  owner: BrowserWindow,
+  sourceDocumentPath: string,
+): Promise<string | undefined> => {
+  const testOutputPath = process.env.FUXIAN_E2E_PDF_EXPORT_FILE;
+  if (!app.isPackaged && process.env.NODE_ENV === 'test' && testOutputPath) {
+    return testOutputPath;
+  }
+  const sourceName = basename(sourceDocumentPath, extname(sourceDocumentPath));
+  const selection = await dialog.showSaveDialog(owner, {
+    defaultPath: `${sourceName}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    title: '导出 PDF',
+  });
+  return selection.canceled ? undefined : selection.filePath;
 };
 
 const openDroppedSourceDocuments = async (
@@ -333,6 +389,187 @@ const registerDesktopHandlers = (
     clipboard.writeText(text);
   });
   ipcMain.handle(desktopIpcChannels.openSourceDocuments, openSourceDocuments);
+  ipcMain.handle(
+    desktopIpcChannels.startPdfExport,
+    async (event, value: unknown): Promise<StartPdfExportResult> => {
+      const request = value as Partial<StartPdfExportRequest> | undefined;
+      const originWindow = BrowserWindow.fromWebContents(event.sender);
+      if (
+        !originWindow ||
+        !request ||
+        typeof request.path !== 'string' ||
+        typeof request.source !== 'string' ||
+        request.source.length > 10_000_000 ||
+        !knownDocumentPaths.has(request.path)
+      ) {
+        return { message: '当前文档不属于受信任的文档会话。', status: 'failed' };
+      }
+      if ([...pdfExportJobs.values()].some((job) => job.originWindow === originWindow)) {
+        return { message: '已有 PDF 正在导出。', status: 'failed' };
+      }
+
+      const outputPath = await choosePdfExportPath(originWindow, request.path);
+      if (!outputPath) return { status: 'cancelled' };
+      const result = await readSourceDocument(request.path);
+      if (result.status === 'unavailable') {
+        return { message: result.message, status: 'failed' };
+      }
+
+      const exportId = randomUUID();
+      const exportWindow = createPdfExportWindow();
+      const job: PdfExportJob = {
+        cancelled: false,
+        exportWindow,
+        id: exportId,
+        originWindow,
+        outputPath,
+        payload: {
+          document: { ...result.document, source: request.source },
+          exportId,
+          preferences: normalizeReaderPreferences(request.preferences),
+        },
+        printing: false,
+        temporaryPath: `${outputPath}.${exportId}.tmp`,
+      };
+      pdfExportJobs.set(exportId, job);
+      job.timeout = setTimeout(() => failPdfExportJob(job, 'PDF 导出页面准备超时。'), 45_000);
+      exportWindow.webContents.once('did-fail-load', () => {
+        failPdfExportJob(job, 'PDF 导出页面加载失败。');
+      });
+      exportWindow.webContents.once('render-process-gone', () => {
+        failPdfExportJob(job, 'PDF 导出进程意外退出。');
+      });
+      exportWindow.on('closed', () => {
+        if (pdfExportJobs.get(exportId) !== job) return;
+        pdfExportJobs.delete(exportId);
+        if (job.timeout) clearTimeout(job.timeout);
+        void rm(job.temporaryPath, { force: true }).catch(() => undefined);
+        if (!job.cancelled) {
+          sendPdfExportProgress(job, {
+            exportId,
+            message: 'PDF 导出窗口意外关闭。',
+            status: 'failed',
+          });
+        }
+      });
+      originWindow.webContents.once('destroyed', () => {
+        if (pdfExportJobs.get(exportId) === job) {
+          job.cancelled = true;
+          closePdfExportJob(job);
+        }
+      });
+      loadPdfExportWindow(exportWindow, exportId);
+      sendPdfExportProgress(job, {
+        exportId,
+        progress: 5,
+        stage: 'preparing',
+        status: 'running',
+      });
+      return { exportId, status: 'started' };
+    },
+  );
+  ipcMain.handle(desktopIpcChannels.cancelPdfExport, (event, exportId: unknown) => {
+    if (typeof exportId !== 'string') return;
+    const job = pdfExportJobs.get(exportId);
+    if (!job || job.originWindow.webContents !== event.sender) return;
+    job.cancelled = true;
+    sendPdfExportProgress(job, { exportId, status: 'cancelled' });
+    void rm(job.temporaryPath, { force: true }).catch(() => undefined);
+    closePdfExportJob(job);
+  });
+  ipcMain.handle(
+    desktopIpcChannels.getPdfExportPayload,
+    (event, exportId: unknown): PdfExportPayload => {
+      const job = typeof exportId === 'string' ? pdfExportJobs.get(exportId) : undefined;
+      if (!job || job.exportWindow.webContents !== event.sender) {
+        throw new TypeError('PDF export payload is unavailable.');
+      }
+      return job.payload;
+    },
+  );
+  ipcMain.on(desktopIpcChannels.reportPdfExportProgress, (event, value: unknown) => {
+    const progress = value as Partial<PdfExportRenderProgress> | undefined;
+    const job = progress?.exportId ? pdfExportJobs.get(progress.exportId) : undefined;
+    if (
+      !job ||
+      job.exportWindow.webContents !== event.sender ||
+      job.printing ||
+      typeof progress?.completed !== 'number' ||
+      typeof progress.total !== 'number'
+    ) {
+      return;
+    }
+    const ratio = progress.total > 0 ? progress.completed / progress.total : 1;
+    sendPdfExportProgress(job, {
+      exportId: job.id,
+      progress: Math.round(10 + Math.min(1, Math.max(0, ratio)) * 75),
+      stage: 'rendering',
+      status: 'running',
+    });
+  });
+  ipcMain.on(desktopIpcChannels.pdfExportReady, (event, value: unknown) => {
+    const signal = value as Partial<PdfExportReadySignal> | undefined;
+    const job = signal?.exportId ? pdfExportJobs.get(signal.exportId) : undefined;
+    if (!job || job.exportWindow.webContents !== event.sender || job.cancelled || job.printing)
+      return;
+    if (signal?.status === 'failed') {
+      failPdfExportJob(
+        job,
+        typeof signal.message === 'string' ? signal.message : 'PDF 导出页面准备失败。',
+      );
+      return;
+    }
+    if (signal?.status !== 'ready') return;
+    job.printing = true;
+    if (job.timeout) clearTimeout(job.timeout);
+    job.timeout = setTimeout(() => failPdfExportJob(job, '写入 PDF 超时。'), 30_000);
+    sendPdfExportProgress(job, {
+      exportId: job.id,
+      progress: 90,
+      stage: 'saving',
+      status: 'running',
+    });
+    void (async () => {
+      try {
+        if (
+          !app.isPackaged &&
+          process.env.NODE_ENV === 'test' &&
+          process.env.FUXIAN_E2E_PDF_EXPORT_FAILURE === 'print'
+        ) {
+          throw new Error('测试环境模拟 PDF 生成失败。');
+        }
+        const pdf = await job.exportWindow.webContents.printToPDF({
+          generateDocumentOutline: true,
+          generateTaggedPDF: true,
+          pageSize: 'A4',
+          preferCSSPageSize: true,
+          printBackground: true,
+        });
+        if (job.cancelled || pdfExportJobs.get(job.id) !== job) return;
+        await writeFile(job.temporaryPath, pdf);
+        if (job.cancelled || pdfExportJobs.get(job.id) !== job) {
+          await rm(job.temporaryPath, { force: true });
+          return;
+        }
+        await rename(job.temporaryPath, job.outputPath);
+        sendPdfExportProgress(job, {
+          exportId: job.id,
+          outputPath: job.outputPath,
+          status: 'completed',
+        });
+        closePdfExportJob(job);
+      } catch (error) {
+        await rm(job.temporaryPath, { force: true }).catch(() => undefined);
+        if (job.cancelled || pdfExportJobs.get(job.id) !== job) return;
+        sendPdfExportProgress(job, {
+          exportId: job.id,
+          message: error instanceof Error ? error.message : '无法生成 PDF。',
+          status: 'failed',
+        });
+        closePdfExportJob(job);
+      }
+    })();
+  });
   ipcMain.handle(desktopIpcChannels.openDroppedSourceDocuments, openDroppedSourceDocuments);
   ipcMain.handle(
     desktopIpcChannels.renderPlantUml,
@@ -471,6 +708,33 @@ const openExternalUrl = async (url: string): Promise<void> => {
 
   if (protocol === 'https:' || protocol === 'http:') {
     await shell.openExternal(url);
+  }
+};
+
+const createPdfExportWindow = (): BrowserWindow =>
+  new BrowserWindow({
+    height: 1123,
+    show: false,
+    width: 794,
+    webPreferences: {
+      backgroundThrottling: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: join(currentDirectory, '../preload/index.cjs'),
+      sandbox: true,
+    },
+  });
+
+const loadPdfExportWindow = (window: BrowserWindow, exportId: string): void => {
+  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
+    const url = new URL(process.env.ELECTRON_RENDERER_URL);
+    url.searchParams.set('exportId', exportId);
+    url.searchParams.set('view', 'pdf-export');
+    void window.loadURL(url.toString());
+  } else {
+    void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
+      query: { exportId, view: 'pdf-export' },
+    });
   }
 };
 

@@ -95,3 +95,11 @@
     letter-spacing: 0;
   }
 }
+
+html[data-pdf-export],
+html[data-pdf-export] body,
+html[data-pdf-export] #root {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
