@@ -71,7 +71,10 @@ export function App(): React.JSX.Element {
     }
 
     try {
-      const finishedDocument = renderMarkdown({ source: result.document.source });
+      const finishedDocument = renderMarkdown({
+        resourceBaseUrl: result.document.resourceBaseUrl,
+        source: result.document.source,
+      });
       setReaderState({
         status: 'reading',
         document: result.document,

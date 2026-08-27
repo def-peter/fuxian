@@ -60,4 +60,52 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('href="#fuxian-user-content-user-content-fn-reader"');
     expect(finishedDocument.html).not.toMatch(/<script|onclick=|onmouseover=|javascript:/i);
   });
+
+  it('resolves nested relative images through an opaque resource base URL', () => {
+    const finishedDocument = renderMarkdown({
+      resourceBaseUrl: 'fuxian-resource://document-scope/',
+      source: '![Architecture](assets/diagrams/%E6%9E%B6%E6%9E%84.png "System architecture")',
+    });
+
+    expect(finishedDocument.resources).toEqual([
+      {
+        kind: 'image',
+        source: 'assets/diagrams/%E6%9E%B6%E6%9E%84.png',
+        status: 'resolved',
+        url: 'fuxian-resource://document-scope/assets/diagrams/%E6%9E%B6%E6%9E%84.png',
+      },
+    ]);
+    expect(finishedDocument.html).toContain(
+      'src="fuxian-resource://document-scope/assets/diagrams/%E6%9E%B6%E6%9E%84.png"',
+    );
+    expect(finishedDocument.html).toContain('data-retry-resource');
+    expect(finishedDocument.html).not.toContain('file://');
+  });
+
+  it('turns traversal, absolute, remote, dangerous, and unsupported images into errors', () => {
+    const finishedDocument = renderMarkdown({
+      resourceBaseUrl: 'fuxian-resource://document-scope/',
+      source: [
+        '![Traversal](../private.png)',
+        '![Absolute](/tmp/private.png)',
+        '![Remote](https://example.com/tracker.png)',
+        '![Dangerous](javascript:alert(1))',
+        '![Unsupported](assets/data.txt)',
+      ].join('\n\n'),
+    });
+
+    expect(finishedDocument.resources.map((resource) => resource.status)).toEqual([
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+    ]);
+    expect(finishedDocument.html).toContain('图片路径超出了文档的授权范围。');
+    expect(finishedDocument.html).toContain('只允许访问文档目录内的相对图片。');
+    expect(finishedDocument.html).toContain('图片地址无效或使用了不安全的协议。');
+    expect(finishedDocument.html).toContain('不支持这种图片格式。');
+    expect(finishedDocument.html).not.toContain('<img');
+    expect(finishedDocument.html).not.toMatch(/javascript:/i);
+  });
 });

@@ -6,6 +6,7 @@ export const desktopIpcChannels = {
 export interface SourceDocumentData {
   name: string;
   path: string;
+  resourceBaseUrl: string;
   source: string;
 }
 

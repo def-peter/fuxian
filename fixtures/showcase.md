@@ -46,6 +46,12 @@ const render = (source: string): FinishedDocument => ({
 { "safe": true, "reader": "Fuxian" }
 ```
 
+## 本地资源
+
+![Source document 到 finished document 的阅读流程](assets/nested/reader-flow.svg)
+
+![缺失图片示例](assets/missing-preview.png)
+
 <details>
 <summary>受控原始 HTML</summary>
 

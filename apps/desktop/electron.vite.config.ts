@@ -28,7 +28,7 @@ const contentSecurityPolicyPlugin = (): Plugin => {
               scriptSource,
               "style-src 'self' 'unsafe-inline'",
               connectSource,
-              "img-src 'self' data:",
+              "img-src 'self' data: fuxian-resource:",
             ].join('; '),
           },
           injectTo: 'head-prepend',

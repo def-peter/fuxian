@@ -1,11 +1,20 @@
 import { desktopIpcChannels, type OpenSourceDocumentResult } from '@fuxian/shared-types';
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, protocol, shell } from 'electron';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
+const documentResourceTrustStore = new DocumentResourceTrustStore();
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: documentResourceScheme,
+    privileges: { secure: true, standard: true, supportFetchAPI: true },
+  },
+]);
 
 const chooseSourceDocument = async (): Promise<string | undefined> => {
   const testSourceDocument = process.env.FUXIAN_E2E_SOURCE_DOCUMENT;
@@ -36,12 +45,14 @@ const openSourceDocument = async (): Promise<OpenSourceDocumentResult> => {
   }
 
   try {
+    const source = await readFile(selectedPath, 'utf8');
     return {
       status: 'opened',
       document: {
         name: basename(selectedPath),
         path: selectedPath,
-        source: await readFile(selectedPath, 'utf8'),
+        resourceBaseUrl: await documentResourceTrustStore.grantSourceDocument(selectedPath),
+        source,
       },
     };
   } catch {
@@ -49,6 +60,33 @@ const openSourceDocument = async (): Promise<OpenSourceDocumentResult> => {
       status: 'error',
       message: `无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`,
     };
+  }
+};
+
+const handleDocumentResourceRequest = async (request: Request): Promise<Response> => {
+  const resolution = await documentResourceTrustStore.resolve(request.url);
+  if (resolution.status === 'rejected') {
+    return new Response(resolution.message, {
+      status: resolution.httpStatus,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+
+  try {
+    const contents = await readFile(resolution.path);
+    return new Response(Uint8Array.from(contents), {
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Security-Policy': "default-src 'none'",
+        'Content-Type': resolution.mediaType,
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  } catch {
+    return new Response('读取图片时发生错误。', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   }
 };
 
@@ -122,6 +160,7 @@ const createWindow = (): BrowserWindow => {
 
 app.whenReady().then(() => {
   app.setName('Fuxian');
+  protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
   registerDesktopHandlers();
   createWindow();
 

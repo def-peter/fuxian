@@ -326,6 +326,87 @@ svg {
   height: auto;
 }
 
+.document-image {
+  display: block;
+  max-width: 100%;
+  margin: 32px 0;
+}
+
+.document-image > img {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 3px;
+}
+
+.document-image > img[hidden] {
+  display: none;
+}
+
+.resource-error {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: center;
+  width: 100%;
+  min-height: 92px;
+  padding: 16px 18px;
+  border: 1px solid #dfc8c3;
+  border-left: 3px solid #a84c3f;
+  border-radius: 3px;
+  color: #5c4540;
+  background: #fbf7f6;
+  font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.resource-error[hidden] {
+  display: none;
+}
+
+.resource-error-title,
+.resource-error-detail,
+.resource-error-source {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.resource-error-title {
+  color: #74372f;
+  font-size: 14px;
+}
+
+.resource-error-detail {
+  grid-column: 1;
+}
+
+.resource-error-source {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.resource-retry-button {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  width: 56px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cbaea8;
+  border-radius: 3px;
+  color: #74372f;
+  background: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.resource-retry-button:hover,
+.resource-retry-button:focus-visible {
+  border-color: #9d5145;
+  outline: none;
+}
+
 ::selection {
   color: #17231f;
   background: #c9dfd4;
@@ -344,6 +425,10 @@ svg {
   }
 
   .code-toolbar {
+    display: none;
+  }
+
+  .resource-retry-button {
     display: none;
   }
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160" role="img" aria-labelledby="title description">
+  <title id="title">Fuxian reader flow</title>
+  <desc id="description">A source document becomes a safe finished document.</desc>
+  <rect width="720" height="160" rx="4" fill="#f5f8f7" />
+  <rect x="40" y="48" width="180" height="64" rx="3" fill="#ffffff" stroke="#9aaba5" />
+  <text x="130" y="86" fill="#26332f" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle">Source document</text>
+  <path d="M250 80h180" fill="none" stroke="#2f7258" stroke-width="2" />
+  <path d="m420 70 14 10-14 10" fill="none" stroke="#2f7258" stroke-width="2" />
+  <rect x="464" y="48" width="216" height="64" rx="3" fill="#ffffff" stroke="#6f9585" />
+  <text x="572" y="86" fill="#26332f" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle">Finished document</text>
+</svg>
