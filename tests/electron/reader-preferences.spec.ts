@@ -123,6 +123,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
         documentTypography: { bodyFamily: 'sans-serif', bodySize: 22, lineHeight: 1.5 },
         documentWidth: { customWidth: 1200, mode: 'custom' },
         plantUml: { serverUrl: 'https://www.plantuml.com/plantuml' },
+        shell: { contentOutlineExpanded: true, documentSessionExpanded: true },
         version: 1,
       });
 

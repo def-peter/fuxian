@@ -4,6 +4,7 @@ import {
   FileWarning,
   FolderOpen,
   FolderSearch,
+  PanelLeftClose,
   RotateCcw,
   Settings,
   X,
@@ -27,6 +28,7 @@ interface DocumentSessionSidebarProps {
   isOpening: boolean;
   onActivate(path: string): void;
   onClose(path: string): void;
+  onCollapse(): void;
   onLocate(path: string): void;
   onOpen(): void;
   onOpenSettings(): void;
@@ -189,6 +191,7 @@ export function DocumentSessionSidebar({
   isOpening,
   onActivate,
   onClose,
+  onCollapse,
   onLocate,
   onOpen,
   onOpenSettings,
@@ -201,11 +204,21 @@ export function DocumentSessionSidebar({
   return (
     <aside
       aria-label="文档会话"
-      className="grid h-full min-h-0 grid-rows-[44px_minmax(0,1fr)] border-r bg-muted/35"
+      className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted/35"
     >
-      <header className="flex items-center gap-2 border-b px-3">
+      <header className="flex min-w-0 items-center gap-1 border-b px-2">
         <FuxianMark className="size-7" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现 Fuxian</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">
+              <PanelLeftClose aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={6}>
+            收起文档会话
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

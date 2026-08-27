@@ -131,6 +131,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
 
   try {
     const readerWindow = await electronApp.firstWindow();
+    await readerWindow.setViewportSize({ height: 900, width: 1_440 });
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
     await oldRequest;
     await readerWindow.getByRole('button', { name: '设置' }).click();

@@ -16,6 +16,7 @@ import {
   FileText,
   FileDown,
   FolderOpen,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Search,
@@ -34,8 +35,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ContentOutline, type ContentOutlinePreference } from '@/content-outline';
+import { ContentOutline } from '@/content-outline';
 import {
   activateDocument,
   addDocumentsToSession,
@@ -77,6 +79,7 @@ import { cn } from '@/lib/utils';
 import { PdfExportPanel } from '@/pdf-export-panel';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
+import { useShellLayout } from '@/use-shell-layout';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
@@ -146,13 +149,15 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
 
 export function App(): React.JSX.Element {
   const { preferences, resolvedAppearance, updatePreferences } = useReaderPreferences();
+  const shellLayout = useShellLayout();
   const [session, setSession] = useState(createDocumentSession);
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
   const [blockingError, setBlockingError] = useState<string>();
   const [showAllStartRecent, setShowAllStartRecent] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
-  const [outlinePreference, setOutlinePreference] = useState<ContentOutlinePreference>('expanded');
+  const [contentOutlineSheetOpen, setContentOutlineSheetOpen] = useState(false);
+  const [documentSessionSheetOpen, setDocumentSessionSheetOpen] = useState(false);
   const [activeHeadingId, setActiveHeadingId] = useState<string>();
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
@@ -207,6 +212,21 @@ export function App(): React.JSX.Element {
   const externalRevisionStatus = session.activeDocumentPath
     ? (externalRevisionStatuses.get(session.activeDocumentPath) ?? { state: 'idle' as const })
     : { state: 'idle' as const };
+  const documentSessionInline =
+    shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
+  const contentOutlineInline = shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
+
+  const updateShellPreferences = useCallback(
+    (patch: Partial<typeof preferences.shell>): void => {
+      updatePreferences({ ...preferences, shell: { ...preferences.shell, ...patch } });
+    },
+    [preferences, updatePreferences],
+  );
+
+  useEffect(() => {
+    setContentOutlineSheetOpen(false);
+    setDocumentSessionSheetOpen(false);
+  }, [shellLayout]);
 
   const beginExternalRevision = useCallback((event: ExternalRevisionEvent): void => {
     const currentItem = sessionRef.current.openDocuments.find(
@@ -1023,41 +1043,90 @@ export function App(): React.JSX.Element {
   const documentFrames = visibleFrame
     ? [visibleFrame, ...pendingFrames.filter((frame) => frame.id !== visibleFrame.id)]
     : pendingFrames;
+  const documentSessionSidebar = (
+    <DocumentSessionSidebar
+      activeDocumentPath={session.activeDocumentPath}
+      isOpening={opening}
+      onActivate={(path) => {
+        setDocumentSessionSheetOpen(false);
+        activateOpenDocument(path);
+      }}
+      onClose={closeOpenDocument}
+      onCollapse={() => {
+        if (shellLayout === 'narrow') {
+          setDocumentSessionSheetOpen(false);
+        } else {
+          updateShellPreferences({ documentSessionExpanded: false });
+        }
+      }}
+      onLocate={(path) => void locateUnavailableDocument(path)}
+      onOpen={() => void openSourceDocuments()}
+      onOpenSettings={() => void window.fuxian.openSettings()}
+      onRemoveUnavailable={(path) =>
+        setSession((current) => removeUnavailableDocument(current, path))
+      }
+      onReopen={(path) => {
+        setDocumentSessionSheetOpen(false);
+        void reopenDocument(path);
+      }}
+      onRetry={(path) => void retryUnavailableDocument(path)}
+      openDocuments={session.openDocuments}
+      recentDocuments={session.recentDocuments}
+    />
+  );
 
   return (
     <TooltipProvider>
       <div
-        className="relative grid h-full grid-cols-[216px_minmax(0,1fr)] bg-background"
+        className={cn(
+          'relative grid h-full bg-background',
+          documentSessionInline ? 'grid-cols-[216px_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]',
+        )}
+        data-shell-layout={shellLayout}
         data-session-root=""
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <DocumentSessionSidebar
-          activeDocumentPath={session.activeDocumentPath}
-          isOpening={opening}
-          onActivate={activateOpenDocument}
-          onClose={closeOpenDocument}
-          onLocate={(path) => void locateUnavailableDocument(path)}
-          onOpen={() => void openSourceDocuments()}
-          onOpenSettings={() => void window.fuxian.openSettings()}
-          onRemoveUnavailable={(path) =>
-            setSession((current) => removeUnavailableDocument(current, path))
-          }
-          onReopen={(path) => void reopenDocument(path)}
-          onRetry={(path) => void retryUnavailableDocument(path)}
-          openDocuments={session.openDocuments}
-          recentDocuments={session.recentDocuments}
-        />
+        {documentSessionInline ? documentSessionSidebar : null}
+        {!documentSessionInline ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+                className="absolute top-1 left-2 z-30"
+                onClick={() => {
+                  if (shellLayout === 'narrow') {
+                    setDocumentSessionSheetOpen(true);
+                  } else {
+                    updateShellPreferences({ documentSessionExpanded: true });
+                  }
+                }}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <PanelLeftOpen aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
 
         {restorationStatus === 'loading' ? (
           <main className="flex min-h-0 items-center justify-center text-sm text-muted-foreground">
             正在恢复上次会话...
           </main>
         ) : activeLoadingDocument ? (
-          <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)]">
-            <header className="flex items-center gap-2 border-b bg-card px-4">
+          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
+            <header
+              className={cn(
+                'flex items-center gap-2 border-b bg-card px-4',
+                !documentSessionInline && 'pl-12',
+              )}
+            >
               <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
               <span className="truncate text-sm font-semibold">{activeLoadingDocument.name}</span>
               <span
@@ -1094,21 +1163,43 @@ export function App(): React.JSX.Element {
             </main>
           </div>
         ) : activeDocument && visibleFrame ? (
-          <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)]">
-            <header className="flex items-center justify-between border-b bg-card px-4">
+          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
+            <header
+              className={cn(
+                'flex items-center justify-between border-b bg-card px-4',
+                !documentSessionInline && 'pl-12',
+              )}
+              data-reader-toolbar=""
+            >
               <div className="flex min-w-0 items-center gap-1.5">
                 <Button
-                  aria-label={outlinePreference === 'expanded' ? '折叠内容目录' : '展开内容目录'}
-                  onClick={() =>
-                    setOutlinePreference((current) =>
-                      current === 'expanded' ? 'collapsed' : 'expanded',
-                    )
+                  aria-label={
+                    contentOutlineInline
+                      ? '折叠内容目录'
+                      : shellLayout === 'wide'
+                        ? '展开内容目录'
+                        : '打开内容目录'
                   }
+                  onClick={() => {
+                    if (contentOutlineInline) {
+                      updateShellPreferences({ contentOutlineExpanded: false });
+                    } else if (shellLayout === 'wide') {
+                      updateShellPreferences({ contentOutlineExpanded: true });
+                    } else {
+                      setContentOutlineSheetOpen(true);
+                    }
+                  }}
                   size="icon-sm"
-                  title={outlinePreference === 'expanded' ? '折叠内容目录' : '展开内容目录'}
+                  title={
+                    contentOutlineInline
+                      ? '折叠内容目录'
+                      : shellLayout === 'wide'
+                        ? '展开内容目录'
+                        : '打开内容目录'
+                  }
                   variant="ghost"
                 >
-                  {outlinePreference === 'expanded' ? (
+                  {contentOutlineInline ? (
                     <PanelRightClose aria-hidden="true" />
                   ) : (
                     <PanelRightOpen aria-hidden="true" />
@@ -1215,7 +1306,7 @@ export function App(): React.JSX.Element {
                     <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
                     <input
                       aria-label="页内查找"
-                      className="h-7 w-48 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                      className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
                       onChange={(event) => setFindQuery(event.target.value)}
                       onKeyDown={handleFindKeyDown}
                       placeholder="查找"
@@ -1272,13 +1363,15 @@ export function App(): React.JSX.Element {
                   </Button>
                 )}
                 <Button
+                  aria-label="打开其他文档"
+                  className="max-[1199px]:w-8 max-[1199px]:px-0"
                   disabled={opening}
                   onClick={() => void openSourceDocuments()}
                   size="sm"
                   variant="ghost"
                 >
                   <FolderOpen aria-hidden="true" />
-                  打开其他文档
+                  <span className="max-[1199px]:sr-only">打开其他文档</span>
                 </Button>
               </div>
             </header>
@@ -1287,13 +1380,14 @@ export function App(): React.JSX.Element {
               className={cn(
                 'grid min-h-0 grid-cols-[minmax(0,1fr)]',
                 sourceDiagram
-                  ? 'grid-cols-[minmax(0,1fr)_360px]'
-                  : outlinePreference === 'expanded' && 'grid-cols-[minmax(0,1fr)_232px]',
+                  ? shellLayout === 'wide' && 'grid-cols-[minmax(0,1fr)_360px]'
+                  : contentOutlineInline && 'grid-cols-[minmax(0,1fr)_232px]',
               )}
             >
               <main
                 className="relative grid min-h-0 bg-background p-3"
                 aria-label="Finished-document region"
+                data-finished-document-region=""
               >
                 {documentFrames.map((frame) => (
                   <FinishedDocumentFrame
@@ -1314,13 +1408,13 @@ export function App(): React.JSX.Element {
                   />
                 ) : null}
               </main>
-              {sourceDiagram ? (
+              {sourceDiagram && shellLayout === 'wide' ? (
                 <DiagramSourceDrawer
                   copyText={window.fuxian.copyText}
                   diagram={sourceDiagram}
                   onClose={() => showDiagramSource(undefined)}
                 />
-              ) : outlinePreference === 'expanded' ? (
+              ) : contentOutlineInline ? (
                 <ContentOutline
                   activeHeadingId={activeHeadingId}
                   headings={activeDocument.headings}
@@ -1335,6 +1429,43 @@ export function App(): React.JSX.Element {
               key={focusedDiagram?.id ?? 'closed-diagram-focus'}
               onClose={() => setFocusedDiagram(undefined)}
             />
+            {shellLayout !== 'wide' && activeDocument ? (
+              <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
+                <SheetContent className="w-72 max-w-[88vw] p-0" showCloseButton={false}>
+                  <SheetTitle className="sr-only">内容目录</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    浏览并跳转到当前文档中的标题。
+                  </SheetDescription>
+                  <ContentOutline
+                    activeHeadingId={activeHeadingId}
+                    headings={activeDocument.headings}
+                    key={`sheet:${activeDocument.document.path}`}
+                    onNavigate={(id) => {
+                      finishedDocumentController.current?.scrollToHeading(id);
+                      setContentOutlineSheetOpen(false);
+                    }}
+                  />
+                </SheetContent>
+              </Sheet>
+            ) : null}
+            {sourceDiagram && shellLayout !== 'wide' ? (
+              <Sheet
+                onOpenChange={(open) => !open && showDiagramSource(undefined)}
+                open={Boolean(sourceDiagram)}
+              >
+                <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
+                  <SheetTitle className="sr-only">图表源码</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    查看并复制当前 Mermaid 或 PlantUML 图表源码。
+                  </SheetDescription>
+                  <DiagramSourceDrawer
+                    copyText={window.fuxian.copyText}
+                    diagram={sourceDiagram}
+                    onClose={() => showDiagramSource(undefined)}
+                  />
+                </SheetContent>
+              </Sheet>
+            ) : null}
           </div>
         ) : (
           <main className="flex min-h-0 items-center justify-center overflow-y-auto px-8 py-12">
@@ -1431,6 +1562,17 @@ export function App(): React.JSX.Element {
           <div className="pointer-events-none absolute inset-2 flex items-center justify-center border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">
             松开以打开文档
           </div>
+        ) : null}
+        {shellLayout === 'narrow' ? (
+          <Sheet onOpenChange={setDocumentSessionSheetOpen} open={documentSessionSheetOpen}>
+            <SheetContent className="w-80 max-w-[90vw] p-0" showCloseButton={false} side="left">
+              <SheetTitle className="sr-only">文档会话</SheetTitle>
+              <SheetDescription className="sr-only">
+                切换正在打开的文档或重新打开最近文档。
+              </SheetDescription>
+              {documentSessionSidebar}
+            </SheetContent>
+          </Sheet>
         ) : null}
       </div>
     </TooltipProvider>

@@ -12,10 +12,12 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/basic.md');
 const showcaseDocumentPath = resolve(repositoryRoot, 'fixtures/showcase.md');
+const disposablePreferencesFiles = new Set<string>();
 const disposableSessionFiles = new Set<string>();
 
 interface LaunchDesktopOptions {
   locateSourcePath?: string;
+  preferencesFilePath?: string;
   sessionFilePath?: string;
 }
 
@@ -28,6 +30,11 @@ const launchDesktop = async (
   if (!options.sessionFilePath) {
     disposableSessionFiles.add(sessionFilePath);
   }
+  const preferencesFilePath =
+    options.preferencesFilePath ?? join(tmpdir(), `fuxian-e2e-preferences-${randomUUID()}.json`);
+  if (!options.preferencesFilePath) {
+    disposablePreferencesFiles.add(preferencesFilePath);
+  }
   return electron.launch({
     executablePath: electronPath,
     args: [desktopAppPath],
@@ -36,6 +43,7 @@ const launchDesktop = async (
       ...(options.locateSourcePath
         ? { FUXIAN_E2E_LOCATE_SOURCE_DOCUMENT: options.locateSourcePath }
         : {}),
+      FUXIAN_E2E_PREFERENCES_FILE: preferencesFilePath,
       FUXIAN_E2E_SESSION_FILE: sessionFilePath,
       FUXIAN_E2E_SOURCE_DOCUMENT: typeof sourcePath === 'string' ? sourcePath : sourcePath[0],
       FUXIAN_E2E_SOURCE_DOCUMENTS: JSON.stringify(
@@ -47,7 +55,11 @@ const launchDesktop = async (
 };
 
 test.afterAll(async () => {
-  await Promise.all([...disposableSessionFiles].map((path) => rm(path, { force: true })));
+  await Promise.all(
+    [...disposablePreferencesFiles, ...disposableSessionFiles].map((path) =>
+      rm(path, { force: true }),
+    ),
+  );
 });
 
 test('restores open-document order, active document, and reading position after restart', async () => {
@@ -58,6 +70,7 @@ test('restores open-document order, active document, and reading position after 
 
   try {
     let window = await electronApp.firstWindow();
+    await window.setViewportSize({ height: 900, width: 1_440 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const session = window.getByRole('complementary', { name: '文档会话' });
     await session.getByRole('button', { exact: true, name: 'showcase.md' }).click();
@@ -517,6 +530,7 @@ test('the content outline navigates nested headings and can be collapsed', async
 
   try {
     const window = await electronApp.firstWindow();
+    await window.setViewportSize({ height: 900, width: 1_440 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     const outline = window.getByRole('complementary', { name: '内容目录' });

@@ -16,6 +16,7 @@ const preferencesFixture = (): ReaderPreferences => ({
   documentTypography: { bodyFamily: 'sans-serif', bodySize: 19, lineHeight: 1.7 },
   documentWidth: { customWidth: 940, mode: 'custom' },
   plantUml: { serverUrl: 'http://127.0.0.1:8080/plantuml' },
+  shell: { contentOutlineExpanded: false, documentSessionExpanded: true },
   version: 1,
 });
 

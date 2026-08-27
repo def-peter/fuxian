@@ -35,6 +35,8 @@ Each region has its own compact header. The document-session header carries the 
 
 At wide widths both side regions are visible. At medium widths the content outline collapses behind an always-visible control while the document session remains visible. At narrow widths both side regions become temporary drawers so the finished document retains usable width.
 
+The implemented shell uses three stable viewport bands: wide at `1100 px` and above, medium from `840 px` through `1099 px`, and narrow below `840 px`. Automatic adaptation never overwrites the user's independently persisted document-session and content-outline preferences.
+
 ## Primary State Flow
 
 ```plantuml

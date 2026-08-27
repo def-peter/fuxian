@@ -59,7 +59,17 @@ describe('reader preferences', () => {
         mode: 'custom',
       },
       plantUml: { serverUrl: defaultPlantUmlServerUrl },
+      shell: { contentOutlineExpanded: true, documentSessionExpanded: true },
       version: 1,
     });
+  });
+
+  it('preserves independent shell-region preferences', () => {
+    expect(
+      normalizeReaderPreferences({
+        shell: { contentOutlineExpanded: false, documentSessionExpanded: false },
+        version: 1,
+      }).shell,
+    ).toEqual({ contentOutlineExpanded: false, documentSessionExpanded: false });
   });
 });

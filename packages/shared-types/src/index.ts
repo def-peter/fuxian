@@ -52,6 +52,10 @@ export interface ReaderPreferences {
   plantUml: {
     serverUrl: string;
   };
+  shell: {
+    contentOutlineExpanded: boolean;
+    documentSessionExpanded: boolean;
+  };
   version: 1;
 }
 
@@ -71,6 +75,10 @@ export const createDefaultReaderPreferences = (): ReaderPreferences => ({
   },
   plantUml: {
     serverUrl: defaultPlantUmlServerUrl,
+  },
+  shell: {
+    contentOutlineExpanded: true,
+    documentSessionExpanded: true,
   },
   version: 1,
 });
@@ -118,6 +126,10 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
     };
     documentWidth?: { customWidth?: unknown; mode?: unknown };
     plantUml?: { serverUrl?: unknown };
+    shell?: {
+      contentOutlineExpanded?: unknown;
+      documentSessionExpanded?: unknown;
+    };
   };
   const appearance =
     candidate.appearance === 'dark' ||
@@ -175,6 +187,16 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
     plantUml: {
       serverUrl:
         normalizePlantUmlServerUrl(candidate.plantUml?.serverUrl) ?? defaults.plantUml.serverUrl,
+    },
+    shell: {
+      contentOutlineExpanded:
+        typeof candidate.shell?.contentOutlineExpanded === 'boolean'
+          ? candidate.shell.contentOutlineExpanded
+          : defaults.shell.contentOutlineExpanded,
+      documentSessionExpanded:
+        typeof candidate.shell?.documentSessionExpanded === 'boolean'
+          ? candidate.shell.documentSessionExpanded
+          : defaults.shell.documentSessionExpanded,
     },
     version: 1,
   };
