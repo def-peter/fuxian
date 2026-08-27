@@ -60,3 +60,7 @@ Thumbs.db
 .temp/
 *.tmp
 *.tgz
+
+# Generated artifacts and workspace scratch files
+/output/
+/tmp/
