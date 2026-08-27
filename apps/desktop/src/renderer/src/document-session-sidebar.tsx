@@ -1,0 +1,176 @@
+import { ChevronRight, FileText, FolderOpen, X } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import type { SessionDocument } from '@/document-session';
+import { cn } from '@/lib/utils';
+
+interface DocumentSessionSidebarProps {
+  activeDocumentPath: string | undefined;
+  isOpening: boolean;
+  onActivate(path: string): void;
+  onClose(path: string): void;
+  onOpen(): void;
+  onReopen(path: string): void;
+  openDocuments: SessionDocument[];
+  recentDocuments: SessionDocument[];
+}
+
+interface DocumentItemProps {
+  active?: boolean;
+  document: SessionDocument;
+  onActivate(): void;
+  onClose?: () => void;
+}
+
+function FuxianMark(): React.JSX.Element {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative size-6 shrink-0 overflow-hidden rounded-sm border border-primary/35 bg-accent"
+    >
+      <span className="absolute inset-x-1 bottom-1 h-px bg-primary/45" />
+      <span className="absolute bottom-1 left-[6px] h-2 w-px bg-primary" />
+      <span className="absolute bottom-1 left-[11px] h-3 w-px bg-primary" />
+      <span className="absolute bottom-1 left-4 h-1.5 w-px bg-primary" />
+    </span>
+  );
+}
+
+function DocumentItem({
+  active,
+  document,
+  onActivate,
+  onClose,
+}: DocumentItemProps): React.JSX.Element {
+  return (
+    <div
+      className={cn(
+        'group flex min-h-9 items-center border-l-2 border-transparent pr-1',
+        active && 'border-primary bg-accent text-accent-foreground',
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            aria-current={active ? 'page' : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={onActivate}
+            type="button"
+          >
+            <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{document.document.name}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-96 break-all" side="right" sideOffset={6}>
+          {document.document.path}
+        </TooltipContent>
+      </Tooltip>
+      {onClose ? (
+        <Button
+          aria-label={`关闭 ${document.document.name}`}
+          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          onClick={onClose}
+          size="icon-xs"
+          title={`关闭 ${document.document.name}`}
+          variant="ghost"
+        >
+          <X aria-hidden="true" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+interface SessionSectionProps {
+  children: React.ReactNode;
+  count: number;
+  title: string;
+}
+
+function SessionSection({ children, count, title }: SessionSectionProps): React.JSX.Element {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <Collapsible onOpenChange={setOpen} open={open}>
+      <CollapsibleTrigger asChild>
+        <Button className="group w-full justify-start px-3" size="sm" variant="ghost">
+          <ChevronRight
+            aria-hidden="true"
+            className="transition-transform group-data-[state=open]:rotate-90"
+          />
+          {title}
+          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{count}</span>
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function DocumentSessionSidebar({
+  activeDocumentPath,
+  isOpening,
+  onActivate,
+  onClose,
+  onOpen,
+  onReopen,
+  openDocuments,
+  recentDocuments,
+}: DocumentSessionSidebarProps): React.JSX.Element {
+  return (
+    <aside
+      aria-label="文档会话"
+      className="grid h-full min-h-0 grid-rows-[44px_minmax(0,1fr)] border-r bg-muted/35"
+    >
+      <header className="flex items-center gap-2 border-b px-3">
+        <FuxianMark />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现 Fuxian</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="添加文档"
+              disabled={isOpening}
+              onClick={onOpen}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <FolderOpen aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={6}>
+            添加文档
+          </TooltipContent>
+        </Tooltip>
+      </header>
+
+      <ScrollArea className="min-h-0">
+        <div className="flex flex-col gap-2 py-2">
+          <SessionSection count={openDocuments.length} title="正在打开">
+            {openDocuments.map((document) => (
+              <DocumentItem
+                active={document.document.path === activeDocumentPath}
+                document={document}
+                key={document.document.path}
+                onActivate={() => onActivate(document.document.path)}
+                onClose={() => onClose(document.document.path)}
+              />
+            ))}
+          </SessionSection>
+
+          <SessionSection count={recentDocuments.length} title="最近打开">
+            {recentDocuments.map((document) => (
+              <DocumentItem
+                document={document}
+                key={document.document.path}
+                onActivate={() => onReopen(document.document.path)}
+              />
+            ))}
+          </SessionSection>
+        </div>
+      </ScrollArea>
+    </aside>
+  );
+}

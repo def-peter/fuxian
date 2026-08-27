@@ -1,6 +1,7 @@
 export const desktopIpcChannels = {
   copyText: 'fuxian:clipboard:write-text',
-  openSourceDocument: 'fuxian:source-document:open',
+  openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
+  openSourceDocuments: 'fuxian:source-documents:open',
 } as const;
 
 export interface SourceDocumentData {
@@ -10,12 +11,13 @@ export interface SourceDocumentData {
   source: string;
 }
 
-export type OpenSourceDocumentResult =
+export type OpenSourceDocumentsResult =
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
-  | { status: 'opened'; document: SourceDocumentData };
+  | { status: 'opened'; documents: SourceDocumentData[]; warnings: string[] };
 
 export interface FuxianDesktopBridge {
   copyText(text: string): Promise<void>;
-  openSourceDocument(): Promise<OpenSourceDocumentResult>;
+  openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
+  openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
 }

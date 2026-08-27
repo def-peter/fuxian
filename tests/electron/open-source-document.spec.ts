@@ -12,13 +12,16 @@ const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/basic.md');
 const showcaseDocumentPath = resolve(repositoryRoot, 'fixtures/showcase.md');
 
-const launchDesktop = async (sourcePath: string): Promise<ElectronApplication> =>
+const launchDesktop = async (sourcePath: string | string[]): Promise<ElectronApplication> =>
   electron.launch({
     executablePath: electronPath,
     args: [desktopAppPath],
     env: {
       ...process.env,
-      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SOURCE_DOCUMENT: typeof sourcePath === 'string' ? sourcePath : sourcePath[0],
+      FUXIAN_E2E_SOURCE_DOCUMENTS: JSON.stringify(
+        typeof sourcePath === 'string' ? [sourcePath] : sourcePath,
+      ),
       NODE_ENV: 'test',
     },
   });
@@ -36,6 +39,7 @@ test('a reader can open a source document from the start view', async () => {
     await expect(
       finishedDocument.getByRole('heading', { level: 1, name: 'A finished document' }),
     ).toBeVisible();
+
     await expect(
       finishedDocument.getByText('Fuxian turns source text into something ready to read.'),
     ).toBeVisible();
@@ -45,6 +49,149 @@ test('a reader can open a source document from the start view', async () => {
     ]);
   } finally {
     await electronApp.close();
+  }
+});
+
+test('a reader can manage multiple open and recent documents without duplicates', async () => {
+  const equivalentSourceDocumentPath = `${resolve(repositoryRoot, 'fixtures')}/../fixtures/basic.md`;
+  const electronApp = await launchDesktop([
+    sourceDocumentPath,
+    equivalentSourceDocumentPath,
+    showcaseDocumentPath,
+  ]);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
+    await expect(
+      finishedDocument.getByRole('heading', { level: 1, name: 'A finished document' }),
+    ).toBeVisible();
+
+    const openSection = session.getByRole('button', { name: /正在打开/ });
+    const recentSection = session.getByRole('button', { name: /最近打开/ });
+    await openSection.click();
+    await expect(openSection).toHaveAttribute('aria-expanded', 'false');
+    await expect(recentSection).toHaveAttribute('aria-expanded', 'true');
+    await openSection.click();
+
+    await session.getByRole('button', { exact: true, name: 'basic.md' }).hover();
+    await expect(window.getByRole('tooltip')).toContainText(sourceDocumentPath);
+
+    await session.getByRole('button', { exact: true, name: 'showcase.md' }).click();
+    await expect(
+      finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
+    ).toBeVisible();
+
+    await window.getByRole('button', { name: '打开其他文档' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await session.getByRole('button', { name: '关闭 basic.md' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toBeVisible();
+    await session.getByRole('button', { exact: true, name: 'basic.md' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await session.getByRole('button', { name: '关闭 basic.md' }).click();
+    await session.getByRole('button', { name: '关闭 showcase.md' }).click();
+    const startView = window.getByRole('main');
+    await expect(startView.getByRole('heading', { name: '最近打开' })).toBeVisible();
+    await expect(startView.getByRole('button', { name: 'basic.md' })).toBeVisible();
+    await expect(startView.getByRole('button', { name: 'showcase.md' })).toBeVisible();
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('dropping multiple Markdown documents adds them to the document session', async () => {
+  const electronApp = await launchDesktop(sourceDocumentPath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.evaluate(() => {
+      const input = document.createElement('input');
+      input.id = 'e2e-dropped-documents';
+      input.type = 'file';
+      input.multiple = true;
+      input.hidden = true;
+      document.body.append(input);
+    });
+    await window
+      .locator('#e2e-dropped-documents')
+      .setInputFiles([sourceDocumentPath, showcaseDocumentPath]);
+    const dataTransfer = await window.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      const input = document.querySelector<HTMLInputElement>('#e2e-dropped-documents');
+      for (const file of input?.files ?? []) {
+        transfer.items.add(file);
+      }
+      return transfer;
+    });
+
+    const dropTarget = window.locator('[data-session-root]');
+    await dropTarget.dispatchEvent('dragenter', { dataTransfer });
+    await expect(window.getByText('松开以打开文档')).toBeVisible();
+    await dropTarget.dispatchEvent('drop', { dataTransfer });
+
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toBeVisible();
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
+    await expect(
+      window
+        .frameLocator('iframe[title="Finished document"]')
+        .getByRole('heading', { level: 1, name: 'A finished document' }),
+    ).toBeVisible();
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('the start view initially shows five recent documents and can reveal all', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-recent-'));
+  const recentPaths = Array.from({ length: 6 }, (_, index) =>
+    join(temporaryDirectory, `recent-${index}.md`),
+  );
+  await Promise.all(
+    recentPaths.map((path, index) =>
+      writeFile(path, `# Recent document ${index}\n\nContent ${index}`),
+    ),
+  );
+  const electronApp = await launchDesktop(recentPaths);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+
+    for (let index = 0; index < recentPaths.length; index += 1) {
+      await session.getByRole('button', { name: `关闭 recent-${index}.md` }).click();
+    }
+
+    const startRecent = window.getByRole('region', { name: '最近打开' });
+    await expect(startRecent.getByRole('button').filter({ hasText: /^recent-/ })).toHaveCount(5);
+    await startRecent.getByRole('button', { name: '查看全部' }).click();
+    await expect(startRecent.getByRole('button').filter({ hasText: /^recent-/ })).toHaveCount(6);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });
 

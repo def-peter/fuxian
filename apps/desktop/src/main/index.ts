@@ -1,6 +1,10 @@
-import { desktopIpcChannels, type OpenSourceDocumentResult } from '@fuxian/shared-types';
+import {
+  desktopIpcChannels,
+  type OpenSourceDocumentsResult,
+  type SourceDocumentData,
+} from '@fuxian/shared-types';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, protocol, shell } from 'electron';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
@@ -16,51 +20,101 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-const chooseSourceDocument = async (): Promise<string | undefined> => {
+const chooseSourceDocuments = async (): Promise<string[] | undefined> => {
+  const testSourceDocuments = process.env.FUXIAN_E2E_SOURCE_DOCUMENTS;
   const testSourceDocument = process.env.FUXIAN_E2E_SOURCE_DOCUMENT;
-  if (!app.isPackaged && process.env.NODE_ENV === 'test' && testSourceDocument) {
-    return testSourceDocument;
+  if (!app.isPackaged && process.env.NODE_ENV === 'test') {
+    if (testSourceDocuments) {
+      const paths: unknown = JSON.parse(testSourceDocuments);
+      if (Array.isArray(paths) && paths.every((path) => typeof path === 'string')) {
+        return paths;
+      }
+    }
+    if (testSourceDocument) {
+      return [testSourceDocument];
+    }
   }
 
   const selection = await dialog.showOpenDialog({
     title: '打开 Markdown',
-    properties: ['openFile'],
+    properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
 
-  return selection.canceled ? undefined : selection.filePaths[0];
+  return selection.canceled ? undefined : selection.filePaths;
 };
 
-const openSourceDocument = async (): Promise<OpenSourceDocumentResult> => {
-  const selectedPath = await chooseSourceDocument();
-  if (!selectedPath) {
+const readSourceDocuments = async (
+  selectedPaths: readonly string[],
+): Promise<OpenSourceDocumentsResult> => {
+  if (selectedPaths.length === 0) {
     return { status: 'cancelled' };
   }
 
-  if (!supportedSourceDocumentExtensions.has(extname(selectedPath).toLowerCase())) {
+  const documents: SourceDocumentData[] = [];
+  const warnings: string[] = [];
+  const canonicalPaths = new Set<string>();
+
+  for (const selectedPath of selectedPaths.slice(0, 100)) {
+    let canonicalPath: string;
+    try {
+      canonicalPath = await realpath(selectedPath);
+    } catch {
+      warnings.push(`无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`);
+      continue;
+    }
+
+    if (canonicalPaths.has(canonicalPath)) {
+      continue;
+    }
+    canonicalPaths.add(canonicalPath);
+
+    if (!supportedSourceDocumentExtensions.has(extname(canonicalPath).toLowerCase())) {
+      warnings.push(`“${basename(canonicalPath)}”不是 Markdown 文档。`);
+      continue;
+    }
+
+    try {
+      const source = await readFile(canonicalPath, 'utf8');
+      documents.push({
+        name: basename(canonicalPath),
+        path: canonicalPath,
+        resourceBaseUrl: await documentResourceTrustStore.grantSourceDocument(canonicalPath),
+        source,
+      });
+    } catch {
+      warnings.push(`无法读取“${basename(canonicalPath)}”。请确认文件仍然存在并可访问。`);
+    }
+  }
+
+  if (documents.length === 0) {
     return {
       status: 'error',
-      message: '请选择 .md 或 .markdown 文件。',
+      message: warnings[0] ?? '没有可打开的 Markdown 文档。',
     };
   }
 
-  try {
-    const source = await readFile(selectedPath, 'utf8');
-    return {
-      status: 'opened',
-      document: {
-        name: basename(selectedPath),
-        path: selectedPath,
-        resourceBaseUrl: await documentResourceTrustStore.grantSourceDocument(selectedPath),
-        source,
-      },
-    };
-  } catch {
-    return {
-      status: 'error',
-      message: `无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`,
-    };
+  return { status: 'opened', documents, warnings };
+};
+
+const openSourceDocuments = async (): Promise<OpenSourceDocumentsResult> => {
+  const selectedPaths = await chooseSourceDocuments();
+  return selectedPaths ? readSourceDocuments(selectedPaths) : { status: 'cancelled' };
+};
+
+const openDroppedSourceDocuments = async (
+  _event: Electron.IpcMainInvokeEvent,
+  selectedPaths: unknown,
+): Promise<OpenSourceDocumentsResult> => {
+  if (
+    !Array.isArray(selectedPaths) ||
+    selectedPaths.length > 100 ||
+    !selectedPaths.every((path) => typeof path === 'string' && path.length > 0)
+  ) {
+    return { status: 'error', message: '无法识别拖入的文档。' };
   }
+
+  return readSourceDocuments(selectedPaths);
 };
 
 const handleDocumentResourceRequest = async (request: Request): Promise<Response> => {
@@ -98,7 +152,8 @@ const registerDesktopHandlers = (): void => {
 
     clipboard.writeText(text);
   });
-  ipcMain.handle(desktopIpcChannels.openSourceDocument, openSourceDocument);
+  ipcMain.handle(desktopIpcChannels.openSourceDocuments, openSourceDocuments);
+  ipcMain.handle(desktopIpcChannels.openDroppedSourceDocuments, openDroppedSourceDocuments);
 };
 
 const openExternalUrl = async (url: string): Promise<void> => {
