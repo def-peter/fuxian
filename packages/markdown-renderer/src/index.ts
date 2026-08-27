@@ -1,3 +1,5 @@
+import rehypeExternalLinks from 'rehype-external-links';
+import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
@@ -11,7 +13,15 @@ export interface FinishedDocument {
   html: string;
 }
 
-const markdownProcessor = unified().use(remarkParse).use(remarkRehype).use(rehypeStringify);
+const markdownProcessor = unified()
+  .use(remarkParse)
+  .use(remarkRehype)
+  .use(rehypeSanitize)
+  .use(rehypeExternalLinks, {
+    rel: ['noopener', 'noreferrer'],
+    target: '_blank',
+  })
+  .use(rehypeStringify);
 
 export function renderMarkdown({ source }: RenderMarkdownInput): FinishedDocument {
   return {

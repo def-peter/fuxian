@@ -95,6 +95,15 @@ const createWindow = (): BrowserWindow => {
     }
   });
 
+  window.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame && event.url === window.webContents.getURL()) {
+      return;
+    }
+
+    event.preventDefault();
+    void openExternalUrl(event.url);
+  });
+
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {

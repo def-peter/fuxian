@@ -111,7 +111,7 @@ export function App(): React.JSX.Element {
         <main className="min-h-0 bg-background p-3" aria-label="Finished-document region">
           <iframe
             className="block h-full w-full border bg-card"
-            sandbox=""
+            sandbox="allow-popups"
             srcDoc={finishedDocumentSource}
             title="Finished document"
           />
