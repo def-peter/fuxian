@@ -2,11 +2,11 @@ import {
   desktopIpcChannels,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
-  type ActiveDocumentWatchRequest,
   type ExternalRevisionEvent,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
+  type OpenDocumentWatchesRequest,
   type PlantUmlRenderRequest,
   type PlantUmlRenderResult,
   type PlantUmlServerValidationResult,
@@ -29,7 +29,7 @@ import {
   JsonFileSessionPersistence,
   type SessionPersistence,
 } from './session-persistence';
-import { SourceDocumentWatcher } from './source-document-watcher';
+import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const appIconPath = join(currentDirectory, '../../resources/icon.png');
@@ -38,8 +38,14 @@ const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
 const activePlantUmlRequests = new Map<string, AbortController>();
-const activeDocumentWatches = new Map<number, { close(): void; revision: number }>();
-const activeDocumentWatchCleanupRegistered = new Set<number>();
+interface RendererDocumentWatches {
+  coordinator: OpenDocumentWatchCoordinator;
+  revisions: Map<string, number>;
+}
+
+const rendererDocumentWatches = new Map<number, RendererDocumentWatches>();
+const documentWatchConfigurationGenerations = new Map<number, number>();
+const documentWatchCleanupRegistered = new Set<number>();
 
 const plantUmlRequestKey = (webContentsId: number, requestId: string): string =>
   `${webContentsId}:${requestId}`;
@@ -217,70 +223,100 @@ const registerDesktopHandlers = (
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
   ipcMain.handle(
-    desktopIpcChannels.configureActiveDocumentWatch,
+    desktopIpcChannels.configureOpenDocumentWatches,
     async (event, value: unknown): Promise<void> => {
-      const request = value as Partial<ActiveDocumentWatchRequest> | undefined;
+      const request = value as Partial<OpenDocumentWatchesRequest> | undefined;
       const senderId = event.sender.id;
-      activeDocumentWatches.get(senderId)?.close();
-      activeDocumentWatches.delete(senderId);
-
-      if (!request?.path) return;
       if (
-        typeof request.path !== 'string' ||
-        !knownDocumentPaths.has(request.path) ||
-        !Array.isArray(request.resourceUrls) ||
-        request.resourceUrls.length > 100 ||
-        !request.resourceUrls.every((url) => typeof url === 'string')
+        !request ||
+        !Array.isArray(request.documents) ||
+        request.documents.length > 20 ||
+        (request.activePath !== undefined && typeof request.activePath !== 'string')
       ) {
-        throw new TypeError('Active document watch request is invalid.');
+        throw new TypeError('Open document watch request is invalid.');
+      }
+      const requestedPaths = new Set<string>();
+      for (const document of request.documents) {
+        if (
+          !document ||
+          typeof document.path !== 'string' ||
+          !knownDocumentPaths.has(document.path) ||
+          requestedPaths.has(document.path) ||
+          !Array.isArray(document.resourceUrls) ||
+          document.resourceUrls.length > 100 ||
+          !document.resourceUrls.every((url) => typeof url === 'string')
+        ) {
+          throw new TypeError('Open document watch target is invalid.');
+        }
+        requestedPaths.add(document.path);
+      }
+      if (request.activePath && !requestedPaths.has(request.activePath)) {
+        throw new TypeError('The active document must be included in the watch set.');
       }
 
-      let canonicalPath: string;
-      try {
-        canonicalPath = await realpath(request.path);
-      } catch {
-        throw new TypeError('The active source document is unavailable.');
-      }
-      if (canonicalPath !== request.path) {
-        throw new TypeError('The active source document path is not canonical.');
-      }
-
-      const resourcePaths = (
-        await Promise.all(
-          request.resourceUrls.map((url) =>
-            documentResourceTrustStore.resolveWatchPath(url, canonicalPath),
-          ),
-        )
-      ).filter((path): path is string => Boolean(path));
-      const state: { close(): void; revision: number } = { close: () => undefined, revision: 0 };
-      const watcher = new SourceDocumentWatcher(() => {
-        const revision = ++state.revision;
-        void readSourceDocument(canonicalPath).then((result) => {
-          if (
-            event.sender.isDestroyed() ||
-            activeDocumentWatches.get(senderId) !== state ||
-            revision !== state.revision
-          ) {
-            return;
+      const configurationGeneration =
+        (documentWatchConfigurationGenerations.get(senderId) ?? 0) + 1;
+      documentWatchConfigurationGenerations.set(senderId, configurationGeneration);
+      const targets = await Promise.all(
+        request.documents.map(async (document) => {
+          let canonicalPath: string;
+          try {
+            canonicalPath = await realpath(document.path);
+          } catch {
+            throw new TypeError('An open source document is unavailable.');
           }
-          const externalRevision: ExternalRevisionEvent = {
-            path: canonicalPath,
-            result,
-            revision,
-          };
-          event.sender.send(desktopIpcChannels.externalRevisionChanged, externalRevision);
-        });
-      });
-      state.close = () => watcher.close();
-      activeDocumentWatches.set(senderId, state);
-      watcher.configure([canonicalPath, ...resourcePaths]);
+          if (canonicalPath !== document.path) {
+            throw new TypeError('Open source document paths must be canonical.');
+          }
+          const resourcePaths = (
+            await Promise.all(
+              document.resourceUrls.map((url) =>
+                documentResourceTrustStore.resolveWatchPath(url, canonicalPath),
+              ),
+            )
+          ).filter((path): path is string => Boolean(path));
+          return { path: canonicalPath, watchedPaths: [canonicalPath, ...resourcePaths] };
+        }),
+      );
+      if (documentWatchConfigurationGenerations.get(senderId) !== configurationGeneration) return;
 
-      if (!activeDocumentWatchCleanupRegistered.has(senderId)) {
-        activeDocumentWatchCleanupRegistered.add(senderId);
+      let state = rendererDocumentWatches.get(senderId);
+      if (!state) {
+        const revisions = new Map<string, number>();
+        state = {
+          coordinator: new OpenDocumentWatchCoordinator((path) => {
+            const currentState = rendererDocumentWatches.get(senderId);
+            if (!currentState || event.sender.isDestroyed()) return;
+            const revision = (currentState.revisions.get(path) ?? 0) + 1;
+            currentState.revisions.set(path, revision);
+            void readSourceDocument(path).then((result) => {
+              if (
+                event.sender.isDestroyed() ||
+                rendererDocumentWatches.get(senderId) !== currentState ||
+                currentState.revisions.get(path) !== revision
+              ) {
+                return;
+              }
+              const externalRevision: ExternalRevisionEvent = { path, result, revision };
+              event.sender.send(desktopIpcChannels.externalRevisionChanged, externalRevision);
+            });
+          }),
+          revisions,
+        };
+        rendererDocumentWatches.set(senderId, state);
+      }
+      state.coordinator.configure(targets, request.activePath);
+      for (const path of state.revisions.keys()) {
+        if (!requestedPaths.has(path)) state.revisions.delete(path);
+      }
+
+      if (!documentWatchCleanupRegistered.has(senderId)) {
+        documentWatchCleanupRegistered.add(senderId);
         event.sender.once('destroyed', () => {
-          activeDocumentWatches.get(senderId)?.close();
-          activeDocumentWatches.delete(senderId);
-          activeDocumentWatchCleanupRegistered.delete(senderId);
+          rendererDocumentWatches.get(senderId)?.coordinator.close();
+          rendererDocumentWatches.delete(senderId);
+          documentWatchConfigurationGenerations.delete(senderId);
+          documentWatchCleanupRegistered.delete(senderId);
         });
       }
     },

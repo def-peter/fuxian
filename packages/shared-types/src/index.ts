@@ -1,7 +1,7 @@
 export const desktopIpcChannels = {
   cancelPlantUmlRender: 'fuxian:plantuml:cancel-render',
   copyText: 'fuxian:clipboard:write-text',
-  configureActiveDocumentWatch: 'fuxian:source-documents:configure-active-watch',
+  configureOpenDocumentWatches: 'fuxian:source-documents:configure-open-watches',
   externalRevisionChanged: 'fuxian:source-documents:external-revision',
   loadDocumentSession: 'fuxian:document-session:load',
   loadReaderPreferences: 'fuxian:reader-preferences:load',
@@ -194,9 +194,14 @@ export interface SourceDocumentData {
   source: string;
 }
 
-export interface ActiveDocumentWatchRequest {
-  path?: string;
+export interface OpenDocumentWatchTarget {
+  path: string;
   resourceUrls: string[];
+}
+
+export interface OpenDocumentWatchesRequest {
+  activePath?: string;
+  documents: OpenDocumentWatchTarget[];
 }
 
 export interface ExternalRevisionEvent {
@@ -258,7 +263,7 @@ export type LocateSourceDocumentResult =
 
 export interface FuxianDesktopBridge {
   cancelPlantUmlRender(requestId: string): void;
-  configureActiveDocumentWatch(request: ActiveDocumentWatchRequest): Promise<void>;
+  configureOpenDocumentWatches(request: OpenDocumentWatchesRequest): Promise<void>;
   copyText(text: string): Promise<void>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
   loadReaderPreferences(): Promise<ReaderPreferences>;

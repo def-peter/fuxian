@@ -39,10 +39,10 @@ export class SourceDocumentWatcher {
     this.close();
     this.#paths = [...new Set(paths.map((path) => resolve(path)))];
     const generation = this.#generation;
+    this.#startWatching();
     void fingerprintPaths(this.#paths).then((fingerprint) => {
       if (generation !== this.#generation) return;
       this.#baselineFingerprint = fingerprint;
-      this.#startWatching();
     });
   }
 

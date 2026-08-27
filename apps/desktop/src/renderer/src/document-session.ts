@@ -32,7 +32,12 @@ export interface UnavailableSessionDocument extends PersistedDocumentReference {
   status: 'unavailable';
 }
 
-export type OpenDocumentItem = SessionDocument | UnavailableSessionDocument;
+export interface LoadingSessionDocument extends PersistedDocumentReference {
+  status: 'loading';
+}
+
+export type OpenDocumentItem =
+  LoadingSessionDocument | SessionDocument | UnavailableSessionDocument;
 export type RecentDocument = PersistedDocumentReference;
 
 export interface DocumentSession {
@@ -188,7 +193,7 @@ export const addDocumentsToSession = (
 };
 
 export const activateDocument = (session: DocumentSession, path: string): DocumentSession =>
-  session.openDocuments.some((item) => item.status === 'available' && item.document.path === path)
+  session.openDocuments.some((item) => item.status !== 'unavailable' && itemPath(item) === path)
     ? { ...session, activeDocumentPath: path }
     : session;
 
@@ -209,8 +214,8 @@ const nextAvailablePath = (
 ): string | undefined => {
   for (let offset = 0; offset < documents.length; offset += 1) {
     const item = documents[(closingIndex + offset) % documents.length];
-    if (item?.status === 'available') {
-      return item.document.path;
+    if (item && item.status !== 'unavailable') {
+      return itemPath(item);
     }
   }
   return undefined;
@@ -270,16 +275,70 @@ export const applyFinishedDocumentRevision = (
   path: string,
   document: FinishedSourceDocument,
   readingPosition: ReadingPosition,
+): DocumentSession => {
+  const documentPath = document.document.path;
+  return {
+    ...session,
+    activeDocumentPath:
+      session.activeDocumentPath === path ? documentPath : session.activeDocumentPath,
+    openDocuments: session.openDocuments
+      .filter((item) => itemPath(item) === path || itemPath(item) !== documentPath)
+      .map((item): OpenDocumentItem =>
+        item.status !== 'unavailable' && itemPath(item) === path
+          ? {
+              ...document,
+              lastOpenedAt: item.lastOpenedAt,
+              readingPosition,
+              status: 'available',
+            }
+          : item,
+      ),
+  };
+};
+
+export const beginReopenRecentDocument = (
+  session: DocumentSession,
+  path: string,
+  cachedDocument: FinishedSourceDocument | undefined,
+  now: number,
+): DocumentSession => {
+  const recentDocument = session.recentDocuments.find((document) => document.path === path);
+  if (!recentDocument) return session;
+
+  const item: OpenDocumentItem = cachedDocument
+    ? {
+        ...cachedDocument,
+        lastOpenedAt: now,
+        readingPosition: recentDocument.readingPosition,
+        status: 'available',
+      }
+    : { ...recentDocument, lastOpenedAt: now, status: 'loading' };
+  return {
+    activeDocumentPath: path,
+    openDocuments: [
+      ...session.openDocuments.filter((document) => itemPath(document) !== path),
+      item,
+    ],
+    recentDocuments: session.recentDocuments.filter((document) => document.path !== path),
+  };
+};
+
+export const failLoadingDocument = (
+  session: DocumentSession,
+  path: string,
+  message: string,
 ): DocumentSession => ({
   ...session,
+  activeDocumentPath:
+    session.activeDocumentPath === path
+      ? nextAvailablePath(
+          session.openDocuments.filter((item) => itemPath(item) !== path),
+          0,
+        )
+      : session.activeDocumentPath,
   openDocuments: session.openDocuments.map((item): OpenDocumentItem =>
-    item.status === 'available' && item.document.path === path
-      ? {
-          ...document,
-          lastOpenedAt: item.lastOpenedAt,
-          readingPosition,
-          status: 'available',
-        }
+    item.status === 'loading' && item.path === path
+      ? { ...item, message, status: 'unavailable' }
       : item,
   ),
 });

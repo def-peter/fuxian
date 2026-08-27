@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type {
   OpenDocumentItem,
@@ -47,6 +48,7 @@ interface UnavailableDocumentItemProps {
 interface DocumentItemProps {
   active?: boolean;
   document: { name: string; path: string };
+  loading?: boolean;
   onActivate(): void;
   onClose?: () => void;
 }
@@ -109,6 +111,7 @@ function UnavailableDocumentItem({
 function DocumentItem({
   active,
   document,
+  loading,
   onActivate,
   onClose,
 }: DocumentItemProps): React.JSX.Element {
@@ -127,7 +130,11 @@ function DocumentItem({
             onClick={onActivate}
             type="button"
           >
-            <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            {loading ? (
+              <Spinner aria-hidden="true" className="size-3.5 shrink-0" />
+            ) : (
+              <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
             <span className="truncate">{document.name}</span>
           </button>
         </TooltipTrigger>
@@ -231,13 +238,25 @@ export function DocumentSessionSidebar({
         <div className="flex flex-col gap-2 py-2">
           <SessionSection count={openDocuments.length} title="正在打开">
             {openDocuments.map((document) =>
-              document.status === 'available' ? (
+              document.status !== 'unavailable' ? (
                 <DocumentItem
-                  active={document.document.path === activeDocumentPath}
-                  document={document.document}
-                  key={document.document.path}
-                  onActivate={() => onActivate(document.document.path)}
-                  onClose={() => onClose(document.document.path)}
+                  active={
+                    (document.status === 'available' ? document.document.path : document.path) ===
+                    activeDocumentPath
+                  }
+                  document={document.status === 'available' ? document.document : document}
+                  key={document.status === 'available' ? document.document.path : document.path}
+                  loading={document.status === 'loading'}
+                  onActivate={() =>
+                    onActivate(
+                      document.status === 'available' ? document.document.path : document.path,
+                    )
+                  }
+                  onClose={() =>
+                    onClose(
+                      document.status === 'available' ? document.document.path : document.path,
+                    )
+                  }
                 />
               ) : (
                 <UnavailableDocumentItem

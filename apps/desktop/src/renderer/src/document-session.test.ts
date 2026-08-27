@@ -2,12 +2,14 @@ import type { PersistedDocumentReference, SourceDocumentData } from '@fuxian/sha
 import { describe, expect, it } from 'vitest';
 import {
   applyFinishedDocumentRevision,
+  beginReopenRecentDocument,
   activateDocument,
   addDocumentsToSession,
   closeDocument,
   createDocumentSession,
   createPersistedDocumentSession,
   createRestoredDocumentSession,
+  failLoadingDocument,
   pruneRecentDocuments,
   recentDocumentMaxAgeMs,
   reopenRecentDocument,
@@ -74,6 +76,66 @@ describe('document session', () => {
       readingPosition,
       resourceUrls: revision.resourceUrls,
     });
+  });
+
+  it('reopens recent documents from cache or a loading placeholder', () => {
+    const recent = {
+      lastOpenedAt: 40,
+      name: 'reader.md',
+      path: '/docs/reader.md',
+      readingPosition: { headingOffset: 8, relativeProgress: 0.6 },
+    };
+    const session = { ...createDocumentSession(), recentDocuments: [recent] };
+    const loading = beginReopenRecentDocument(session, recent.path, undefined, 50);
+    expect(loading).toMatchObject({
+      activeDocumentPath: recent.path,
+      openDocuments: [{ path: recent.path, status: 'loading' }],
+      recentDocuments: [],
+    });
+
+    const loaded = applyFinishedDocumentRevision(
+      loading,
+      recent.path,
+      finishedDocument(recent.path),
+      recent.readingPosition,
+    );
+    expect(loaded.openDocuments[0]).toMatchObject({
+      document: { path: recent.path },
+      status: 'available',
+    });
+
+    const failed = failLoadingDocument(loading, recent.path, 'still being written');
+    expect(failed.openDocuments[0]).toMatchObject({
+      message: 'still being written',
+      status: 'unavailable',
+    });
+  });
+
+  it('adopts the canonical path returned when a recent document is reopened', () => {
+    const aliasPath = '/docs/linked-reader.md';
+    const canonicalPath = '/private/docs/reader.md';
+    const recent = {
+      lastOpenedAt: 40,
+      name: 'linked-reader.md',
+      path: aliasPath,
+      readingPosition: { headingOffset: 0, relativeProgress: 0.25 },
+    };
+    const loading = beginReopenRecentDocument(
+      { ...createDocumentSession(), recentDocuments: [recent] },
+      aliasPath,
+      undefined,
+      50,
+    );
+
+    const loaded = applyFinishedDocumentRevision(
+      loading,
+      aliasPath,
+      finishedDocument(canonicalPath),
+      recent.readingPosition,
+    );
+
+    expect(loaded.activeDocumentPath).toBe(canonicalPath);
+    expect(openPaths(loaded)).toEqual([canonicalPath]);
   });
 
   it('adds multiple documents, activates the first selection, and deduplicates canonical paths', () => {

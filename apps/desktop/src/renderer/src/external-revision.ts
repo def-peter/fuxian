@@ -2,9 +2,25 @@ import type { RenderRevisionSnapshot } from '@fuxian/render-protocol';
 
 export type ExternalRevisionStatus =
   | { state: 'idle' }
+  | { state: 'new-content' }
   | { state: 'updating' }
   | { state: 'updated'; time: string }
   | { detail: string; state: 'failed' };
+
+export interface AppendFollowState {
+  distanceFromEnd: number;
+  hasSelection: boolean;
+}
+
+export const appendFollowDistance = 160;
+
+export const isAppendedRevision = (previousSource: string, nextSource: string): boolean =>
+  nextSource.length > previousSource.length && nextSource.startsWith(previousSource);
+
+export const shouldFollowAppendedContent = ({
+  distanceFromEnd,
+  hasSelection,
+}: AppendFollowState): boolean => !hasSelection && distanceFromEnd <= appendFollowDistance;
 
 export const getRenderRevisionFailure = (snapshot: RenderRevisionSnapshot): string | undefined => {
   const failedTask = snapshot.tasks.find(

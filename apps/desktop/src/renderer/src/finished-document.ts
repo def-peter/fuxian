@@ -38,8 +38,10 @@ export interface FinishedDocumentController {
   findNext(): FindResult;
   findPrevious(): FindResult;
   getReadingPosition(): ReadingPosition;
+  getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
   restoreReadingPosition(position: ReadingPosition): void;
+  scrollToEnd(): ReadingPosition;
   scrollToHeading(id: string): void;
   whenRenderReady(): Promise<RenderRevisionSnapshot>;
 }
@@ -194,6 +196,18 @@ export function bindFinishedDocument(
   );
   const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
     renderTaskElements.get(task.id);
+
+  const getViewportFollowState = (): { distanceFromEnd: number; hasSelection: boolean } => {
+    const scrollHeight = Math.max(
+      frameDocument.documentElement.scrollHeight,
+      frameDocument.body?.scrollHeight ?? 0,
+    );
+    const selection = frameWindow.getSelection();
+    return {
+      distanceFromEnd: Math.max(0, scrollHeight - (frameWindow.scrollY + frameWindow.innerHeight)),
+      hasSelection: Boolean(selection && !selection.isCollapsed && selection.toString()),
+    };
+  };
 
   const createDiagramAction = (
     action: 'focus' | 'source',
@@ -573,8 +587,22 @@ export function bindFinishedDocument(
     findNext: () => activateFindRange(currentFindIndex + 1),
     findPrevious: () => activateFindRange(currentFindIndex - 1),
     getReadingPosition,
+    getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
     restoreReadingPosition,
+    scrollToEnd: () => {
+      frameWindow.scrollTo({
+        left: 0,
+        top: Math.max(
+          frameDocument.documentElement.scrollHeight,
+          frameDocument.body?.scrollHeight ?? 0,
+        ),
+      });
+      updateActiveHeading();
+      const position = getReadingPosition();
+      onReadingPositionChange(position);
+      return position;
+    },
     scrollToHeading: (id: string) => {
       frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },

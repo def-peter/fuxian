@@ -1,6 +1,10 @@
 import type { RenderRevisionSnapshot } from '@fuxian/render-protocol';
 import { describe, expect, it } from 'vitest';
-import { getRenderRevisionFailure } from './external-revision';
+import {
+  getRenderRevisionFailure,
+  isAppendedRevision,
+  shouldFollowAppendedContent,
+} from './external-revision';
 
 const snapshot = (
   status: 'cancelled' | 'failed' | 'succeeded' | 'timed-out',
@@ -28,6 +32,14 @@ const snapshot = (
 });
 
 describe('external revision', () => {
+  it('follows only true appends near the end without a selection', () => {
+    expect(isAppendedRevision('# Notes', '# Notes\n\nNew paragraph')).toBe(true);
+    expect(isAppendedRevision('# Notes', '# Revised notes')).toBe(false);
+    expect(shouldFollowAppendedContent({ distanceFromEnd: 120, hasSelection: false })).toBe(true);
+    expect(shouldFollowAppendedContent({ distanceFromEnd: 220, hasSelection: false })).toBe(false);
+    expect(shouldFollowAppendedContent({ distanceFromEnd: 0, hasSelection: true })).toBe(false);
+  });
+
   it('accepts only a fully successful render revision', () => {
     expect(getRenderRevisionFailure(snapshot('succeeded'))).toBeUndefined();
     expect(getRenderRevisionFailure(snapshot('failed'))).toContain('invalid diagram');

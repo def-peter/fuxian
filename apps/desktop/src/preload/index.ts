@@ -1,12 +1,12 @@
 import {
   desktopIpcChannels,
   normalizeReaderPreferences,
-  type ActiveDocumentWatchRequest,
   type ExternalRevisionEvent,
   type FuxianDesktopBridge,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
+  type OpenDocumentWatchesRequest,
   type PlantUmlRenderRequest,
   type PlantUmlRenderResult,
   type PlantUmlServerValidationResult,
@@ -19,8 +19,8 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 const bridge: FuxianDesktopBridge = Object.freeze({
   cancelPlantUmlRender: (requestId: string): void =>
     ipcRenderer.send(desktopIpcChannels.cancelPlantUmlRender, requestId),
-  configureActiveDocumentWatch: async (request: ActiveDocumentWatchRequest): Promise<void> =>
-    ipcRenderer.invoke(desktopIpcChannels.configureActiveDocumentWatch, request),
+  configureOpenDocumentWatches: async (request: OpenDocumentWatchesRequest): Promise<void> =>
+    ipcRenderer.invoke(desktopIpcChannels.configureOpenDocumentWatches, request),
   copyText: async (text: string): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.copyText, text),
   loadDocumentSession: async (): Promise<LoadDocumentSessionResult> =>
