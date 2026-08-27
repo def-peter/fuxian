@@ -122,9 +122,12 @@ export const applyDocumentTheme = (
   frameDocument: Document,
   preferences: DocumentThemePreferences,
 ): void => {
-  frameDocument.documentElement.dataset.appearance = preferences.appearance;
+  const root = frameDocument.documentElement;
+  if (!root) return;
+
+  root.dataset.appearance = preferences.appearance;
   for (const [name, value] of Object.entries(getDocumentThemeVariables(preferences))) {
-    frameDocument.documentElement.style.setProperty(name, value);
+    root.style.setProperty(name, value);
   }
 };
 
@@ -353,8 +356,8 @@ export function bindFinishedDocument(
   };
 
   const clearFindHighlights = (): FindResult => {
-    frameWindow.CSS.highlights.delete('fuxian-find-results');
-    frameWindow.CSS.highlights.delete('fuxian-find-current');
+    frameWindow.CSS?.highlights?.delete('fuxian-find-results');
+    frameWindow.CSS?.highlights?.delete('fuxian-find-current');
     findRanges.length = 0;
     currentFindIndex = -1;
     return emptyFindResult();

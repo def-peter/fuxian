@@ -1,6 +1,8 @@
 export const desktopIpcChannels = {
   cancelPlantUmlRender: 'fuxian:plantuml:cancel-render',
   copyText: 'fuxian:clipboard:write-text',
+  configureActiveDocumentWatch: 'fuxian:source-documents:configure-active-watch',
+  externalRevisionChanged: 'fuxian:source-documents:external-revision',
   loadDocumentSession: 'fuxian:document-session:load',
   loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
@@ -192,6 +194,17 @@ export interface SourceDocumentData {
   source: string;
 }
 
+export interface ActiveDocumentWatchRequest {
+  path?: string;
+  resourceUrls: string[];
+}
+
+export interface ExternalRevisionEvent {
+  path: string;
+  result: ReadSourceDocumentResult;
+  revision: number;
+}
+
 export type OpenSourceDocumentsResult =
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
@@ -245,11 +258,13 @@ export type LocateSourceDocumentResult =
 
 export interface FuxianDesktopBridge {
   cancelPlantUmlRender(requestId: string): void;
+  configureActiveDocumentWatch(request: ActiveDocumentWatchRequest): Promise<void>;
   copyText(text: string): Promise<void>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
   loadReaderPreferences(): Promise<ReaderPreferences>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
+  onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
   openSettings(): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;

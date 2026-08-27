@@ -2,6 +2,8 @@ import {
   desktopIpcChannels,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
+  type ActiveDocumentWatchRequest,
+  type ExternalRevisionEvent,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
@@ -27,6 +29,7 @@ import {
   JsonFileSessionPersistence,
   type SessionPersistence,
 } from './session-persistence';
+import { SourceDocumentWatcher } from './source-document-watcher';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const appIconPath = join(currentDirectory, '../../resources/icon.png');
@@ -35,6 +38,8 @@ const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
 const activePlantUmlRequests = new Map<string, AbortController>();
+const activeDocumentWatches = new Map<number, { close(): void; revision: number }>();
+const activeDocumentWatchCleanupRegistered = new Set<number>();
 
 const plantUmlRequestKey = (webContentsId: number, requestId: string): string =>
   `${webContentsId}:${requestId}`;
@@ -211,6 +216,75 @@ const registerDesktopHandlers = (
   preferencesPersistence: PreferencesPersistence,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  ipcMain.handle(
+    desktopIpcChannels.configureActiveDocumentWatch,
+    async (event, value: unknown): Promise<void> => {
+      const request = value as Partial<ActiveDocumentWatchRequest> | undefined;
+      const senderId = event.sender.id;
+      activeDocumentWatches.get(senderId)?.close();
+      activeDocumentWatches.delete(senderId);
+
+      if (!request?.path) return;
+      if (
+        typeof request.path !== 'string' ||
+        !knownDocumentPaths.has(request.path) ||
+        !Array.isArray(request.resourceUrls) ||
+        request.resourceUrls.length > 100 ||
+        !request.resourceUrls.every((url) => typeof url === 'string')
+      ) {
+        throw new TypeError('Active document watch request is invalid.');
+      }
+
+      let canonicalPath: string;
+      try {
+        canonicalPath = await realpath(request.path);
+      } catch {
+        throw new TypeError('The active source document is unavailable.');
+      }
+      if (canonicalPath !== request.path) {
+        throw new TypeError('The active source document path is not canonical.');
+      }
+
+      const resourcePaths = (
+        await Promise.all(
+          request.resourceUrls.map((url) =>
+            documentResourceTrustStore.resolveWatchPath(url, canonicalPath),
+          ),
+        )
+      ).filter((path): path is string => Boolean(path));
+      const state: { close(): void; revision: number } = { close: () => undefined, revision: 0 };
+      const watcher = new SourceDocumentWatcher(() => {
+        const revision = ++state.revision;
+        void readSourceDocument(canonicalPath).then((result) => {
+          if (
+            event.sender.isDestroyed() ||
+            activeDocumentWatches.get(senderId) !== state ||
+            revision !== state.revision
+          ) {
+            return;
+          }
+          const externalRevision: ExternalRevisionEvent = {
+            path: canonicalPath,
+            result,
+            revision,
+          };
+          event.sender.send(desktopIpcChannels.externalRevisionChanged, externalRevision);
+        });
+      });
+      state.close = () => watcher.close();
+      activeDocumentWatches.set(senderId, state);
+      watcher.configure([canonicalPath, ...resourcePaths]);
+
+      if (!activeDocumentWatchCleanupRegistered.has(senderId)) {
+        activeDocumentWatchCleanupRegistered.add(senderId);
+        event.sender.once('destroyed', () => {
+          activeDocumentWatches.get(senderId)?.close();
+          activeDocumentWatches.delete(senderId);
+          activeDocumentWatchCleanupRegistered.delete(senderId);
+        });
+      }
+    },
+  );
   ipcMain.on(desktopIpcChannels.cancelPlantUmlRender, (event, requestId: unknown) => {
     if (typeof requestId !== 'string') return;
     activePlantUmlRequests.get(plantUmlRequestKey(event.sender.id, requestId))?.abort();

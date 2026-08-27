@@ -18,6 +18,7 @@ export interface FinishedSourceDocument {
   document: SourceDocumentData;
   headings: DocumentHeading[];
   html: string;
+  resourceUrls: string[];
 }
 
 export interface SessionDocument extends FinishedSourceDocument {
@@ -261,6 +262,25 @@ export const setUnavailableDocumentMessage = (
   ...session,
   openDocuments: session.openDocuments.map((item) =>
     item.status === 'unavailable' && item.path === path ? { ...item, message } : item,
+  ),
+});
+
+export const applyFinishedDocumentRevision = (
+  session: DocumentSession,
+  path: string,
+  document: FinishedSourceDocument,
+  readingPosition: ReadingPosition,
+): DocumentSession => ({
+  ...session,
+  openDocuments: session.openDocuments.map((item): OpenDocumentItem =>
+    item.status === 'available' && item.document.path === path
+      ? {
+          ...document,
+          lastOpenedAt: item.lastOpenedAt,
+          readingPosition,
+          status: 'available',
+        }
+      : item,
   ),
 });
 

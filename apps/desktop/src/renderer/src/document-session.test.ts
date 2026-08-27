@@ -1,6 +1,7 @@
 import type { PersistedDocumentReference, SourceDocumentData } from '@fuxian/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
+  applyFinishedDocumentRevision,
   activateDocument,
   addDocumentsToSession,
   closeDocument,
@@ -23,6 +24,7 @@ const finishedDocument = (path: string): FinishedSourceDocument => ({
   } satisfies SourceDocumentData,
   headings: [],
   html: `<h1>${path}</h1>`,
+  resourceUrls: [],
 });
 
 const reference = (
@@ -46,6 +48,34 @@ const openPaths = (session: ReturnType<typeof createDocumentSession>): string[] 
   );
 
 describe('document session', () => {
+  it('applies a finished external revision without changing document identity', () => {
+    const original = addDocumentsToSession(
+      createDocumentSession(),
+      [finishedDocument('/docs/reader.md')],
+      42,
+    );
+    const revision = {
+      ...finishedDocument('/docs/reader.md'),
+      html: '<h1>Revised</h1>',
+      resourceUrls: ['fuxian-resource://reader/updated.png'],
+    };
+    const readingPosition = { headingId: 'revised', headingOffset: 18, relativeProgress: 0.5 };
+
+    const updated = applyFinishedDocumentRevision(
+      original,
+      '/docs/reader.md',
+      revision,
+      readingPosition,
+    );
+
+    expect(updated.openDocuments[0]).toMatchObject({
+      html: '<h1>Revised</h1>',
+      lastOpenedAt: 42,
+      readingPosition,
+      resourceUrls: revision.resourceUrls,
+    });
+  });
+
   it('adds multiple documents, activates the first selection, and deduplicates canonical paths', () => {
     const now = Date.UTC(2026, 7, 27);
     const first = finishedDocument('/docs/first.md');

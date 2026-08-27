@@ -1,5 +1,6 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type {
+  ExternalRevisionEvent,
   OpenSourceDocumentsResult,
   ReadingPosition,
   ReadSourceDocumentResult,
@@ -7,6 +8,7 @@ import type {
 } from '@fuxian/shared-types';
 import {
   AlertCircle,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileText,
@@ -14,16 +16,27 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Search,
+  RefreshCw,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContentOutline, type ContentOutlinePreference } from '@/content-outline';
 import {
   activateDocument,
   addDocumentsToSession,
+  applyFinishedDocumentRevision,
   closeDocument,
   createDocumentSession,
   createPersistedDocumentSession,
@@ -41,6 +54,11 @@ import { DocumentWidthPopover } from '@/document-width-controls';
 import { createDesktopPlantUmlRenderer } from '@/document-render-adapter';
 import { DiagramFocusDialog, DiagramSourceDrawer } from '@/diagram-inspection';
 import {
+  getRenderRevisionFailure,
+  waitForFinishedDocumentResources,
+  type ExternalRevisionStatus,
+} from '@/external-revision';
+import {
   bindFinishedDocument,
   createFinishedDocumentSource,
   type DiagramSnapshot,
@@ -54,6 +72,51 @@ import { useReaderPreferences } from '@/use-reader-preferences';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
+let externalFrameRevision = 0;
+
+interface FinishedDocumentFrameRevision {
+  document: FinishedSourceDocument;
+  id: string;
+  readingPosition: ReadingPosition;
+  staging: boolean;
+}
+
+interface FinishedDocumentFrameProps {
+  draggingFiles: boolean;
+  frame: FinishedDocumentFrameRevision;
+  onLoad(frame: FinishedDocumentFrameRevision, element: HTMLIFrameElement): void;
+  onRemove(id: string): void;
+  visible: boolean;
+}
+
+function FinishedDocumentFrame({
+  draggingFiles,
+  frame,
+  onLoad,
+  onRemove,
+  visible,
+}: FinishedDocumentFrameProps): React.JSX.Element {
+  const element = useRef<HTMLIFrameElement>(null);
+  useEffect(() => () => onRemove(frame.id), [frame.id, onRemove]);
+
+  return (
+    <iframe
+      aria-hidden={!visible}
+      className={cn(
+        'col-start-1 row-start-1 block size-full min-h-0 min-w-0 border bg-card',
+        visible ? 'visible z-10' : 'invisible pointer-events-none',
+        draggingFiles && 'pointer-events-none',
+      )}
+      data-frame-revision={frame.id}
+      onLoad={() => element.current && onLoad(frame, element.current)}
+      ref={element}
+      sandbox="allow-popups allow-same-origin"
+      srcDoc={createFinishedDocumentSource(frame.document.html)}
+      tabIndex={visible ? 0 : -1}
+      title={visible ? 'Finished document' : 'Preparing finished document'}
+    />
+  );
+}
 
 const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocument => {
   const finishedDocument = renderMarkdown({
@@ -65,6 +128,9 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
     document,
     headings: finishedDocument.headings,
     html: finishedDocument.html,
+    resourceUrls: finishedDocument.resources.flatMap((resource) =>
+      resource.status === 'resolved' ? [resource.url] : [],
+    ),
   };
 };
 
@@ -83,21 +149,98 @@ export function App(): React.JSX.Element {
   const [findResult, setFindResult] = useState<FindResult>(emptyFindResult);
   const [sourceDiagram, setSourceDiagram] = useState<DiagramSnapshot>();
   const [focusedDiagram, setFocusedDiagram] = useState<DiagramSnapshot>();
-  const finishedDocumentFrame = useRef<HTMLIFrameElement>(null);
+  const [promotedRevision, setPromotedRevision] = useState<FinishedDocumentFrameRevision>();
+  const [pendingRevision, setPendingRevision] = useState<FinishedDocumentFrameRevision>();
+  const [externalRevisionStatus, setExternalRevisionStatus] = useState<ExternalRevisionStatus>({
+    state: 'idle',
+  });
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
+  const frameControllers = useRef(new Map<string, FinishedDocumentController>());
   const findInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const sessionRef = useRef(session);
   const diagramLayoutReadingPosition = useRef<ReadingPosition | undefined>(undefined);
+  const pendingRevisionRef = useRef<FinishedDocumentFrameRevision | undefined>(undefined);
+  const visibleFrameIdRef = useRef<string | undefined>(undefined);
+  const updatedStatusTimer = useRef<number | undefined>(undefined);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
       document.status === 'available' && document.document.path === session.activeDocumentPath,
   );
+  const sessionFrame = activeDocument
+    ? {
+        document: activeDocument,
+        id: `session:${activeDocument.document.path}`,
+        readingPosition: activeDocument.readingPosition,
+        staging: false,
+      }
+    : undefined;
+  const visibleFrame =
+    promotedRevision?.document.document.path === activeDocument?.document.path
+      ? promotedRevision
+      : sessionFrame;
+
+  const beginExternalRevision = useCallback((event: ExternalRevisionEvent): void => {
+    const active = sessionRef.current.openDocuments.find(
+      (item): item is SessionDocument =>
+        item.status === 'available' && item.document.path === event.path,
+    );
+    if (!active || sessionRef.current.activeDocumentPath !== event.path) return;
+    if (updatedStatusTimer.current) window.clearTimeout(updatedStatusTimer.current);
+    setExternalRevisionStatus({ state: 'updating' });
+
+    if (event.result.status === 'unavailable') {
+      pendingRevisionRef.current = undefined;
+      setPendingRevision(undefined);
+      setExternalRevisionStatus({ detail: event.result.message, state: 'failed' });
+      return;
+    }
+
+    try {
+      const document = finishSourceDocument(event.result.document);
+      const frame: FinishedDocumentFrameRevision = {
+        document,
+        id: `external:${event.path}:${++externalFrameRevision}`,
+        readingPosition:
+          finishedDocumentController.current?.getReadingPosition() ?? active.readingPosition,
+        staging: true,
+      };
+      pendingRevisionRef.current = frame;
+      setPendingRevision(frame);
+    } catch (error) {
+      pendingRevisionRef.current = undefined;
+      setPendingRevision(undefined);
+      setExternalRevisionStatus({
+        detail: error instanceof Error ? error.message : '新版本 Markdown 无法解析。',
+        state: 'failed',
+      });
+    }
+  }, []);
 
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    visibleFrameIdRef.current = visibleFrame?.id;
+  }, [visibleFrame?.id]);
+
+  useEffect(() => window.fuxian.onExternalRevision(beginExternalRevision), [beginExternalRevision]);
+
+  const activeResourceUrls = activeDocument?.resourceUrls.join('\n') ?? '';
+  useEffect(() => {
+    const path = activeDocument?.document.path;
+    void window.fuxian
+      .configureActiveDocumentWatch({
+        ...(path ? { path } : {}),
+        resourceUrls: activeResourceUrls ? activeResourceUrls.split('\n') : [],
+      })
+      .catch(() => undefined);
+    return () => {
+      void window.fuxian.configureActiveDocumentWatch({ resourceUrls: [] }).catch(() => undefined);
+    };
+  }, [activeDocument?.document.path, activeResourceUrls]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,21 +305,30 @@ export function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    return () => finishedDocumentController.current?.destroy();
+    const controllers = frameControllers.current;
+    return () => {
+      for (const controller of controllers.values()) controller.destroy();
+      controllers.clear();
+      if (updatedStatusTimer.current) window.clearTimeout(updatedStatusTimer.current);
+    };
   }, []);
 
   useEffect(() => {
-    finishedDocumentController.current?.applyTheme(
-      toDocumentThemePreferences(preferences, resolvedAppearance),
-    );
+    for (const controller of frameControllers.current.values()) {
+      controller.applyTheme(toDocumentThemePreferences(preferences, resolvedAppearance));
+    }
   }, [preferences, resolvedAppearance]);
 
   useEffect(() => {
-    finishedDocumentController.current?.applyPlantUmlServer(preferences.plantUml.serverUrl);
+    for (const controller of frameControllers.current.values()) {
+      controller.applyPlantUmlServer(preferences.plantUml.serverUrl);
+    }
   }, [preferences.plantUml.serverUrl]);
 
   useEffect(() => {
-    finishedDocumentController.current?.applyDiagramOptimization(preferences.diagram.optimize);
+    for (const controller of frameControllers.current.values()) {
+      controller.applyDiagramOptimization(preferences.diagram.optimize);
+    }
   }, [preferences.diagram.optimize]);
 
   useEffect(() => {
@@ -222,8 +374,15 @@ export function App(): React.JSX.Element {
   }, [activeDocument]);
 
   const resetDocumentControls = (): void => {
-    finishedDocumentController.current?.destroy();
+    for (const controller of frameControllers.current.values()) controller.destroy();
+    frameControllers.current.clear();
     finishedDocumentController.current = undefined;
+    visibleFrameIdRef.current = undefined;
+    pendingRevisionRef.current = undefined;
+    setPendingRevision(undefined);
+    setPromotedRevision(undefined);
+    if (updatedStatusTimer.current) window.clearTimeout(updatedStatusTimer.current);
+    setExternalRevisionStatus({ state: 'idle' });
     setActiveHeadingId(undefined);
     setFindOpen(false);
     setFindQuery('');
@@ -237,44 +396,111 @@ export function App(): React.JSX.Element {
     setSourceDiagram(diagram);
   };
 
-  const handleFinishedDocumentLoad = (): void => {
-    finishedDocumentController.current?.destroy();
-
-    const frameDocument = finishedDocumentFrame.current?.contentDocument;
-    if (!frameDocument) {
-      return;
+  const handleFinishedDocumentFrameRemove = useCallback((id: string): void => {
+    const controller = frameControllers.current.get(id);
+    controller?.destroy();
+    frameControllers.current.delete(id);
+    if (finishedDocumentController.current === controller) {
+      finishedDocumentController.current = undefined;
     }
+  }, []);
 
+  const handleFinishedDocumentLoad = (
+    frame: FinishedDocumentFrameRevision,
+    element: HTMLIFrameElement,
+  ): void => {
+    frameControllers.current.get(frame.id)?.destroy();
+    const frameDocument = element.contentDocument;
+    if (!frameDocument) return;
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
       initialAppearance: resolvedAppearance,
       initialDiagramOptimization: preferences.diagram.optimize,
       initialPlantUmlServerUrl: preferences.plantUml.serverUrl,
-      initialReadingPosition: activeDocument?.readingPosition ?? {
-        headingOffset: 0,
-        relativeProgress: 0,
+      initialReadingPosition: frame.readingPosition,
+      onActiveHeadingChange: (id) => {
+        if (visibleFrameIdRef.current === frame.id) setActiveHeadingId(id);
       },
-      onActiveHeadingChange: setActiveHeadingId,
-      onFindRequest: () => setFindOpen(true),
-      onFocusDiagram: setFocusedDiagram,
-      onInspectDiagram: (diagram) => showDiagramSource(diagram),
+      onFindRequest: () => {
+        if (visibleFrameIdRef.current === frame.id) setFindOpen(true);
+      },
+      onFocusDiagram: (diagram) => {
+        if (visibleFrameIdRef.current === frame.id) setFocusedDiagram(diagram);
+      },
+      onInspectDiagram: (diagram) => {
+        if (visibleFrameIdRef.current === frame.id) showDiagramSource(diagram);
+      },
       onReadingPositionChange: (position) => {
-        if (activeDocument) {
+        if (visibleFrameIdRef.current === frame.id) {
           setSession((current) =>
-            updateReadingPosition(current, activeDocument.document.path, position),
+            updateReadingPosition(current, frame.document.document.path, position),
           );
         }
       },
+      revisionId: frame.id,
       renderPlantUml,
     });
     controller.applyTheme(toDocumentThemePreferences(preferences, resolvedAppearance));
-    finishedDocumentController.current = controller;
-    setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
-  };
+    frameControllers.current.set(frame.id, controller);
 
-  const finishedDocumentSource = activeDocument
-    ? createFinishedDocumentSource(activeDocument.html)
-    : undefined;
+    if (!frame.staging && visibleFrameIdRef.current === frame.id) {
+      finishedDocumentController.current = controller;
+      setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
+      return;
+    }
+
+    if (!frame.staging) return;
+    void Promise.all([
+      controller.whenRenderReady(),
+      waitForFinishedDocumentResources(frameDocument),
+    ])
+      .then(([snapshot]) => {
+        if (pendingRevisionRef.current?.id !== frame.id) return;
+        const failure = getRenderRevisionFailure(snapshot);
+        if (failure) throw new Error(failure);
+
+        const oldVisibleFrameId = visibleFrameIdRef.current;
+        visibleFrameIdRef.current = frame.id;
+        pendingRevisionRef.current = undefined;
+        finishedDocumentController.current = controller;
+        setPromotedRevision({ ...frame, staging: false });
+        setPendingRevision(undefined);
+        setSession((current) =>
+          applyFinishedDocumentRevision(
+            current,
+            frame.document.document.path,
+            frame.document,
+            frame.readingPosition,
+          ),
+        );
+        setActiveHeadingId(frame.readingPosition.headingId ?? frame.document.headings[0]?.id);
+        setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
+        const time = new Intl.DateTimeFormat('zh-CN', {
+          hour: '2-digit',
+          hour12: false,
+          minute: '2-digit',
+        }).format(new Date());
+        setExternalRevisionStatus({ state: 'updated', time });
+        updatedStatusTimer.current = window.setTimeout(
+          () => setExternalRevisionStatus({ state: 'idle' }),
+          5_000,
+        );
+
+        if (oldVisibleFrameId && oldVisibleFrameId !== frame.id) {
+          frameControllers.current.get(oldVisibleFrameId)?.destroy();
+          frameControllers.current.delete(oldVisibleFrameId);
+        }
+      })
+      .catch((error: unknown) => {
+        if (pendingRevisionRef.current?.id !== frame.id) return;
+        pendingRevisionRef.current = undefined;
+        setPendingRevision(undefined);
+        setExternalRevisionStatus({
+          detail: error instanceof Error ? error.message : '新版本无法完整呈现。',
+          state: 'failed',
+        });
+      });
+  };
 
   const acceptOpenResult = (result: OpenSourceDocumentsResult): void => {
     if (result.status === 'cancelled') {
@@ -455,6 +681,25 @@ export function App(): React.JSX.Element {
     }
   };
 
+  const retryExternalRevision = async (): Promise<void> => {
+    const path = sessionRef.current.activeDocumentPath;
+    if (!path) return;
+    if (updatedStatusTimer.current) window.clearTimeout(updatedStatusTimer.current);
+    setExternalRevisionStatus({ state: 'updating' });
+    try {
+      beginExternalRevision({
+        path,
+        result: await window.fuxian.retrySourceDocument(path),
+        revision: 0,
+      });
+    } catch {
+      setExternalRevisionStatus({
+        detail: '应用暂时无法重新读取源文档。',
+        state: 'failed',
+      });
+    }
+  };
+
   const closeFind = (): void => {
     finishedDocumentController.current?.clearFind();
     setFindOpen(false);
@@ -527,6 +772,11 @@ export function App(): React.JSX.Element {
   const unavailableDocuments = session.openDocuments.filter(
     (document) => document.status === 'unavailable',
   );
+  const documentFrames = visibleFrame
+    ? pendingRevision
+      ? [visibleFrame, pendingRevision]
+      : [visibleFrame]
+    : [];
 
   return (
     <TooltipProvider>
@@ -559,7 +809,7 @@ export function App(): React.JSX.Element {
           <main className="flex min-h-0 items-center justify-center text-sm text-muted-foreground">
             正在恢复上次会话...
           </main>
-        ) : activeDocument && finishedDocumentSource ? (
+        ) : activeDocument && visibleFrame ? (
           <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)]">
             <header className="flex items-center justify-between border-b bg-card px-4">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -594,6 +844,56 @@ export function App(): React.JSX.Element {
                     {activeDocument.document.path}
                   </TooltipContent>
                 </Tooltip>
+                {externalRevisionStatus.state === 'updating' ? (
+                  <span
+                    aria-live="polite"
+                    className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                  >
+                    <Spinner aria-hidden="true" />
+                    正在更新...
+                  </span>
+                ) : null}
+                {externalRevisionStatus.state === 'updated' ? (
+                  <span
+                    aria-live="polite"
+                    className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                  >
+                    <CheckCircle2 aria-hidden="true" className="size-3.5 text-primary" />
+                    已更新 · {externalRevisionStatus.time}
+                  </span>
+                ) : null}
+                {externalRevisionStatus.state === 'failed' ? (
+                  <div
+                    aria-live="assertive"
+                    className="ml-2 flex shrink-0 items-center gap-1 text-xs text-destructive"
+                  >
+                    <AlertCircle aria-hidden="true" className="size-3.5" />
+                    <span>更新失败</span>
+                    <Button
+                      aria-label="重试文档更新"
+                      onClick={() => void retryExternalRevision()}
+                      size="icon-xs"
+                      variant="ghost"
+                    >
+                      <RefreshCw aria-hidden="true" data-icon="inline-start" />
+                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="xs" variant="ghost">
+                          详情
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-80">
+                        <PopoverHeader>
+                          <PopoverTitle>文档更新失败</PopoverTitle>
+                          <PopoverDescription className="break-words">
+                            正在显示上一版本。{externalRevisionStatus.detail}
+                          </PopoverDescription>
+                        </PopoverHeader>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                ) : null}
               </div>
 
               <div className="ml-4 flex shrink-0 items-center gap-1">
@@ -682,19 +982,20 @@ export function App(): React.JSX.Element {
                   : outlinePreference === 'expanded' && 'grid-cols-[minmax(0,1fr)_232px]',
               )}
             >
-              <main className="min-h-0 bg-background p-3" aria-label="Finished-document region">
-                <iframe
-                  className={cn(
-                    'block h-full w-full border bg-card',
-                    draggingFiles && 'pointer-events-none',
-                  )}
-                  key={activeDocument.document.path}
-                  onLoad={handleFinishedDocumentLoad}
-                  ref={finishedDocumentFrame}
-                  sandbox="allow-popups allow-same-origin"
-                  srcDoc={finishedDocumentSource}
-                  title="Finished document"
-                />
+              <main
+                className="grid min-h-0 bg-background p-3"
+                aria-label="Finished-document region"
+              >
+                {documentFrames.map((frame) => (
+                  <FinishedDocumentFrame
+                    draggingFiles={draggingFiles}
+                    frame={frame}
+                    key={frame.id}
+                    onLoad={handleFinishedDocumentLoad}
+                    onRemove={handleFinishedDocumentFrameRemove}
+                    visible={frame.id === visibleFrame.id}
+                  />
+                ))}
               </main>
               {sourceDiagram ? (
                 <DiagramSourceDrawer

@@ -17,6 +17,7 @@ const supportedImageTypes = new Map([
 
 interface DocumentResourceScope {
   rootDirectory: string;
+  sourcePath: string;
 }
 
 export type DocumentResourceResolution =
@@ -73,6 +74,7 @@ const isWithinDirectory = (rootDirectory: string, candidatePath: string): boolea
 
 export class DocumentResourceTrustStore {
   readonly #scopes = new Map<string, DocumentResourceScope>();
+  readonly #scopeIdsBySourcePath = new Map<string, string>();
 
   async grantSourceDocument(sourcePath: string): Promise<string> {
     const sourceRealPath = await realpath(sourcePath);
@@ -81,10 +83,39 @@ export class DocumentResourceTrustStore {
       throw new TypeError('The source document must be a file.');
     }
 
+    const existingScopeId = this.#scopeIdsBySourcePath.get(sourceRealPath);
+    if (existingScopeId) return `${documentResourceScheme}://${existingScopeId}/`;
+
     const scopeId = randomUUID();
-    this.#scopes.clear();
-    this.#scopes.set(scopeId, { rootDirectory: await realpath(dirname(sourceRealPath)) });
+    this.#scopeIdsBySourcePath.set(sourceRealPath, scopeId);
+    this.#scopes.set(scopeId, {
+      rootDirectory: await realpath(dirname(sourceRealPath)),
+      sourcePath: sourceRealPath,
+    });
     return `${documentResourceScheme}://${scopeId}/`;
+  }
+
+  async resolveWatchPath(requestUrl: string, sourcePath: string): Promise<string | undefined> {
+    const request = parseResourceRequest(requestUrl);
+    if (!request || request.pathSegments.length === 0) return undefined;
+    const scope = this.#scopes.get(request.scopeId);
+    if (!scope || scope.sourcePath !== sourcePath) return undefined;
+    const extension = extname(request.pathSegments.at(-1) ?? '').toLowerCase();
+    if (!supportedImageTypes.has(extension)) return undefined;
+    const candidatePath = resolve(scope.rootDirectory, ...request.pathSegments);
+    if (!isWithinDirectory(scope.rootDirectory, candidatePath)) return undefined;
+
+    try {
+      const resourcePath = await realpath(candidatePath);
+      return isWithinDirectory(scope.rootDirectory, resourcePath) ? resourcePath : undefined;
+    } catch {
+      try {
+        const parentDirectory = await realpath(dirname(candidatePath));
+        return isWithinDirectory(scope.rootDirectory, parentDirectory) ? candidatePath : undefined;
+      } catch {
+        return undefined;
+      }
+    }
   }
 
   async resolve(requestUrl: string): Promise<DocumentResourceResolution> {
