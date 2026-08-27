@@ -50,6 +50,7 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('<details>');
     expect(finishedDocument.html).not.toContain('title: Fuxian renderer showcase');
     expect(finishedDocument.headings.map(({ id }) => id)).toContain('稳定标题-1');
+    expect(finishedDocument.headings.map(({ text }) => text)).not.toContain('Footnotes');
   });
 
   it('keeps allowed raw HTML and removes executable content and unsafe URLs', () => {

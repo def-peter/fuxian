@@ -142,6 +142,103 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
   }
 });
 
+test('the content outline navigates nested headings and can be collapsed', async () => {
+  const electronApp = await launchDesktop(showcaseDocumentPath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+
+    const outline = window.getByRole('complementary', { name: '内容目录' });
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect(outline).toBeVisible();
+    await expect(outline.getByRole('button', { name: '稳定标题' })).toHaveCount(2);
+    await expect(outline.getByRole('button', { name: 'Footnotes' })).toHaveCount(0);
+    await expect(outline.getByRole('button', { exact: true, name: '深层标题' })).toHaveCount(0);
+
+    await outline.getByRole('button', { name: /展开“这是一个.+”下的深层标题/ }).click();
+    await expect(outline.getByRole('button', { exact: true, name: '深层标题' })).toBeVisible();
+
+    await outline.getByRole('button', { name: '本地资源' }).click();
+    await expect
+      .poll(() =>
+        finishedDocument
+          .getByRole('heading', { name: '本地资源' })
+          .evaluate((heading) => Math.round(heading.getBoundingClientRect().top)),
+      )
+      .toBeLessThan(40);
+    await expect(outline.getByRole('button', { name: '本地资源' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+
+    await window.getByRole('button', { name: '折叠内容目录' }).click();
+    await expect(outline).toHaveCount(0);
+    await expect(window.getByRole('button', { name: '展开内容目录' })).toBeVisible();
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('find highlights matches without changing the finished document selection', async () => {
+  const electronApp = await launchDesktop(showcaseDocumentPath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect(
+      finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
+    ).toBeVisible();
+
+    await finishedDocument.locator('blockquote').click();
+    const selectedText = await finishedDocument.locator('blockquote').evaluate((blockquote) => {
+      const selection = globalThis.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(blockquote);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return selection?.toString();
+    });
+
+    await window.keyboard.press('Control+f');
+    const findInput = window.getByRole('textbox', { name: '页内查找' });
+    await expect(findInput).toBeFocused();
+    await findInput.fill('稳定标题');
+    await expect(window.locator('[aria-live="polite"]')).toHaveText('1/2');
+    await expect
+      .poll(() =>
+        finishedDocument.locator('body').evaluate(() => ({
+          hasCurrent: CSS.highlights.has('fuxian-find-current'),
+          hasResults: CSS.highlights.has('fuxian-find-results'),
+          selection: globalThis.getSelection()?.toString(),
+        })),
+      )
+      .toEqual({ hasCurrent: true, hasResults: true, selection: selectedText });
+
+    await window.getByRole('button', { name: '下一个匹配项' }).click();
+    await expect(window.locator('[aria-live="polite"]')).toHaveText('2/2');
+
+    await findInput.fill('没有这样的内容');
+    await expect(window.locator('[aria-live="polite"]')).toHaveText('0/0');
+    await expect(window.getByRole('button', { name: '上一个匹配项' })).toBeDisabled();
+    await expect(window.getByRole('button', { name: '下一个匹配项' })).toBeDisabled();
+
+    await window.getByRole('button', { name: '关闭查找' }).click();
+    await expect(findInput).toHaveCount(0);
+    await expect
+      .poll(() =>
+        finishedDocument.locator('body').evaluate(() => ({
+          hasCurrent: CSS.highlights.has('fuxian-find-current'),
+          hasResults: CSS.highlights.has('fuxian-find-results'),
+        })),
+      )
+      .toEqual({ hasCurrent: false, hasResults: false });
+  } finally {
+    await electronApp.close();
+  }
+});
+
 test('local images stay inside the source-document trust scope and can retry', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-resource-'));
   const documentDirectory = join(temporaryDirectory, 'document');

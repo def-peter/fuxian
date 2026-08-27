@@ -276,7 +276,12 @@ const collectHeadingStructure: Plugin<[], Root> = () => (tree, file) => {
 
   visit(tree, 'element', (node) => {
     const match = /^h([1-6])$/.exec(node.tagName);
-    if (!match || typeof node.properties.id !== 'string') {
+    const classNames = node.properties.className;
+    if (
+      !match ||
+      typeof node.properties.id !== 'string' ||
+      (Array.isArray(classNames) && classNames.includes('sr-only'))
+    ) {
       return;
     }
 

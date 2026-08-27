@@ -1,5 +1,27 @@
 import { documentThemeCss } from '@fuxian/document-theme';
 
+export interface FindResult {
+  current: number;
+  total: number;
+}
+
+export interface FinishedDocumentController {
+  clearFind(): FindResult;
+  destroy(): void;
+  find(query: string): FindResult;
+  findNext(): FindResult;
+  findPrevious(): FindResult;
+  scrollToHeading(id: string): void;
+}
+
+interface BindFinishedDocumentOptions {
+  copyText(text: string): Promise<void>;
+  onActiveHeadingChange(id: string | undefined): void;
+  onFindRequest(): void;
+}
+
+const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
+
 export function createFinishedDocumentSource(body: string): string {
   return `<!doctype html>
 <html lang="zh-CN">
@@ -15,16 +37,123 @@ export function createFinishedDocumentSource(body: string): string {
 </html>`;
 }
 
-export function bindFinishedDocumentInteractions(
+export function bindFinishedDocument(
   frameDocument: Document,
-  copyText: (text: string) => Promise<void>,
-): () => void {
+  { copyText, onActiveHeadingChange, onFindRequest }: BindFinishedDocumentOptions,
+): FinishedDocumentController {
+  const frameWindow = frameDocument.defaultView;
+  if (!frameWindow) {
+    throw new TypeError('The finished document must have an active window.');
+  }
+
+  const headingElements = Array.from(
+    frameDocument.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'),
+  ).filter((heading) => !heading.matches('.sr-only') && !heading.closest('[hidden]'));
+  const findRanges: Range[] = [];
+  let currentFindIndex = -1;
+  let scrollAnimationFrame = 0;
+
   const setImageErrorVisible = (image: HTMLImageElement, visible: boolean): void => {
     const error = image.closest('.document-image')?.querySelector<HTMLElement>('.resource-error');
     image.hidden = visible;
     if (error) {
       error.hidden = !visible;
     }
+  };
+
+  const updateActiveHeading = (): void => {
+    scrollAnimationFrame = 0;
+    if (headingElements.length === 0) {
+      onActiveHeadingChange(undefined);
+      return;
+    }
+
+    const activationLine = Math.min(140, frameWindow.innerHeight * 0.25);
+    let activeHeading = headingElements[0];
+    for (const heading of headingElements) {
+      if (heading.getBoundingClientRect().top > activationLine) {
+        break;
+      }
+      activeHeading = heading;
+    }
+
+    onActiveHeadingChange(activeHeading?.id);
+  };
+
+  const scheduleActiveHeadingUpdate = (): void => {
+    if (!scrollAnimationFrame) {
+      scrollAnimationFrame = frameWindow.requestAnimationFrame(updateActiveHeading);
+    }
+  };
+
+  const clearFindHighlights = (): FindResult => {
+    frameWindow.CSS.highlights.delete('fuxian-find-results');
+    frameWindow.CSS.highlights.delete('fuxian-find-current');
+    findRanges.length = 0;
+    currentFindIndex = -1;
+    return emptyFindResult();
+  };
+
+  const activateFindRange = (index: number): FindResult => {
+    if (findRanges.length === 0) {
+      return emptyFindResult();
+    }
+
+    currentFindIndex = (index + findRanges.length) % findRanges.length;
+    const currentRange = findRanges[currentFindIndex];
+    if (!currentRange) {
+      return emptyFindResult();
+    }
+
+    const HighlightConstructor = Reflect.get(frameWindow, 'Highlight') as typeof Highlight;
+    frameWindow.CSS.highlights.set('fuxian-find-current', new HighlightConstructor(currentRange));
+
+    const matchRect = currentRange.getBoundingClientRect();
+    frameWindow.scrollTo({
+      behavior: 'smooth',
+      top: Math.max(0, frameWindow.scrollY + matchRect.top - frameWindow.innerHeight * 0.3),
+    });
+
+    return { current: currentFindIndex + 1, total: findRanges.length };
+  };
+
+  const find = (query: string): FindResult => {
+    clearFindHighlights();
+    if (!query) {
+      return emptyFindResult();
+    }
+
+    const normalizedQuery = query.toLocaleLowerCase();
+    const walker = frameDocument.createTreeWalker(
+      frameDocument.querySelector('.finished-document') ?? frameDocument.body,
+      NodeFilter.SHOW_TEXT,
+    );
+
+    let textNode = walker.nextNode();
+    while (textNode) {
+      const parent = textNode.parentElement;
+      const value = textNode.nodeValue ?? '';
+      if (parent && !parent.closest('[hidden], .sr-only') && value) {
+        const normalizedValue = value.toLocaleLowerCase();
+        let matchIndex = normalizedValue.indexOf(normalizedQuery);
+        while (matchIndex !== -1) {
+          const range = frameDocument.createRange();
+          range.setStart(textNode, matchIndex);
+          range.setEnd(textNode, matchIndex + query.length);
+          findRanges.push(range);
+          matchIndex = normalizedValue.indexOf(normalizedQuery, matchIndex + query.length);
+        }
+      }
+      textNode = walker.nextNode();
+    }
+
+    if (findRanges.length === 0) {
+      return emptyFindResult();
+    }
+
+    const HighlightConstructor = Reflect.get(frameWindow, 'Highlight') as typeof Highlight;
+    frameWindow.CSS.highlights.set('fuxian-find-results', new HighlightConstructor(...findRanges));
+    return activateFindRange(0);
   };
 
   const handleFinishedDocumentClick = (event: MouseEvent): void => {
@@ -80,19 +209,45 @@ export function bindFinishedDocumentInteractions(
     }
   };
 
+  const handleFinishedDocumentKeyDown = (event: KeyboardEvent): void => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'f') {
+      event.preventDefault();
+      onFindRequest();
+    }
+  };
+
   frameDocument.addEventListener('click', handleFinishedDocumentClick);
   frameDocument.addEventListener('error', handleResourceError, true);
   frameDocument.addEventListener('load', handleResourceLoad, true);
+  frameWindow.addEventListener('keydown', handleFinishedDocumentKeyDown);
+  frameWindow.addEventListener('scroll', scheduleActiveHeadingUpdate, { passive: true });
 
   for (const image of frameDocument.querySelectorAll<HTMLImageElement>('img[data-resource-url]')) {
     if (image.complete && image.naturalWidth === 0) {
       setImageErrorVisible(image, true);
     }
   }
+  onActiveHeadingChange(headingElements[0]?.id);
+  scrollAnimationFrame = frameWindow.requestAnimationFrame(updateActiveHeading);
 
-  return () => {
-    frameDocument.removeEventListener('click', handleFinishedDocumentClick);
-    frameDocument.removeEventListener('error', handleResourceError, true);
-    frameDocument.removeEventListener('load', handleResourceLoad, true);
+  return {
+    clearFind: clearFindHighlights,
+    destroy: () => {
+      clearFindHighlights();
+      if (scrollAnimationFrame) {
+        frameWindow.cancelAnimationFrame(scrollAnimationFrame);
+      }
+      frameDocument.removeEventListener('click', handleFinishedDocumentClick);
+      frameDocument.removeEventListener('error', handleResourceError, true);
+      frameDocument.removeEventListener('load', handleResourceLoad, true);
+      frameWindow.removeEventListener('keydown', handleFinishedDocumentKeyDown);
+      frameWindow.removeEventListener('scroll', scheduleActiveHeadingUpdate);
+    },
+    find,
+    findNext: () => activateFindRange(currentFindIndex + 1),
+    findPrevious: () => activateFindRange(currentFindIndex - 1),
+    scrollToHeading: (id: string) => {
+      frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
   };
 }

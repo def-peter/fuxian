@@ -51,6 +51,17 @@ h6 {
   font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   letter-spacing: 0;
   overflow-wrap: anywhere;
+  scroll-margin-top: 28px;
+}
+
+::highlight(fuxian-find-results) {
+  color: inherit;
+  background: #c9dfd4;
+}
+
+::highlight(fuxian-find-current) {
+  color: #202826;
+  background: #f3d77d;
 }
 
 h1 {
