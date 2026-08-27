@@ -350,6 +350,165 @@ code {
   white-space: pre;
 }
 
+.render-task-source[hidden],
+.render-task-output[hidden],
+.render-task-error[hidden] {
+  display: none !important;
+}
+
+.render-task-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.math-render-task-inline {
+  display: inline;
+}
+
+.math-render-task-inline > .render-task-source {
+  color: var(--document-muted);
+}
+
+.math-render-task-inline > .render-task-output {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: -0.12em;
+}
+
+.math-render-task:not(.math-render-task-inline),
+.diagram-render-task {
+  display: block;
+  max-width: 100%;
+  margin: 28px 0;
+}
+
+.math-render-task:not(.math-render-task-inline) > .render-task-source,
+.diagram-render-task > .render-task-source {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--document-border);
+  border-radius: 3px;
+  color: var(--document-muted);
+  background: var(--document-code);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.math-render-task:not(.math-render-task-inline) > .render-task-output,
+.diagram-render-task > .render-task-output {
+  width: 100%;
+  overflow: auto;
+  text-align: center;
+}
+
+.math-render-task math[display="block"] {
+  margin: 0 auto;
+  font-size: 1.12em;
+}
+
+.diagram-render-task svg {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.diagram-render-task svg text,
+.diagram-render-task svg tspan {
+  user-select: text;
+}
+
+.render-task[data-render-state="succeeded"] > .render-task-output {
+  animation: render-task-fade-in 150ms ease-out;
+}
+
+@keyframes render-task-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.render-task-error {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 92px;
+  padding: 14px 16px;
+  border: 1px solid var(--document-error-border);
+  border-left: 3px solid var(--document-error);
+  border-radius: 3px;
+  color: var(--document-error);
+  background: var(--document-error-background);
+  font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.render-task-error-title,
+.render-task-error-detail,
+.render-task-error-source {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.render-task-error-detail,
+.render-task-error-source {
+  grid-column: 1;
+}
+
+.render-task-retry-button {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  width: 56px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--document-error-border);
+  border-radius: 3px;
+  color: var(--document-error);
+  background: var(--document-raised);
+  font: inherit;
+  cursor: pointer;
+}
+
+.render-task-retry-button:hover,
+.render-task-retry-button:focus-visible {
+  border-color: var(--document-error);
+  outline: none;
+}
+
+.math-render-task-inline > .render-task-error {
+  display: inline-flex;
+  width: auto;
+  min-height: 0;
+  margin: 0 3px;
+  padding: 3px 5px;
+  gap: 6px;
+  vertical-align: baseline;
+}
+
+.math-render-task-inline .render-task-error-title,
+.math-render-task-inline .render-task-error-detail {
+  display: none;
+}
+
+.math-render-task-inline .render-task-retry-button {
+  width: auto;
+  height: 24px;
+  padding: 0 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .render-task[data-render-state="succeeded"] > .render-task-output {
+    animation: none;
+  }
+}
+
 .hljs-comment,
 .hljs-quote {
   color: #73807b;
@@ -553,6 +712,10 @@ svg {
   }
 
   .resource-retry-button {
+    display: none;
+  }
+
+  .render-task-retry-button {
     display: none;
   }
 

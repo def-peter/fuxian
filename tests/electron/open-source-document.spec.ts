@@ -434,6 +434,20 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
     await expect(finishedDocument.getByRole('checkbox')).toHaveCount(2);
     await expect(finishedDocument.getByText('title: Fuxian renderer showcase')).toHaveCount(0);
     await expect(finishedDocument.locator('code.hljs.language-typescript')).toBeVisible();
+    await expect(finishedDocument.locator('html')).toHaveAttribute(
+      'data-render-readiness',
+      'ready',
+    );
+    await expect(
+      finishedDocument.locator('[data-render-task-kind="math-inline"] math'),
+    ).toBeVisible();
+    await expect(
+      finishedDocument.locator('[data-render-task-kind="math-display"] math[display="block"]'),
+    ).toBeVisible();
+    const mermaidTask = finishedDocument.locator('[data-render-task-kind="mermaid"]');
+    await expect(mermaidTask.locator('svg')).toBeVisible();
+    await expect(mermaidTask).toContainText('Markdown 源文档');
+    await expect(mermaidTask).toContainText('完成态文档');
     await expect(
       finishedDocument.getByRole('img', {
         name: 'Source document 到 finished document 的阅读流程',
@@ -454,6 +468,47 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
       .toContain('type FinishedDocument');
   } finally {
     await electronApp.close();
+  }
+});
+
+test('a failed Mermaid task keeps source-aware details and can retry in place', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-mermaid-error-'));
+  const sourcePath = join(temporaryDirectory, 'invalid-mermaid.md');
+  await writeFile(
+    sourcePath,
+    [
+      '# Invalid diagram',
+      '',
+      'Readable prose remains available.',
+      '',
+      '```mermaid',
+      'not a diagram',
+      '```',
+    ].join('\n'),
+  );
+  const electronApp = await launchDesktop(sourcePath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect(finishedDocument.getByText('Readable prose remains available.')).toBeVisible();
+    const task = finishedDocument.locator('[data-render-task-kind="mermaid"]');
+    await expect(task.getByText('无法呈现图表')).toBeVisible();
+    await expect(task.locator('.render-task-error-source')).toContainText('not a diagram');
+    await expect(task).toHaveAttribute('data-render-state', 'failed');
+    await expect(finishedDocument.locator('html')).toHaveAttribute(
+      'data-render-readiness',
+      'ready',
+    );
+
+    await task.getByRole('button', { name: '重试' }).click();
+    await expect(task).toHaveAttribute('data-render-attempt', '2');
+    await expect(task.getByText('无法呈现图表')).toBeVisible();
+    await expect(task).toHaveAttribute('data-render-state', 'failed');
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });
 

@@ -12,7 +12,7 @@ audience: internal
 ## GFM 能力
 
 - [x] 表格与任务列表
-- [ ] 后续图表能力
+- [x] 数学与 Mermaid 图表
 - ~~不再需要手动 Reload~~
 
 | 能力       | 状态 | 很长的说明                                                                                                                              |
@@ -54,6 +54,20 @@ const render = (source: string): FinishedDocument => ({
 
 ```json
 { "safe": true, "reader": "Fuxian" }
+```
+
+## 数学与图表
+
+行内公式 $E = mc^2$ 应当与正文自然排列。
+
+$$
+\int_0^1 x^2 \, dx = \frac{1}{3}
+$$
+
+```mermaid
+flowchart LR
+  Source[Markdown 源文档] --> Parse[结构化解析]
+  Parse --> Finished[完成态文档]
 ```
 
 ## 本地资源

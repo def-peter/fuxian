@@ -3,7 +3,20 @@ import {
   getDocumentThemeVariables,
   type DocumentThemePreferences,
 } from '@fuxian/document-theme';
+import {
+  RenderCoordinator,
+  type RenderRevisionHandle,
+  type RenderRevisionSnapshot,
+  type RenderTask,
+  type RenderTaskAdapter,
+  type RenderTaskScheduler,
+} from '@fuxian/render-protocol';
 import type { ReadingPosition } from '@fuxian/shared-types';
+import {
+  createLocalDocumentRenderAdapter,
+  type DocumentRenderResult,
+  type LocalDocumentRenderAdapter,
+} from './document-render-adapter';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
 
 export interface FindResult {
@@ -19,19 +32,73 @@ export interface FinishedDocumentController {
   findNext(): FindResult;
   findPrevious(): FindResult;
   getReadingPosition(): ReadingPosition;
+  getRenderSnapshot(): RenderRevisionSnapshot;
   restoreReadingPosition(position: ReadingPosition): void;
   scrollToHeading(id: string): void;
+  whenRenderReady(): Promise<RenderRevisionSnapshot>;
 }
 
 interface BindFinishedDocumentOptions {
   copyText(text: string): Promise<void>;
+  initialAppearance?: 'dark' | 'light';
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
   onReadingPositionChange(position: ReadingPosition): void;
+  onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
+  renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
+  renderScheduler?: RenderTaskScheduler;
+  renderTimeoutMilliseconds?: number;
+  revisionId?: string;
 }
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
+let finishedDocumentRevision = 0;
+
+const renderTaskKinds = new Set(['math-display', 'math-inline', 'mermaid']);
+
+const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
+  Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
+    (element) => {
+      const id = element.dataset.renderTaskId;
+      const kind = element.dataset.renderTaskKind;
+      const source = element.querySelector<HTMLElement>('.render-task-source')?.textContent;
+      return id && kind && source !== undefined && renderTaskKinds.has(kind)
+        ? [{ id, kind, source }]
+        : [];
+    },
+  );
+
+const sanitizeMermaidSvg = (frameDocument: Document, source: string): SVGElement => {
+  const template = frameDocument.createElement('template');
+  template.innerHTML = source;
+  const svg = template.content.querySelector('svg');
+  if (!svg) throw new TypeError('Mermaid 没有返回有效的 SVG。');
+  for (const element of svg.querySelectorAll('script, foreignObject, iframe, object, embed')) {
+    element.remove();
+  }
+  for (const element of [svg, ...svg.querySelectorAll('*')]) {
+    for (const attribute of [...element.attributes]) {
+      if (
+        attribute.name.toLowerCase().startsWith('on') ||
+        ((attribute.name === 'href' || attribute.name.endsWith(':href')) &&
+          !attribute.value.startsWith('#'))
+      ) {
+        element.removeAttribute(attribute.name);
+      }
+    }
+  }
+  return svg;
+};
+
+const conciseRenderError = (error: string): string => {
+  const firstLine =
+    error
+      .split('\n')
+      .find((line) => line.trim())
+      ?.trim() ?? '渲染任务失败。';
+  return firstLine.length > 240 ? `${firstLine.slice(0, 237)}...` : firstLine;
+};
 
 export const applyDocumentTheme = (
   frameDocument: Document,
@@ -60,14 +127,15 @@ export function createFinishedDocumentSource(body: string): string {
 
 export function bindFinishedDocument(
   frameDocument: Document,
-  {
+  options: BindFinishedDocumentOptions,
+): FinishedDocumentController {
+  const {
     copyText,
     initialReadingPosition,
     onActiveHeadingChange,
     onFindRequest,
     onReadingPositionChange,
-  }: BindFinishedDocumentOptions,
-): FinishedDocumentController {
+  } = options;
   const frameWindow = frameDocument.defaultView;
   if (!frameWindow) {
     throw new TypeError('The finished document must have an active window.');
@@ -81,6 +149,95 @@ export function bindFinishedDocument(
   let scrollAnimationFrame = 0;
   let restoreAnimationFrame = 0;
   let restoringReadingPosition = true;
+  let appearance =
+    options.initialAppearance ??
+    (frameDocument.documentElement.dataset.appearance === 'dark' ? 'dark' : 'light');
+  const localRenderAdapter: LocalDocumentRenderAdapter | undefined = options.renderAdapter
+    ? undefined
+    : createLocalDocumentRenderAdapter(appearance);
+  const renderTaskList = collectRenderTasks(frameDocument);
+  const renderTaskElements = new Map(
+    Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
+      (element) =>
+        element.dataset.renderTaskId ? [[element.dataset.renderTaskId, element] as const] : [],
+    ),
+  );
+  const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
+    renderTaskElements.get(task.id);
+
+  const setRenderTaskPending = (task: RenderTask, attempt: number): void => {
+    const element = getRenderTaskElement(task);
+    if (!element) return;
+    element.dataset.renderState = 'pending';
+    element.dataset.renderAttempt = `${attempt}`;
+    const source = element.querySelector<HTMLElement>('.render-task-source');
+    const output = element.querySelector<HTMLElement>('.render-task-output');
+    const error = element.querySelector<HTMLElement>('.render-task-error');
+    if (source) source.hidden = false;
+    if (output) output.hidden = true;
+    if (error) error.hidden = true;
+  };
+
+  const applyRenderResult = (task: RenderTask, result: DocumentRenderResult): void => {
+    const element = getRenderTaskElement(task);
+    const output = element?.querySelector<HTMLElement>('.render-task-output');
+    if (!element || !output) throw new TypeError('渲染任务占位已不存在。');
+    if (result.kind === 'math') {
+      output.innerHTML = result.html;
+    } else {
+      output.replaceChildren(sanitizeMermaidSvg(frameDocument, result.svg));
+    }
+    element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
+    element.querySelector<HTMLElement>('.render-task-error')?.setAttribute('hidden', '');
+    output.hidden = false;
+  };
+
+  const applyRenderFailure = (
+    task: RenderTask,
+    status: 'failed' | 'timed-out',
+    error: string,
+  ): void => {
+    const element = getRenderTaskElement(task);
+    if (!element) return;
+    element.dataset.renderState = status;
+    const detail = element.querySelector<HTMLElement>('[data-render-error-detail]');
+    if (detail)
+      detail.textContent =
+        status === 'timed-out' ? '渲染超时，请重试。' : conciseRenderError(error);
+    element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
+    element.querySelector<HTMLElement>('.render-task-output')?.setAttribute('hidden', '');
+    const errorElement = element.querySelector<HTMLElement>('.render-task-error');
+    if (errorElement) errorElement.hidden = false;
+  };
+
+  const renderCoordinator = new RenderCoordinator<DocumentRenderResult>({
+    adapter: options.renderAdapter ?? localRenderAdapter!,
+    onSnapshot: (snapshot) => {
+      frameDocument.documentElement.dataset.renderReadiness = snapshot.readiness.complete
+        ? 'ready'
+        : 'pending';
+      frameDocument.documentElement.dataset.renderPendingTasks = `${snapshot.readiness.pending}`;
+      for (const task of snapshot.tasks) {
+        if (task.status === 'pending') setRenderTaskPending(task, task.attempt);
+        if (task.status === 'succeeded') {
+          const element = getRenderTaskElement(task);
+          if (element) element.dataset.renderState = 'succeeded';
+        }
+      }
+      frameWindow.dispatchEvent(
+        new frameWindow.CustomEvent('fuxian-render-readiness', { detail: snapshot }),
+      );
+      options.onRenderSnapshot?.(snapshot);
+    },
+    onTaskFailure: applyRenderFailure,
+    onTaskSuccess: applyRenderResult,
+    ...(options.renderScheduler ? { scheduler: options.renderScheduler } : {}),
+    timeoutMilliseconds: options.renderTimeoutMilliseconds ?? 15_000,
+  });
+  const renderRevision: RenderRevisionHandle = renderCoordinator.startRevision(
+    options.revisionId ?? `finished-document-${++finishedDocumentRevision}`,
+    renderTaskList,
+  );
 
   const getHeadingOffsets = () =>
     headingElements.map((heading) => ({
@@ -208,6 +365,13 @@ export function bindFinishedDocument(
 
   const handleFinishedDocumentClick = (event: MouseEvent): void => {
     const target = event.target as Element | null;
+    const renderRetryButton = target?.closest<HTMLButtonElement>('[data-retry-render-task]');
+    if (renderRetryButton) {
+      const id =
+        renderRetryButton.closest<HTMLElement>('[data-render-task-id]')?.dataset.renderTaskId;
+      if (id) renderRevision.retry(id);
+      return;
+    }
     const retryButton = target?.closest<HTMLButtonElement>('[data-retry-resource]');
     if (retryButton) {
       const container = retryButton.closest('.document-image');
@@ -289,9 +453,19 @@ export function bindFinishedDocument(
   });
 
   return {
-    applyTheme: (preferences) => applyDocumentTheme(frameDocument, preferences),
+    applyTheme: (preferences) => {
+      applyDocumentTheme(frameDocument, preferences);
+      if (appearance !== preferences.appearance) {
+        appearance = preferences.appearance;
+        localRenderAdapter?.setAppearance(appearance);
+        for (const task of renderTaskList) {
+          if (task.kind === 'mermaid') renderRevision.retry(task.id);
+        }
+      }
+    },
     clearFind: clearFindHighlights,
     destroy: () => {
+      renderRevision.cancel();
       clearFindHighlights();
       if (scrollAnimationFrame) {
         frameWindow.cancelAnimationFrame(scrollAnimationFrame);
@@ -309,9 +483,11 @@ export function bindFinishedDocument(
     findNext: () => activateFindRange(currentFindIndex + 1),
     findPrevious: () => activateFindRange(currentFindIndex - 1),
     getReadingPosition,
+    getRenderSnapshot: () => renderRevision.snapshot(),
     restoreReadingPosition,
     scrollToHeading: (id: string) => {
       frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
+    whenRenderReady: () => renderRevision.whenReady(),
   };
 }

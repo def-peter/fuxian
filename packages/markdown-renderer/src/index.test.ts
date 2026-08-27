@@ -109,4 +109,39 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).not.toContain('<img');
     expect(finishedDocument.html).not.toMatch(/javascript:/i);
   });
+
+  it('creates deterministic local render tasks for inline math, display math, and Mermaid', () => {
+    const finishedDocument = renderMarkdown({
+      source: [
+        'Readable text appears before $E = mc^2$.',
+        '',
+        '$$',
+        '\\int_0^1 x^2 \\, dx',
+        '$$',
+        '',
+        '```mermaid',
+        'flowchart LR',
+        '  Source --> Finished["Finished <document>"]',
+        '```',
+      ].join('\n'),
+    });
+
+    expect(finishedDocument.renderTasks).toEqual([
+      { id: 'render-task-1', kind: 'math-inline', source: 'E = mc^2' },
+      { id: 'render-task-2', kind: 'math-display', source: '\\int_0^1 x^2 \\, dx' },
+      {
+        id: 'render-task-3',
+        kind: 'mermaid',
+        source: 'flowchart LR\n  Source --> Finished["Finished <document>"]\n',
+      },
+    ]);
+    expect(finishedDocument.html).toContain('<p>Readable text appears before');
+    expect(finishedDocument.html).toContain('data-render-task-kind="math-inline"');
+    expect(finishedDocument.html).toContain('data-render-task-kind="math-display"');
+    expect(finishedDocument.html).toContain('data-render-task-kind="mermaid"');
+    expect(finishedDocument.html).toMatch(/Finished (?:&lt;|&#x3C;)document>/);
+    expect(finishedDocument.html).toContain('data-retry-render-task');
+    expect(finishedDocument.html).not.toMatch(/onclick=|javascript:/i);
+    expect(finishedDocument.html).not.toContain('class="code-block"><figcaption');
+  });
 });

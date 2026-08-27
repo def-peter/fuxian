@@ -9,6 +9,7 @@ import rehypeStringify from 'rehype-stringify';
 import type { Root as MarkdownRoot } from 'mdast';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { type Plugin, unified } from 'unified';
@@ -28,7 +29,16 @@ export interface DocumentHeading {
 export interface FinishedDocument {
   html: string;
   headings: DocumentHeading[];
+  renderTasks: DocumentRenderTask[];
   resources: DocumentResource[];
+}
+
+export type DocumentRenderTaskKind = 'math-display' | 'math-inline' | 'mermaid';
+
+export interface DocumentRenderTask {
+  id: string;
+  kind: DocumentRenderTaskKind;
+  source: string;
 }
 
 export type DocumentResourceError =
@@ -52,6 +62,13 @@ const supportedImageExtensions = new Set([
 
 const finishedDocumentSchema: SanitizeSchema = {
   ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [
+      ['className', /^language-./, 'math-display', 'math-inline'],
+      ...(defaultSchema.attributes?.code ?? []),
+    ],
+  },
   clobberPrefix: rawHtmlIdPrefix,
   protocols: {
     ...defaultSchema.protocols,
@@ -295,6 +312,121 @@ const collectHeadingStructure: Plugin<[], Root> = () => (tree, file) => {
   file.data['headings'] = headings;
 };
 
+const classNamesOf = (node: Element): string[] =>
+  Array.isArray(node.properties.className)
+    ? node.properties.className.filter((value): value is string => typeof value === 'string')
+    : [];
+
+const createRenderError = (source: string, kind: DocumentRenderTaskKind): Element => ({
+  type: 'element',
+  tagName: 'span',
+  properties: { className: ['render-task-error'], hidden: true },
+  children: [
+    {
+      type: 'element',
+      tagName: 'strong',
+      properties: { className: ['render-task-error-title'] },
+      children: [{ type: 'text', value: kind === 'mermaid' ? '无法呈现图表' : '无法呈现公式' }],
+    },
+    {
+      type: 'element',
+      tagName: 'span',
+      properties: { className: ['render-task-error-detail'], dataRenderErrorDetail: '' },
+      children: [{ type: 'text', value: '渲染任务失败。' }],
+    },
+    {
+      type: 'element',
+      tagName: 'code',
+      properties: { className: ['render-task-error-source'] },
+      children: [{ type: 'text', value: source }],
+    },
+    {
+      type: 'element',
+      tagName: 'button',
+      properties: {
+        className: ['render-task-retry-button'],
+        dataRetryRenderTask: '',
+        type: 'button',
+      },
+      children: [{ type: 'text', value: '重试' }],
+    },
+  ],
+});
+
+const createRenderTaskNode = (task: DocumentRenderTask): Element => {
+  const inline = task.kind === 'math-inline';
+  return {
+    type: 'element',
+    tagName: inline ? 'span' : task.kind === 'mermaid' ? 'figure' : 'div',
+    properties: {
+      ariaLabel: task.kind === 'mermaid' ? 'Mermaid 图表' : undefined,
+      className: [
+        'render-task',
+        task.kind === 'mermaid' ? 'diagram-render-task' : 'math-render-task',
+        ...(inline ? ['math-render-task-inline'] : []),
+      ],
+      dataRenderState: 'pending',
+      dataRenderTaskId: task.id,
+      dataRenderTaskKind: task.kind,
+    },
+    children: [
+      {
+        type: 'element',
+        tagName: 'code',
+        properties: { className: ['render-task-source'] },
+        children: [{ type: 'text', value: task.source }],
+      },
+      {
+        type: 'element',
+        tagName: inline ? 'span' : 'div',
+        properties: { className: ['render-task-output'], hidden: true },
+        children: [],
+      },
+      createRenderError(task.source, task.kind),
+    ],
+  };
+};
+
+const createRenderTasks: Plugin<[DocumentRenderTask[]], Root> = (renderTasks) => (tree) => {
+  let taskIndex = 0;
+  visit(tree, 'element', (node, index, parent) => {
+    if (index === undefined || !parent) return;
+    const code =
+      node.tagName === 'pre'
+        ? node.children.find(
+            (child): child is Element => child.type === 'element' && child.tagName === 'code',
+          )
+        : node.tagName === 'code'
+          ? node
+          : undefined;
+    if (!code) return;
+    const classNames = classNamesOf(code);
+    const source = code.children
+      .filter((child): child is { type: 'text'; value: string } => child.type === 'text')
+      .map((child) => child.value)
+      .join('');
+    let kind: DocumentRenderTaskKind | undefined;
+
+    if (node.tagName === 'code' && classNames.includes('math-inline')) {
+      kind = 'math-inline';
+    } else if (node.tagName === 'pre' && classNames.includes('math-display')) {
+      kind = 'math-display';
+    } else if (node.tagName === 'pre' && classNames.includes('language-mermaid')) {
+      kind = 'mermaid';
+    }
+
+    if (!kind) return;
+    const task: DocumentRenderTask = {
+      id: `render-task-${++taskIndex}`,
+      kind,
+      source,
+    };
+    renderTasks.push(task);
+    parent.children[index] = createRenderTaskNode(task);
+    return SKIP;
+  });
+};
+
 const enhanceCodeBlocks: Plugin<[], Root> = () => (tree) => {
   visit(tree, 'element', (node, index, parent) => {
     if (node.tagName !== 'pre' || index === undefined || !parent) {
@@ -352,15 +484,20 @@ const enhanceCodeBlocks: Plugin<[], Root> = () => (tree) => {
   });
 };
 
-const createMarkdownProcessor = (imageOptions: TransformDocumentImagesOptions) =>
+const createMarkdownProcessor = (
+  imageOptions: TransformDocumentImagesOptions,
+  renderTasks: DocumentRenderTask[],
+) =>
   unified()
     .use(remarkParse)
     .use(remarkFrontmatter)
     .use(remarkGfm)
+    .use(remarkMath)
     .use(hideFrontmatter)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeSanitize, finishedDocumentSchema)
+    .use(createRenderTasks, renderTasks)
     .use(alignSanitizedFragmentLinks)
     .use(transformDocumentImages, imageOptions)
     .use(rehypeSlug)
@@ -375,11 +512,15 @@ const createMarkdownProcessor = (imageOptions: TransformDocumentImagesOptions) =
 
 export function renderMarkdown({ resourceBaseUrl, source }: RenderMarkdownInput): FinishedDocument {
   const resources: DocumentResource[] = [];
-  const result = createMarkdownProcessor({ resourceBaseUrl, resources }).processSync(source);
+  const renderTasks: DocumentRenderTask[] = [];
+  const result = createMarkdownProcessor({ resourceBaseUrl, resources }, renderTasks).processSync(
+    source,
+  );
 
   return {
     html: result.toString(),
     headings: (result.data['headings'] as DocumentHeading[] | undefined) ?? [],
+    renderTasks,
     resources,
   };
 }

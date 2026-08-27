@@ -36,4 +36,13 @@ describe('document theme preferences', () => {
     expect(css).toContain('--document-width: 1050px');
     expect(css).toContain(':root[data-appearance="dark"]');
   });
+
+  it('animates only completed formulas and diagrams with reduced-motion support', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toContain('.render-task[data-render-state="succeeded"] > .render-task-output');
+    expect(css).toContain('animation: render-task-fade-in 150ms ease-out');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).not.toMatch(/(?:^|\n)p\s*\{[^}]*animation:/);
+  });
 });

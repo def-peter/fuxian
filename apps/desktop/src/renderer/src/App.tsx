@@ -214,6 +214,7 @@ export function App(): React.JSX.Element {
 
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
+      initialAppearance: resolvedAppearance,
       initialReadingPosition: activeDocument?.readingPosition ?? {
         headingOffset: 0,
         relativeProgress: 0,
