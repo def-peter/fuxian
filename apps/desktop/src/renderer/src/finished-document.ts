@@ -1,4 +1,6 @@
 import { documentThemeCss } from '@fuxian/document-theme';
+import type { ReadingPosition } from '@fuxian/shared-types';
+import { captureReadingPosition, resolveReadingPosition } from './reading-position';
 
 export interface FindResult {
   current: number;
@@ -11,13 +13,17 @@ export interface FinishedDocumentController {
   find(query: string): FindResult;
   findNext(): FindResult;
   findPrevious(): FindResult;
+  getReadingPosition(): ReadingPosition;
+  restoreReadingPosition(position: ReadingPosition): void;
   scrollToHeading(id: string): void;
 }
 
 interface BindFinishedDocumentOptions {
   copyText(text: string): Promise<void>;
+  initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
+  onReadingPositionChange(position: ReadingPosition): void;
 }
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
@@ -39,7 +45,13 @@ export function createFinishedDocumentSource(body: string): string {
 
 export function bindFinishedDocument(
   frameDocument: Document,
-  { copyText, onActiveHeadingChange, onFindRequest }: BindFinishedDocumentOptions,
+  {
+    copyText,
+    initialReadingPosition,
+    onActiveHeadingChange,
+    onFindRequest,
+    onReadingPositionChange,
+  }: BindFinishedDocumentOptions,
 ): FinishedDocumentController {
   const frameWindow = frameDocument.defaultView;
   if (!frameWindow) {
@@ -52,6 +64,26 @@ export function bindFinishedDocument(
   const findRanges: Range[] = [];
   let currentFindIndex = -1;
   let scrollAnimationFrame = 0;
+  let restoreAnimationFrame = 0;
+  let restoringReadingPosition = true;
+
+  const getHeadingOffsets = () =>
+    headingElements.map((heading) => ({
+      id: heading.id,
+      top: frameWindow.scrollY + heading.getBoundingClientRect().top,
+    }));
+
+  const getMaxScroll = (): number =>
+    Math.max(0, frameDocument.documentElement.scrollHeight - frameWindow.innerHeight);
+
+  const getReadingPosition = (): ReadingPosition =>
+    captureReadingPosition(frameWindow.scrollY, getMaxScroll(), getHeadingOffsets());
+
+  const restoreReadingPosition = (position: ReadingPosition): void => {
+    frameWindow.scrollTo({
+      top: resolveReadingPosition(position, getMaxScroll(), getHeadingOffsets()),
+    });
+  };
 
   const setImageErrorVisible = (image: HTMLImageElement, visible: boolean): void => {
     const error = image.closest('.document-image')?.querySelector<HTMLElement>('.resource-error');
@@ -78,6 +110,9 @@ export function bindFinishedDocument(
     }
 
     onActiveHeadingChange(activeHeading?.id);
+    if (!restoringReadingPosition) {
+      onReadingPositionChange(getReadingPosition());
+    }
   };
 
   const scheduleActiveHeadingUpdate = (): void => {
@@ -229,6 +264,14 @@ export function bindFinishedDocument(
   }
   onActiveHeadingChange(headingElements[0]?.id);
   scrollAnimationFrame = frameWindow.requestAnimationFrame(updateActiveHeading);
+  restoreAnimationFrame = frameWindow.requestAnimationFrame(() => {
+    restoreAnimationFrame = frameWindow.requestAnimationFrame(() => {
+      restoreAnimationFrame = 0;
+      restoreReadingPosition(initialReadingPosition);
+      restoringReadingPosition = false;
+      updateActiveHeading();
+    });
+  });
 
   return {
     clearFind: clearFindHighlights,
@@ -236,6 +279,9 @@ export function bindFinishedDocument(
       clearFindHighlights();
       if (scrollAnimationFrame) {
         frameWindow.cancelAnimationFrame(scrollAnimationFrame);
+      }
+      if (restoreAnimationFrame) {
+        frameWindow.cancelAnimationFrame(restoreAnimationFrame);
       }
       frameDocument.removeEventListener('click', handleFinishedDocumentClick);
       frameDocument.removeEventListener('error', handleResourceError, true);
@@ -246,6 +292,8 @@ export function bindFinishedDocument(
     find,
     findNext: () => activateFindRange(currentFindIndex + 1),
     findPrevious: () => activateFindRange(currentFindIndex - 1),
+    getReadingPosition,
+    restoreReadingPosition,
     scrollToHeading: (id: string) => {
       frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },

@@ -1,15 +1,17 @@
-import type { SourceDocumentData } from '@fuxian/shared-types';
+import type { PersistedDocumentReference, SourceDocumentData } from '@fuxian/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   activateDocument,
   addDocumentsToSession,
   closeDocument,
   createDocumentSession,
+  createPersistedDocumentSession,
+  createRestoredDocumentSession,
   pruneRecentDocuments,
   recentDocumentMaxAgeMs,
   reopenRecentDocument,
+  updateReadingPosition,
   type FinishedSourceDocument,
-  type SessionDocument,
 } from './document-session';
 
 const finishedDocument = (path: string): FinishedSourceDocument => ({
@@ -23,6 +25,26 @@ const finishedDocument = (path: string): FinishedSourceDocument => ({
   html: `<h1>${path}</h1>`,
 });
 
+const reference = (
+  path: string,
+  lastOpenedAt: number,
+  headingId?: string,
+): PersistedDocumentReference => ({
+  lastOpenedAt,
+  name: path.split('/').at(-1) ?? path,
+  path,
+  readingPosition: {
+    ...(headingId ? { headingId } : {}),
+    headingOffset: headingId ? 24 : 0,
+    relativeProgress: headingId ? 0.4 : 0,
+  },
+});
+
+const openPaths = (session: ReturnType<typeof createDocumentSession>): string[] =>
+  session.openDocuments.map((item) =>
+    item.status === 'available' ? item.document.path : item.path,
+  );
+
 describe('document session', () => {
   it('adds multiple documents, activates the first selection, and deduplicates canonical paths', () => {
     const now = Date.UTC(2026, 7, 27);
@@ -31,16 +53,13 @@ describe('document session', () => {
     const added = addDocumentsToSession(createDocumentSession(), [first, second, first], now);
     const reopened = addDocumentsToSession(added, [second], now + 1);
 
-    expect(added.openDocuments.map(({ document }) => document.path)).toEqual([
-      '/docs/first.md',
-      '/docs/second.md',
-    ]);
+    expect(openPaths(added)).toEqual(['/docs/first.md', '/docs/second.md']);
     expect(added.activeDocumentPath).toBe('/docs/first.md');
     expect(reopened.openDocuments).toHaveLength(2);
     expect(reopened.activeDocumentPath).toBe('/docs/second.md');
   });
 
-  it('switches, closes, and reopens documents without losing rendered content', () => {
+  it('switches, closes, and reopens documents while retaining the reading position', () => {
     const now = Date.UTC(2026, 7, 27);
     const added = addDocumentsToSession(
       createDocumentSession(),
@@ -48,34 +67,109 @@ describe('document session', () => {
       now,
     );
     const activated = activateDocument(added, '/docs/second.md');
-    const closed = closeDocument(activated, '/docs/second.md', now + 1);
-    const reopened = reopenRecentDocument(closed, '/docs/second.md', now + 2);
+    const positioned = updateReadingPosition(activated, '/docs/second.md', {
+      headingId: 'details',
+      headingOffset: 36,
+      relativeProgress: 0.6,
+    });
+    const closed = closeDocument(positioned, '/docs/second.md', now + 1);
+    const reopened = reopenRecentDocument(
+      closed,
+      '/docs/second.md',
+      finishedDocument('/docs/second.md'),
+      now + 2,
+    );
 
     expect(closed.activeDocumentPath).toBe('/docs/first.md');
-    expect(closed.recentDocuments[0]?.document.path).toBe('/docs/second.md');
-    expect(closed.recentDocuments[0]?.lastOpenedAt).toBe(now);
+    expect(closed.recentDocuments[0]?.path).toBe('/docs/second.md');
+    expect(closed.recentDocuments[0]?.readingPosition).toEqual({
+      headingId: 'details',
+      headingOffset: 36,
+      relativeProgress: 0.6,
+    });
     expect(reopened.activeDocumentPath).toBe('/docs/second.md');
-    expect(reopened.openDocuments[1]?.html).toContain('/docs/second.md');
+    expect(reopened.openDocuments[1]).toMatchObject({
+      html: expect.stringContaining('/docs/second.md'),
+      readingPosition: { headingId: 'details' },
+      status: 'available',
+    });
     expect(reopened.recentDocuments).toHaveLength(0);
+  });
+
+  it('restores open-document order and keeps unavailable items without blocking the active document', () => {
+    const now = Date.UTC(2026, 7, 27);
+    const first = reference('/docs/first.md', now - 2);
+    const missing = reference('/docs/missing.md', now - 1);
+    const active = reference('/docs/active.md', now, 'chapter-two');
+    const persisted = {
+      activeDocumentPath: active.path,
+      openDocuments: [first, missing, active],
+      recentDocuments: [],
+      version: 1 as const,
+    };
+
+    const restored = createRestoredDocumentSession(
+      persisted,
+      [
+        { status: 'available', reference: first, document: finishedDocument(first.path) },
+        { status: 'unavailable', reference: missing, message: 'File not found.' },
+        { status: 'available', reference: active, document: finishedDocument(active.path) },
+      ],
+      now,
+    );
+
+    expect(openPaths(restored)).toEqual([first.path, missing.path, active.path]);
+    expect(restored.openDocuments.map(({ status }) => status)).toEqual([
+      'available',
+      'unavailable',
+      'available',
+    ]);
+    expect(restored.activeDocumentPath).toBe(active.path);
+    expect(createPersistedDocumentSession(restored).openDocuments).toEqual([
+      first,
+      missing,
+      active,
+    ]);
+  });
+
+  it('falls back to the first available document when the persisted active document is unavailable', () => {
+    const now = Date.UTC(2026, 7, 27);
+    const missing = reference('/docs/missing.md', now);
+    const available = reference('/docs/available.md', now);
+    const restored = createRestoredDocumentSession(
+      {
+        activeDocumentPath: missing.path,
+        openDocuments: [missing, available],
+        recentDocuments: [],
+        version: 1,
+      },
+      [
+        { status: 'unavailable', reference: missing, message: 'File not found.' },
+        {
+          status: 'available',
+          reference: available,
+          document: finishedDocument(available.path),
+        },
+      ],
+      now,
+    );
+
+    expect(restored.activeDocumentPath).toBe(available.path);
   });
 
   it('keeps at most ten recent documents and expires entries after thirty days', () => {
     const now = Date.UTC(2026, 7, 27);
-    const recentDocuments: SessionDocument[] = Array.from({ length: 12 }, (_, index) => ({
-      ...finishedDocument(`/docs/${index}.md`),
-      lastOpenedAt: now - index,
-    }));
-    recentDocuments.push({
-      ...finishedDocument('/docs/expired.md'),
-      lastOpenedAt: now - recentDocumentMaxAgeMs - 1,
-    });
+    const recentDocuments = Array.from({ length: 12 }, (_, index) =>
+      reference(`/docs/${index}.md`, now - index),
+    );
+    recentDocuments.push(reference('/docs/expired.md', now - recentDocumentMaxAgeMs - 1));
 
     const pruned = pruneRecentDocuments(recentDocuments, now);
 
     expect(pruned).toHaveLength(10);
-    expect(pruned.map(({ document }) => document.path)).toEqual(
+    expect(pruned.map(({ path }) => path)).toEqual(
       Array.from({ length: 10 }, (_, index) => `/docs/${index}.md`),
     );
-    expect(pruned.some(({ document }) => document.path === '/docs/expired.md')).toBe(false);
+    expect(pruned.some(({ path }) => path === '/docs/expired.md')).toBe(false);
   });
 });

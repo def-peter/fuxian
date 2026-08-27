@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -11,13 +12,31 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/basic.md');
 const showcaseDocumentPath = resolve(repositoryRoot, 'fixtures/showcase.md');
+const disposableSessionFiles = new Set<string>();
 
-const launchDesktop = async (sourcePath: string | string[]): Promise<ElectronApplication> =>
-  electron.launch({
+interface LaunchDesktopOptions {
+  locateSourcePath?: string;
+  sessionFilePath?: string;
+}
+
+const launchDesktop = async (
+  sourcePath: string | string[],
+  options: LaunchDesktopOptions = {},
+): Promise<ElectronApplication> => {
+  const sessionFilePath =
+    options.sessionFilePath ?? join(tmpdir(), `fuxian-e2e-session-${randomUUID()}.json`);
+  if (!options.sessionFilePath) {
+    disposableSessionFiles.add(sessionFilePath);
+  }
+  return electron.launch({
     executablePath: electronPath,
     args: [desktopAppPath],
     env: {
       ...process.env,
+      ...(options.locateSourcePath
+        ? { FUXIAN_E2E_LOCATE_SOURCE_DOCUMENT: options.locateSourcePath }
+        : {}),
+      FUXIAN_E2E_SESSION_FILE: sessionFilePath,
       FUXIAN_E2E_SOURCE_DOCUMENT: typeof sourcePath === 'string' ? sourcePath : sourcePath[0],
       FUXIAN_E2E_SOURCE_DOCUMENTS: JSON.stringify(
         typeof sourcePath === 'string' ? [sourcePath] : sourcePath,
@@ -25,6 +44,155 @@ const launchDesktop = async (sourcePath: string | string[]): Promise<ElectronApp
       NODE_ENV: 'test',
     },
   });
+};
+
+test.afterAll(async () => {
+  await Promise.all([...disposableSessionFiles].map((path) => rm(path, { force: true })));
+});
+
+test('restores open-document order, active document, and reading position after restart', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-restart-'));
+  const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+  const launchOptions = { sessionFilePath };
+  let electronApp = await launchDesktop([sourceDocumentPath, showcaseDocumentPath], launchOptions);
+
+  try {
+    let window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await session.getByRole('button', { exact: true, name: 'showcase.md' }).click();
+    await window
+      .getByRole('complementary', { name: '内容目录' })
+      .getByRole('button', { name: '本地资源' })
+      .click();
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect
+      .poll(() =>
+        finishedDocument
+          .getByRole('heading', { name: '本地资源' })
+          .evaluate((heading) => Math.round(heading.getBoundingClientRect().top)),
+      )
+      .toBeLessThan(40);
+    await expect
+      .poll(async () => {
+        try {
+          const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+            activeDocumentPath?: string;
+            openDocuments: Array<{
+              path: string;
+              readingPosition: { headingId?: string; relativeProgress: number };
+            }>;
+          };
+          const showcase = persisted.openDocuments.find(
+            (document) => document.path === showcaseDocumentPath,
+          );
+          return {
+            activeDocumentPath: persisted.activeDocumentPath,
+            headingId: showcase?.readingPosition.headingId,
+            paths: persisted.openDocuments.map(({ path }) => path),
+            progressed: (showcase?.readingPosition.relativeProgress ?? 0) > 0,
+          };
+        } catch {
+          return undefined;
+        }
+      })
+      .toMatchObject({
+        activeDocumentPath: showcaseDocumentPath,
+        paths: [sourceDocumentPath, showcaseDocumentPath],
+        progressed: true,
+      });
+
+    await electronApp.close();
+    electronApp = await launchDesktop(sourceDocumentPath, launchOptions);
+    window = await electronApp.firstWindow();
+    const restoredSession = window.getByRole('complementary', { name: '文档会话' });
+    await expect(
+      restoredSession.getByRole('button', { exact: true, name: 'showcase.md' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      restoredSession.getByRole('button', { name: /^(basic|showcase)\.md$/ }),
+    ).toHaveText(['basic.md', 'showcase.md']);
+    const restoredDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect
+      .poll(() => restoredDocument.locator('body').evaluate(() => Math.round(globalThis.scrollY)))
+      .toBeGreaterThan(100);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test('restores available documents while unavailable items can be retried, located, or removed', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-recovery-'));
+  const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+  const retryPath = join(temporaryDirectory, 'retry.md');
+  const locatePath = join(temporaryDirectory, 'locate.md');
+  const removePath = join(temporaryDirectory, 'remove.md');
+  const reference = (path: string) => ({
+    lastOpenedAt: Date.now(),
+    name: path.split('/').at(-1),
+    path,
+    readingPosition: { headingOffset: 0, relativeProgress: 0 },
+  });
+  await writeFile(
+    sessionFilePath,
+    JSON.stringify({
+      activeDocumentPath: locatePath,
+      openDocuments: [
+        reference(sourceDocumentPath),
+        reference(retryPath),
+        reference(locatePath),
+        reference(removePath),
+      ],
+      recentDocuments: [],
+      version: 1,
+    }),
+  );
+  const electronApp = await launchDesktop(sourceDocumentPath, {
+    locateSourcePath: showcaseDocumentPath,
+    sessionFilePath,
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(
+      window
+        .frameLocator('iframe[title="Finished document"]')
+        .getByRole('heading', { name: 'A finished document' }),
+    ).toBeVisible();
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(session.getByText('retry.md', { exact: true })).toBeVisible();
+    await expect(session.getByRole('button', { name: '重试 retry.md' })).toBeVisible();
+    await expect(session.getByRole('button', { name: '定位 retry.md' })).toBeVisible();
+    await expect(session.getByRole('button', { name: '移除 retry.md' })).toBeVisible();
+
+    await writeFile(retryPath, '# Retried document\n\nRecovered.');
+    const canonicalRetryPath = await realpath(retryPath);
+    await session.getByRole('button', { name: '重试 retry.md' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'retry.md' })).toBeVisible();
+
+    await session.getByRole('button', { name: '定位 locate.md' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
+
+    await session.getByRole('button', { name: '移除 remove.md' }).click();
+    await expect(session.getByText('remove.md', { exact: true })).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+          openDocuments: Array<{ path: string }>;
+        };
+        return persisted.openDocuments.map(({ path }) => path);
+      })
+      .toEqual([sourceDocumentPath, canonicalRetryPath, showcaseDocumentPath]);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
 
 test('a reader can open a source document from the start view', async () => {
   const electronApp = await launchDesktop(sourceDocumentPath);

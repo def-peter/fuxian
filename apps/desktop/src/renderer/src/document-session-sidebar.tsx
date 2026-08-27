@@ -1,10 +1,22 @@
-import { ChevronRight, FileText, FolderOpen, X } from 'lucide-react';
+import {
+  ChevronRight,
+  FileText,
+  FileWarning,
+  FolderOpen,
+  FolderSearch,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { SessionDocument } from '@/document-session';
+import type {
+  OpenDocumentItem,
+  RecentDocument,
+  UnavailableSessionDocument,
+} from '@/document-session';
 import { cn } from '@/lib/utils';
 
 interface DocumentSessionSidebarProps {
@@ -12,17 +24,83 @@ interface DocumentSessionSidebarProps {
   isOpening: boolean;
   onActivate(path: string): void;
   onClose(path: string): void;
+  onLocate(path: string): void;
   onOpen(): void;
+  onRemoveUnavailable(path: string): void;
   onReopen(path: string): void;
-  openDocuments: SessionDocument[];
-  recentDocuments: SessionDocument[];
+  onRetry(path: string): void;
+  openDocuments: OpenDocumentItem[];
+  recentDocuments: RecentDocument[];
+}
+
+interface UnavailableDocumentItemProps {
+  document: UnavailableSessionDocument;
+  disabled: boolean;
+  onLocate(): void;
+  onRemove(): void;
+  onRetry(): void;
 }
 
 interface DocumentItemProps {
   active?: boolean;
-  document: SessionDocument;
+  document: { name: string; path: string };
   onActivate(): void;
   onClose?: () => void;
+}
+
+function UnavailableDocumentItem({
+  document,
+  disabled,
+  onLocate,
+  onRemove,
+  onRetry,
+}: UnavailableDocumentItemProps): React.JSX.Element {
+  return (
+    <div className="flex min-h-10 items-center border-l-2 border-destructive/60 px-1 pl-3">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex min-w-0 flex-1 items-center gap-2 text-sm" tabIndex={0}>
+            <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+            <span className="truncate">{document.name}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-96" side="right" sideOffset={6}>
+          <p className="break-all">{document.path}</p>
+          <p>{document.message}</p>
+        </TooltipContent>
+      </Tooltip>
+      <Button
+        aria-label={`重试 ${document.name}`}
+        disabled={disabled}
+        onClick={onRetry}
+        size="icon-xs"
+        title={`重试 ${document.name}`}
+        variant="ghost"
+      >
+        <RotateCcw aria-hidden="true" />
+      </Button>
+      <Button
+        aria-label={`定位 ${document.name}`}
+        disabled={disabled}
+        onClick={onLocate}
+        size="icon-xs"
+        title={`定位 ${document.name}`}
+        variant="ghost"
+      >
+        <FolderSearch aria-hidden="true" />
+      </Button>
+      <Button
+        aria-label={`移除 ${document.name}`}
+        disabled={disabled}
+        onClick={onRemove}
+        size="icon-xs"
+        title={`移除 ${document.name}`}
+        variant="ghost"
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </div>
+  );
 }
 
 function FuxianMark(): React.JSX.Element {
@@ -61,20 +139,20 @@ function DocumentItem({
             type="button"
           >
             <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{document.document.name}</span>
+            <span className="truncate">{document.name}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-96 break-all" side="right" sideOffset={6}>
-          {document.document.path}
+          {document.path}
         </TooltipContent>
       </Tooltip>
       {onClose ? (
         <Button
-          aria-label={`关闭 ${document.document.name}`}
+          aria-label={`关闭 ${document.name}`}
           className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={onClose}
           size="icon-xs"
-          title={`关闭 ${document.document.name}`}
+          title={`关闭 ${document.name}`}
           variant="ghost"
         >
           <X aria-hidden="true" />
@@ -115,8 +193,11 @@ export function DocumentSessionSidebar({
   isOpening,
   onActivate,
   onClose,
+  onLocate,
   onOpen,
+  onRemoveUnavailable,
   onReopen,
+  onRetry,
   openDocuments,
   recentDocuments,
 }: DocumentSessionSidebarProps): React.JSX.Element {
@@ -149,23 +230,34 @@ export function DocumentSessionSidebar({
       <ScrollArea className="min-h-0">
         <div className="flex flex-col gap-2 py-2">
           <SessionSection count={openDocuments.length} title="正在打开">
-            {openDocuments.map((document) => (
-              <DocumentItem
-                active={document.document.path === activeDocumentPath}
-                document={document}
-                key={document.document.path}
-                onActivate={() => onActivate(document.document.path)}
-                onClose={() => onClose(document.document.path)}
-              />
-            ))}
+            {openDocuments.map((document) =>
+              document.status === 'available' ? (
+                <DocumentItem
+                  active={document.document.path === activeDocumentPath}
+                  document={document.document}
+                  key={document.document.path}
+                  onActivate={() => onActivate(document.document.path)}
+                  onClose={() => onClose(document.document.path)}
+                />
+              ) : (
+                <UnavailableDocumentItem
+                  disabled={isOpening}
+                  document={document}
+                  key={document.path}
+                  onLocate={() => onLocate(document.path)}
+                  onRemove={() => onRemoveUnavailable(document.path)}
+                  onRetry={() => onRetry(document.path)}
+                />
+              ),
+            )}
           </SessionSection>
 
           <SessionSection count={recentDocuments.length} title="最近打开">
             {recentDocuments.map((document) => (
               <DocumentItem
                 document={document}
-                key={document.document.path}
-                onActivate={() => onReopen(document.document.path)}
+                key={document.path}
+                onActivate={() => onReopen(document.path)}
               />
             ))}
           </SessionSection>

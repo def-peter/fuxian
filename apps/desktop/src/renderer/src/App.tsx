@@ -1,5 +1,9 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
-import type { OpenSourceDocumentsResult, SourceDocumentData } from '@fuxian/shared-types';
+import type {
+  OpenSourceDocumentsResult,
+  ReadSourceDocumentResult,
+  SourceDocumentData,
+} from '@fuxian/shared-types';
 import {
   AlertCircle,
   ChevronDown,
@@ -11,8 +15,9 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContentOutline, type ContentOutlinePreference } from '@/content-outline';
 import {
@@ -20,8 +25,15 @@ import {
   addDocumentsToSession,
   closeDocument,
   createDocumentSession,
+  createPersistedDocumentSession,
+  createRestoredDocumentSession,
+  recoverUnavailableDocument,
+  removeUnavailableDocument,
   reopenRecentDocument,
+  setUnavailableDocumentMessage,
+  updateReadingPosition,
   type FinishedSourceDocument,
+  type SessionDocument,
 } from '@/document-session';
 import { DocumentSessionSidebar } from '@/document-session-sidebar';
 import {
@@ -49,6 +61,7 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
 
 export function App(): React.JSX.Element {
   const [session, setSession] = useState(createDocumentSession);
+  const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
   const [blockingError, setBlockingError] = useState<string>();
   const [showAllStartRecent, setShowAllStartRecent] = useState(false);
@@ -62,10 +75,78 @@ export function App(): React.JSX.Element {
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
   const findInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
+  const sessionRef = useRef(session);
 
   const activeDocument = session.openDocuments.find(
-    (document) => document.document.path === session.activeDocumentPath,
+    (document): document is SessionDocument =>
+      document.status === 'available' && document.document.path === session.activeDocumentPath,
   );
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.fuxian
+      .loadDocumentSession()
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const restored = result.openDocuments.map((item) => {
+          if (item.status === 'unavailable') {
+            return item;
+          }
+          try {
+            return {
+              status: 'available' as const,
+              reference: item.reference,
+              document: finishSourceDocument(item.document),
+            };
+          } catch {
+            return {
+              status: 'unavailable' as const,
+              reference: item.reference,
+              message: `“${item.reference.name}”的内容暂时无法呈现。`,
+            };
+          }
+        });
+        setSession(createRestoredDocumentSession(result.session, restored, Date.now()));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBlockingError('无法恢复上次文档会话。你仍可以重新打开文档。');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRestorationStatus('ready');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (restorationStatus !== 'ready') {
+      return;
+    }
+    const saveTimer = window.setTimeout(() => {
+      void window.fuxian.saveDocumentSession(createPersistedDocumentSession(session));
+    }, 150);
+    return () => window.clearTimeout(saveTimer);
+  }, [restorationStatus, session]);
+
+  useEffect(() => {
+    const saveBeforeUnload = (): void => {
+      void window.fuxian.saveDocumentSession(createPersistedDocumentSession(sessionRef.current));
+    };
+    window.addEventListener('beforeunload', saveBeforeUnload);
+    return () => window.removeEventListener('beforeunload', saveBeforeUnload);
+  }, []);
 
   useEffect(() => {
     return () => finishedDocumentController.current?.destroy();
@@ -122,17 +203,27 @@ export function App(): React.JSX.Element {
 
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
+      initialReadingPosition: activeDocument?.readingPosition ?? {
+        headingOffset: 0,
+        relativeProgress: 0,
+      },
       onActiveHeadingChange: setActiveHeadingId,
       onFindRequest: () => setFindOpen(true),
+      onReadingPositionChange: (position) => {
+        if (activeDocument) {
+          setSession((current) =>
+            updateReadingPosition(current, activeDocument.document.path, position),
+          );
+        }
+      },
     });
     finishedDocumentController.current = controller;
     setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
   };
 
-  const finishedDocumentSource = useMemo(
-    () => (activeDocument ? createFinishedDocumentSource(activeDocument.html) : undefined),
-    [activeDocument],
-  );
+  const finishedDocumentSource = activeDocument
+    ? createFinishedDocumentSource(activeDocument.html)
+    : undefined;
 
   const acceptOpenResult = (result: OpenSourceDocumentsResult): void => {
     if (result.status === 'cancelled') {
@@ -142,7 +233,7 @@ export function App(): React.JSX.Element {
 
     if (result.status === 'error') {
       setOpening(false);
-      if (session.openDocuments.length === 0) {
+      if (!activeDocument) {
         setBlockingError(result.message);
       }
       return;
@@ -159,17 +250,30 @@ export function App(): React.JSX.Element {
 
     setOpening(false);
     if (finishedDocuments.length === 0) {
-      if (session.openDocuments.length === 0) {
+      if (!activeDocument) {
         setBlockingError('选择的文档暂时无法呈现。请检查文件内容后重试。');
       }
       return;
     }
 
-    if (finishedDocuments[0]?.document.path !== session.activeDocumentPath) {
+    const switchingDocument = finishedDocuments[0]?.document.path !== session.activeDocumentPath;
+    const currentPath = switchingDocument ? session.activeDocumentPath : undefined;
+    const currentPosition = switchingDocument
+      ? finishedDocumentController.current?.getReadingPosition()
+      : undefined;
+    if (switchingDocument) {
       resetDocumentControls();
     }
     setBlockingError(undefined);
-    setSession((current) => addDocumentsToSession(current, finishedDocuments, Date.now()));
+    setSession((current) =>
+      addDocumentsToSession(
+        currentPath && currentPosition
+          ? updateReadingPosition(current, currentPath, currentPosition)
+          : current,
+        finishedDocuments,
+        Date.now(),
+      ),
+    );
   };
 
   const openSourceDocuments = async (): Promise<void> => {
@@ -178,7 +282,7 @@ export function App(): React.JSX.Element {
       acceptOpenResult(await window.fuxian.openSourceDocuments());
     } catch {
       setOpening(false);
-      if (session.openDocuments.length === 0) {
+      if (!activeDocument) {
         setBlockingError('应用暂时无法访问文件。请重试或重新打开窗口。');
       }
     }
@@ -190,7 +294,7 @@ export function App(): React.JSX.Element {
       acceptOpenResult(await window.fuxian.openDroppedSourceDocuments(files));
     } catch {
       setOpening(false);
-      if (session.openDocuments.length === 0) {
+      if (!activeDocument) {
         setBlockingError('应用无法读取拖入的文档。请确认文件仍然存在。');
       }
     }
@@ -198,22 +302,106 @@ export function App(): React.JSX.Element {
 
   const activateOpenDocument = (path: string): void => {
     if (path !== session.activeDocumentPath) {
+      const currentPath = session.activeDocumentPath;
+      const position = finishedDocumentController.current?.getReadingPosition();
       resetDocumentControls();
-      setSession((current) => activateDocument(current, path));
+      setSession((current) =>
+        activateDocument(
+          currentPath && position ? updateReadingPosition(current, currentPath, position) : current,
+          path,
+        ),
+      );
     }
   };
 
   const closeOpenDocument = (path: string): void => {
+    const position =
+      path === session.activeDocumentPath
+        ? finishedDocumentController.current?.getReadingPosition()
+        : undefined;
     if (path === session.activeDocumentPath) {
       resetDocumentControls();
     }
-    setSession((current) => closeDocument(current, path, Date.now()));
+    setSession((current) =>
+      closeDocument(
+        position ? updateReadingPosition(current, path, position) : current,
+        path,
+        Date.now(),
+      ),
+    );
   };
 
-  const reopenDocument = (path: string): void => {
-    resetDocumentControls();
-    setBlockingError(undefined);
-    setSession((current) => reopenRecentDocument(current, path, Date.now()));
+  const reopenDocument = async (path: string): Promise<void> => {
+    setOpening(true);
+    try {
+      const result = await window.fuxian.retrySourceDocument(path);
+      if (result.status === 'available') {
+        const document = finishSourceDocument(result.document);
+        const currentPath = session.activeDocumentPath;
+        const currentPosition = finishedDocumentController.current?.getReadingPosition();
+        resetDocumentControls();
+        setBlockingError(undefined);
+        setSession((current) =>
+          reopenRecentDocument(
+            currentPath && currentPosition
+              ? updateReadingPosition(current, currentPath, currentPosition)
+              : current,
+            path,
+            document,
+            Date.now(),
+          ),
+        );
+      } else {
+        setSession((current) => reopenRecentDocument(current, path, result, Date.now()));
+      }
+    } catch {
+      setSession((current) =>
+        reopenRecentDocument(current, path, { message: '应用暂时无法访问该文档。' }, Date.now()),
+      );
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const acceptRecoveryResult = (path: string, result: ReadSourceDocumentResult): void => {
+    if (result.status === 'unavailable') {
+      setSession((current) => setUnavailableDocumentMessage(current, path, result.message));
+      return;
+    }
+    try {
+      const document = finishSourceDocument(result.document);
+      setSession((current) => recoverUnavailableDocument(current, path, document));
+      setBlockingError(undefined);
+    } catch {
+      setSession((current) =>
+        setUnavailableDocumentMessage(current, path, '该文档的内容暂时无法呈现。'),
+      );
+    }
+  };
+
+  const retryUnavailableDocument = async (path: string): Promise<void> => {
+    setOpening(true);
+    try {
+      acceptRecoveryResult(path, await window.fuxian.retrySourceDocument(path));
+    } catch {
+      setSession((current) =>
+        setUnavailableDocumentMessage(current, path, '应用暂时无法访问该文档。'),
+      );
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const locateUnavailableDocument = async (path: string): Promise<void> => {
+    setOpening(true);
+    try {
+      const result = await window.fuxian.locateSourceDocument(path);
+      if (result.status !== 'cancelled') {
+        acceptRecoveryResult(path, result);
+      }
+    } finally {
+      setOpening(false);
+    }
   };
 
   const closeFind = (): void => {
@@ -285,6 +473,9 @@ export function App(): React.JSX.Element {
   const startRecentDocuments = showAllStartRecent
     ? session.recentDocuments
     : session.recentDocuments.slice(0, 5);
+  const unavailableDocuments = session.openDocuments.filter(
+    (document) => document.status === 'unavailable',
+  );
 
   return (
     <TooltipProvider>
@@ -301,13 +492,22 @@ export function App(): React.JSX.Element {
           isOpening={opening}
           onActivate={activateOpenDocument}
           onClose={closeOpenDocument}
+          onLocate={(path) => void locateUnavailableDocument(path)}
           onOpen={() => void openSourceDocuments()}
-          onReopen={reopenDocument}
+          onRemoveUnavailable={(path) =>
+            setSession((current) => removeUnavailableDocument(current, path))
+          }
+          onReopen={(path) => void reopenDocument(path)}
+          onRetry={(path) => void retryUnavailableDocument(path)}
           openDocuments={session.openDocuments}
           recentDocuments={session.recentDocuments}
         />
 
-        {activeDocument && finishedDocumentSource ? (
+        {restorationStatus === 'loading' ? (
+          <main className="flex min-h-0 items-center justify-center text-sm text-muted-foreground">
+            正在恢复上次会话...
+          </main>
+        ) : activeDocument && finishedDocumentSource ? (
           <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)]">
             <header className="flex items-center justify-between border-b bg-card px-4">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -451,17 +651,33 @@ export function App(): React.JSX.Element {
         ) : (
           <main className="flex min-h-0 items-center justify-center overflow-y-auto px-8 py-12">
             {blockingError ? (
-              <section className="w-full max-w-md" aria-labelledby="error-title" role="alert">
-                <AlertCircle aria-hidden="true" className="mb-5 size-7 text-destructive" />
-                <h1 id="error-title" className="text-xl font-semibold">
-                  无法打开文档
-                </h1>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{blockingError}</p>
-                <Button className="mt-6" onClick={() => void openSourceDocuments()}>
-                  <FolderOpen aria-hidden="true" />
-                  打开其他文档
-                </Button>
-              </section>
+              <Alert className="w-full max-w-md" variant="destructive">
+                <AlertCircle aria-hidden="true" />
+                <AlertTitle>
+                  <h1 id="error-title">无法打开文档</h1>
+                </AlertTitle>
+                <AlertDescription>
+                  <p>{blockingError}</p>
+                  <Button className="mt-3" onClick={() => void openSourceDocuments()}>
+                    <FolderOpen aria-hidden="true" />
+                    打开其他文档
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : unavailableDocuments.length > 0 ? (
+              <Alert className="w-full max-w-md">
+                <AlertCircle aria-hidden="true" />
+                <AlertTitle>
+                  <h1>部分文档暂时不可用</h1>
+                </AlertTitle>
+                <AlertDescription>
+                  <p>可在左侧对文档执行重试、重新定位或移除。</p>
+                  <Button className="mt-3" onClick={() => void openSourceDocuments()}>
+                    <FolderOpen aria-hidden="true" />
+                    打开其他文档
+                  </Button>
+                </AlertDescription>
+              </Alert>
             ) : (
               <section className="w-full max-w-xl" aria-labelledby="start-title">
                 <div className="mb-10 h-px w-14 bg-primary" />
@@ -496,22 +712,22 @@ export function App(): React.JSX.Element {
                     </div>
                     <div className="mt-2 flex flex-col">
                       {startRecentDocuments.map((document) => (
-                        <Tooltip key={document.document.path}>
+                        <Tooltip key={document.path}>
                           <TooltipTrigger asChild>
                             <button
                               className="flex min-h-10 items-center gap-2 border-b px-1 text-left text-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                              onClick={() => reopenDocument(document.document.path)}
+                              onClick={() => void reopenDocument(document.path)}
                               type="button"
                             >
                               <FileText
                                 aria-hidden="true"
                                 className="size-4 shrink-0 text-muted-foreground"
                               />
-                              <span className="truncate">{document.document.name}</span>
+                              <span className="truncate">{document.name}</span>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="right" sideOffset={6}>
-                            {document.document.path}
+                            {document.path}
                           </TooltipContent>
                         </Tooltip>
                       ))}
