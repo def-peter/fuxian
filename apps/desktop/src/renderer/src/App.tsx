@@ -1,9 +1,12 @@
-import { documentThemeCss } from '@fuxian/document-theme';
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type { OpenSourceDocumentResult, SourceDocumentData } from '@fuxian/shared-types';
 import { AlertCircle, FileText, FolderOpen } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  bindFinishedDocumentInteractions,
+  createFinishedDocumentSource,
+} from '@/finished-document';
 
 type ReaderState =
   | { status: 'start' }
@@ -11,23 +14,28 @@ type ReaderState =
   | { status: 'error'; message: string }
   | { status: 'reading'; document: SourceDocumentData; html: string };
 
-function createFinishedDocumentSource(body: string): string {
-  return `<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'" />
-    <style>${documentThemeCss}</style>
-  </head>
-  <body>
-    <main class="finished-document">${body}</main>
-  </body>
-</html>`;
-}
-
 export function App(): React.JSX.Element {
   const [readerState, setReaderState] = useState<ReaderState>({ status: 'start' });
+  const finishedDocumentFrame = useRef<HTMLIFrameElement>(null);
+  const removeFinishedDocumentInteractions = useRef<(() => void) | undefined>(undefined);
+
+  useEffect(() => {
+    return () => removeFinishedDocumentInteractions.current?.();
+  }, []);
+
+  const handleFinishedDocumentLoad = (): void => {
+    removeFinishedDocumentInteractions.current?.();
+
+    const frameDocument = finishedDocumentFrame.current?.contentDocument;
+    if (!frameDocument) {
+      return;
+    }
+
+    removeFinishedDocumentInteractions.current = bindFinishedDocumentInteractions(
+      frameDocument,
+      window.fuxian.copyText,
+    );
+  };
 
   const finishedDocumentSource = useMemo(
     () =>
@@ -111,7 +119,9 @@ export function App(): React.JSX.Element {
         <main className="min-h-0 bg-background p-3" aria-label="Finished-document region">
           <iframe
             className="block h-full w-full border bg-card"
-            sandbox="allow-popups"
+            onLoad={handleFinishedDocumentLoad}
+            ref={finishedDocumentFrame}
+            sandbox="allow-popups allow-same-origin"
             srcDoc={finishedDocumentSource}
             title="Finished document"
           />

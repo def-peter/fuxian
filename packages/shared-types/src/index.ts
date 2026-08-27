@@ -1,4 +1,5 @@
 export const desktopIpcChannels = {
+  copyText: 'fuxian:clipboard:write-text',
   openSourceDocument: 'fuxian:source-document:open',
 } as const;
 
@@ -14,5 +15,6 @@ export type OpenSourceDocumentResult =
   | { status: 'opened'; document: SourceDocumentData };
 
 export interface FuxianDesktopBridge {
+  copyText(text: string): Promise<void>;
   openSourceDocument(): Promise<OpenSourceDocumentResult>;
 }

@@ -1,5 +1,5 @@
 import { desktopIpcChannels, type OpenSourceDocumentResult } from '@fuxian/shared-types';
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +53,13 @@ const openSourceDocument = async (): Promise<OpenSourceDocumentResult> => {
 };
 
 const registerDesktopHandlers = (): void => {
+  ipcMain.handle(desktopIpcChannels.copyText, (_event, text: unknown) => {
+    if (typeof text !== 'string' || text.length > 1_000_000) {
+      throw new TypeError('Clipboard text must be a string no longer than 1,000,000 characters.');
+    }
+
+    clipboard.writeText(text);
+  });
   ipcMain.handle(desktopIpcChannels.openSourceDocument, openSourceDocument);
 };
 

@@ -8,6 +8,7 @@ const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/basic.md');
+const showcaseDocumentPath = resolve(repositoryRoot, 'fixtures/showcase.md');
 
 const launchDesktop = async (sourcePath: string): Promise<ElectronApplication> =>
   electron.launch({
@@ -94,6 +95,36 @@ test('a finished-document link opens outside the isolated preview', async () => 
     await expect(
       finishedDocument.getByRole('heading', { name: 'A finished document' }),
     ).toBeVisible();
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('the rich showcase renders safely and copies highlighted code', async () => {
+  const electronApp = await launchDesktop(showcaseDocumentPath);
+
+  try {
+    await electronApp.evaluate(({ clipboard }) => clipboard.clear());
+
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    await expect(
+      finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
+    ).toBeVisible();
+    await expect(finishedDocument.getByRole('table')).toBeVisible();
+    await expect(finishedDocument.getByRole('checkbox')).toHaveCount(2);
+    await expect(finishedDocument.getByText('title: Fuxian renderer showcase')).toHaveCount(0);
+    await expect(finishedDocument.locator('code.hljs.language-typescript')).toBeVisible();
+    expect(
+      await finishedDocument.locator('body').evaluate(() => Reflect.get(globalThis, 'compromised')),
+    ).toBeUndefined();
+
+    await finishedDocument.getByRole('button', { name: '复制代码' }).first().click();
+    await expect
+      .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
+      .toContain('type FinishedDocument');
   } finally {
     await electronApp.close();
   }
