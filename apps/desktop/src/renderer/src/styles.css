@@ -96,6 +96,44 @@
   }
 }
 
+@media (forced-colors: active) {
+  button:focus-visible,
+  input:focus-visible,
+  [tabindex]:focus-visible,
+  [data-slot='button']:focus-visible,
+  [data-slot='dialog-content']:focus-visible,
+  [data-slot='sheet-content']:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+    box-shadow: none !important;
+  }
+
+  [aria-current],
+  [data-state='checked'],
+  [data-state='on'] {
+    border-color: Highlight !important;
+    outline: 1px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  [role='alert'] {
+    border-color: CanvasText !important;
+    color: CanvasText !important;
+  }
+
+  [aria-invalid='true'],
+  .text-destructive {
+    border-color: Mark !important;
+    color: MarkText !important;
+  }
+
+  [data-slot='dialog-overlay'],
+  [data-slot='sheet-overlay'] {
+    background: Canvas;
+    opacity: 0.7;
+  }
+}
+
 html[data-pdf-export],
 html[data-pdf-export] body,
 html[data-pdf-export] #root {

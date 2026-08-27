@@ -63,10 +63,20 @@ function UnavailableDocumentItem({
   onRetry,
 }: UnavailableDocumentItemProps): React.JSX.Element {
   return (
-    <div className="flex min-h-10 items-center border-l-2 border-destructive/60 px-1 pl-3">
+    <div
+      aria-label={`${document.name}，文档不可用。${document.message}`}
+      className="flex min-h-10 items-center border-l-2 border-destructive/60 px-1 pl-3"
+      role="group"
+      title={`${document.path}\n${document.message}`}
+    >
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex min-w-0 flex-1 items-center gap-2 text-sm" tabIndex={0}>
+          <div
+            aria-label={`${document.name}。${document.message}`}
+            className="flex min-w-0 flex-1 items-center gap-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            role="note"
+            tabIndex={0}
+          >
             <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
             <span className="truncate">{document.name}</span>
           </div>
@@ -127,6 +137,7 @@ function DocumentItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            aria-label={`${document.name}${loading ? '，正在更新' : ''}`}
             aria-current={active ? 'page' : undefined}
             className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={onActivate}

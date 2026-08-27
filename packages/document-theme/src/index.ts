@@ -584,6 +584,33 @@ code {
   }
 }
 
+@media (forced-colors: active) {
+  .code-copy-button:focus-visible,
+  .diagram-action-button:focus-visible,
+  .resource-retry-button:focus-visible,
+  .render-task-retry-button:focus-visible {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .diagram-action-toolbar {
+    forced-color-adjust: auto;
+  }
+
+  .render-task-error {
+    border-color: Mark;
+    color: MarkText;
+    background: Canvas;
+  }
+
+  .diagram-action-button:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
+
 .hljs-comment,
 .hljs-quote {
   color: #73807b;

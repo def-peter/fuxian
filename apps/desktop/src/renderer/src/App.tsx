@@ -178,6 +178,9 @@ export function App(): React.JSX.Element {
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
   const frameControllers = useRef(new Map<string, FinishedDocumentController>());
   const findInput = useRef<HTMLInputElement>(null);
+  const findReturnFocus = useRef<HTMLElement | undefined>(undefined);
+  const contentOutlineTrigger = useRef<HTMLButtonElement>(null);
+  const documentSessionTrigger = useRef<HTMLButtonElement>(null);
   const dragDepth = useRef(0);
   const sessionRef = useRef(session);
   const diagramLayoutReadingPosition = useRef<ReadingPosition | undefined>(undefined);
@@ -472,6 +475,26 @@ export function App(): React.JSX.Element {
     }
   }, [findOpen, findQuery]);
 
+  const openFind = useCallback((): void => {
+    const activeElement = document.activeElement;
+    if (!findReturnFocus.current) {
+      findReturnFocus.current = activeElement instanceof HTMLElement ? activeElement : undefined;
+    }
+    setFindOpen(true);
+  }, []);
+
+  const closeFind = useCallback((): void => {
+    const returnFocus = findReturnFocus.current;
+    finishedDocumentController.current?.clearFind();
+    setFindOpen(false);
+    findReturnFocus.current = undefined;
+    setFindQuery('');
+    setFindResult(emptyFindResult());
+    window.requestAnimationFrame(() => {
+      returnFocus?.focus();
+    });
+  }, []);
+
   useEffect(() => {
     if (findOpen) {
       findInput.current?.focus();
@@ -486,19 +509,20 @@ export function App(): React.JSX.Element {
         event.key.toLocaleLowerCase() === 'f'
       ) {
         event.preventDefault();
-        setFindOpen(true);
+        openFind();
       }
     };
 
     window.addEventListener('keydown', handleWindowKeyDown);
     return () => window.removeEventListener('keydown', handleWindowKeyDown);
-  }, [activeDocument]);
+  }, [activeDocument, openFind]);
 
   const resetActiveDocumentControls = (): void => {
     finishedDocumentController.current = undefined;
     visibleFrameIdRef.current = undefined;
     setActiveHeadingId(undefined);
     setFindOpen(false);
+    findReturnFocus.current = undefined;
     setFindQuery('');
     setFindResult(emptyFindResult());
     setSourceDiagram(undefined);
@@ -508,6 +532,22 @@ export function App(): React.JSX.Element {
   const showDiagramSource = (diagram: DiagramSnapshot | undefined): void => {
     diagramLayoutReadingPosition.current = finishedDocumentController.current?.getReadingPosition();
     setSourceDiagram(diagram);
+  };
+
+  const restoreDiagramActionFocus = (
+    diagram: DiagramSnapshot | undefined,
+    action: 'focus' | 'source',
+  ): void => {
+    if (!diagram) return;
+    window.requestAnimationFrame(() =>
+      finishedDocumentController.current?.focusDiagramAction(diagram.id, action),
+    );
+  };
+
+  const closeDiagramSource = (): void => {
+    const diagram = sourceDiagram;
+    showDiagramSource(undefined);
+    restoreDiagramActionFocus(diagram, 'source');
   };
 
   const handleFinishedDocumentFrameRemove = useCallback((id: string): void => {
@@ -551,7 +591,7 @@ export function App(): React.JSX.Element {
         if (visibleFrameIdRef.current === frame.id) setActiveHeadingId(id);
       },
       onFindRequest: () => {
-        if (visibleFrameIdRef.current === frame.id) setFindOpen(true);
+        if (visibleFrameIdRef.current === frame.id) openFind();
       },
       onFocusDiagram: (diagram) => {
         if (visibleFrameIdRef.current === frame.id) setFocusedDiagram(diagram);
@@ -967,13 +1007,6 @@ export function App(): React.JSX.Element {
     });
   };
 
-  const closeFind = (): void => {
-    finishedDocumentController.current?.clearFind();
-    setFindOpen(false);
-    setFindQuery('');
-    setFindResult(emptyFindResult());
-  };
-
   const showNextFindResult = (): void => {
     setFindResult(finishedDocumentController.current?.findNext() ?? emptyFindResult());
   };
@@ -1103,6 +1136,7 @@ export function App(): React.JSX.Element {
                     updateShellPreferences({ documentSessionExpanded: true });
                   }
                 }}
+                ref={documentSessionTrigger}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -1189,6 +1223,7 @@ export function App(): React.JSX.Element {
                       setContentOutlineSheetOpen(true);
                     }
                   }}
+                  ref={contentOutlineTrigger}
                   size="icon-sm"
                   title={
                     contentOutlineInline
@@ -1206,19 +1241,13 @@ export function App(): React.JSX.Element {
                   )}
                 </Button>
                 <FileText aria-hidden="true" className="ml-1 size-4 text-muted-foreground" />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="truncate text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      tabIndex={0}
-                    >
-                      {activeDocument.document.name}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-96 break-all" side="bottom" sideOffset={8}>
-                    {activeDocument.document.path}
-                  </TooltipContent>
-                </Tooltip>
+                <span
+                  aria-label={`${activeDocument.document.name}，${activeDocument.document.path}`}
+                  className="truncate text-sm font-semibold"
+                  title={activeDocument.document.path}
+                >
+                  {activeDocument.document.name}
+                </span>
                 {externalRevisionStatus.state === 'updating' ? (
                   <span
                     aria-live="polite"
@@ -1302,7 +1331,11 @@ export function App(): React.JSX.Element {
                   )}
                 </Button>
                 {findOpen ? (
-                  <div className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs">
+                  <div
+                    aria-label="页内查找"
+                    className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
+                    role="search"
+                  >
                     <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
                     <input
                       aria-label="页内查找"
@@ -1354,7 +1387,7 @@ export function App(): React.JSX.Element {
                 ) : (
                   <Button
                     aria-label="页内查找"
-                    onClick={() => setFindOpen(true)}
+                    onClick={openFind}
                     size="icon-sm"
                     title="页内查找"
                     variant="ghost"
@@ -1386,7 +1419,7 @@ export function App(): React.JSX.Element {
             >
               <main
                 className="relative grid min-h-0 bg-background p-3"
-                aria-label="Finished-document region"
+                aria-label="完成文档阅读区"
                 data-finished-document-region=""
               >
                 {documentFrames.map((frame) => (
@@ -1412,7 +1445,7 @@ export function App(): React.JSX.Element {
                 <DiagramSourceDrawer
                   copyText={window.fuxian.copyText}
                   diagram={sourceDiagram}
-                  onClose={() => showDiagramSource(undefined)}
+                  onClose={closeDiagramSource}
                 />
               ) : contentOutlineInline ? (
                 <ContentOutline
@@ -1428,10 +1461,18 @@ export function App(): React.JSX.Element {
               diagram={focusedDiagram}
               key={focusedDiagram?.id ?? 'closed-diagram-focus'}
               onClose={() => setFocusedDiagram(undefined)}
+              onReturnFocus={(diagram) => restoreDiagramActionFocus(diagram, 'focus')}
             />
             {shellLayout !== 'wide' && activeDocument ? (
               <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
-                <SheetContent className="w-72 max-w-[88vw] p-0" showCloseButton={false}>
+                <SheetContent
+                  className="w-72 max-w-[88vw] p-0"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    contentOutlineTrigger.current?.focus();
+                  }}
+                  showCloseButton={false}
+                >
                   <SheetTitle className="sr-only">内容目录</SheetTitle>
                   <SheetDescription className="sr-only">
                     浏览并跳转到当前文档中的标题。
@@ -1450,7 +1491,7 @@ export function App(): React.JSX.Element {
             ) : null}
             {sourceDiagram && shellLayout !== 'wide' ? (
               <Sheet
-                onOpenChange={(open) => !open && showDiagramSource(undefined)}
+                onOpenChange={(open) => !open && closeDiagramSource()}
                 open={Boolean(sourceDiagram)}
               >
                 <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
@@ -1461,7 +1502,7 @@ export function App(): React.JSX.Element {
                   <DiagramSourceDrawer
                     copyText={window.fuxian.copyText}
                     diagram={sourceDiagram}
-                    onClose={() => showDiagramSource(undefined)}
+                    onClose={closeDiagramSource}
                   />
                 </SheetContent>
               </Sheet>
@@ -1565,7 +1606,15 @@ export function App(): React.JSX.Element {
         ) : null}
         {shellLayout === 'narrow' ? (
           <Sheet onOpenChange={setDocumentSessionSheetOpen} open={documentSessionSheetOpen}>
-            <SheetContent className="w-80 max-w-[90vw] p-0" showCloseButton={false} side="left">
+            <SheetContent
+              className="w-80 max-w-[90vw] p-0"
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                documentSessionTrigger.current?.focus();
+              }}
+              showCloseButton={false}
+              side="left"
+            >
               <SheetTitle className="sr-only">文档会话</SheetTitle>
               <SheetDescription className="sr-only">
                 切换正在打开的文档或重新打开最近文档。

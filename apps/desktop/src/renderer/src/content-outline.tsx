@@ -85,7 +85,7 @@ export function ContentOutline({
           )}
           <button
             aria-current={isActive ? 'location' : undefined}
-            className="min-w-0 flex-1 truncate py-1.5 pr-3 text-left text-xs leading-5 text-muted-foreground hover:text-foreground aria-[current=location]:font-medium aria-[current=location]:text-primary"
+            className="min-w-0 flex-1 truncate py-1.5 pr-3 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=location]:font-medium aria-[current=location]:text-primary"
             onClick={() => onNavigate(node.heading.id)}
             ref={isActive ? activeItem : undefined}
             title={node.heading.text}

@@ -1,5 +1,5 @@
 import { Check, Code2, Copy, Minus, Plus, Scan, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,6 +22,7 @@ function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React
   const [status, setStatus] = useState<CopyStatus>('idle');
   return (
     <Button
+      aria-live="polite"
       disabled={disabled}
       onClick={() => void copyDiagramContent(copyText, text).then(setStatus)}
       size="sm"
@@ -65,7 +66,11 @@ export function DiagramSourceDrawer({
         </Button>
       </header>
       <div className="min-h-0 overflow-auto p-3">
-        <pre className="min-h-full whitespace-pre-wrap break-words rounded-sm border bg-background p-3 text-xs leading-5 selection:bg-primary selection:text-primary-foreground">
+        <pre
+          aria-label={`${diagram.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 图表源码`}
+          className="min-h-full whitespace-pre-wrap break-words rounded-sm border bg-background p-3 text-xs leading-5 outline-none selection:bg-primary selection:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          tabIndex={0}
+        >
           <code>{diagram.source}</code>
         </pre>
       </div>
@@ -86,6 +91,7 @@ interface DiagramFocusDialogProps {
   copyText(text: string): Promise<void>;
   diagram: DiagramSnapshot | undefined;
   onClose(): void;
+  onReturnFocus(diagram: DiagramSnapshot): void;
 }
 
 const clampZoom = (value: number): number => Math.min(4, Math.max(0.25, value));
@@ -94,10 +100,15 @@ export function DiagramFocusDialog({
   copyText,
   diagram,
   onClose,
+  onReturnFocus,
 }: DiagramFocusDialogProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
+  const lastDiagram = useRef<DiagramSnapshot | undefined>(diagram);
+  useEffect(() => {
+    if (diagram) lastDiagram.current = diagram;
+  }, [diagram]);
 
   const fit = (): void => {
     setZoom(1);
@@ -108,13 +119,18 @@ export function DiagramFocusDialog({
     <Dialog open={Boolean(diagram)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className="inset-0 top-0 left-0 h-screen max-h-none w-screen max-w-none translate-x-0 translate-y-0 grid-rows-[52px_minmax(0,1fr)] gap-0 rounded-none border-0 p-0 sm:max-w-none"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const closedDiagram = lastDiagram.current;
+          if (closedDiagram) onReturnFocus(closedDiagram);
+        }}
         showCloseButton={false}
       >
         <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
           <div className="min-w-0">
             <DialogTitle className="truncate text-sm">全屏图表</DialogTitle>
-            <DialogDescription className="sr-only">
-              可缩放、平移、适应窗口并复制当前图表。
+            <DialogDescription className="sr-only" id="diagram-focus-description">
+              可缩放、平移、适应窗口并复制当前图表。聚焦画布后可使用方向键平移、加减号缩放，按数字零恢复窗口大小。
             </DialogDescription>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -127,7 +143,11 @@ export function DiagramFocusDialog({
             >
               <Minus aria-hidden="true" data-icon="inline-start" />
             </Button>
-            <output className="w-14 text-center text-xs tabular-nums">
+            <output
+              aria-label="图表缩放比例"
+              aria-live="polite"
+              className="w-14 text-center text-xs tabular-nums"
+            >
               {Math.round(zoom * 100)}%
             </output>
             <Button
@@ -157,8 +177,35 @@ export function DiagramFocusDialog({
           </div>
         </DialogHeader>
         <div
+          aria-describedby="diagram-focus-description"
+          aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0"
           aria-label="图表全屏画布"
-          className="relative min-h-0 touch-none overflow-hidden bg-muted/30 select-none"
+          className="relative min-h-0 touch-none overflow-hidden bg-muted/30 outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          onKeyDown={(event) => {
+            const movement = event.shiftKey ? 80 : 24;
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault();
+              setOffset((current) => ({
+                ...current,
+                x: current.x + (event.key === 'ArrowLeft' ? -movement : movement),
+              }));
+            } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              event.preventDefault();
+              setOffset((current) => ({
+                ...current,
+                y: current.y + (event.key === 'ArrowUp' ? -movement : movement),
+              }));
+            } else if (event.key === '+' || event.key === '=') {
+              event.preventDefault();
+              setZoom((current) => clampZoom(current * 1.2));
+            } else if (event.key === '-' || event.key === '_') {
+              event.preventDefault();
+              setZoom((current) => clampZoom(current / 1.2));
+            } else if (event.key === '0') {
+              event.preventDefault();
+              fit();
+            }
+          }}
           onPointerDown={(event) => {
             if ((event.target as Element).closest('text, tspan')) return;
             drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
@@ -184,6 +231,8 @@ export function DiagramFocusDialog({
             event.preventDefault();
             setZoom((current) => clampZoom(current * (event.deltaY < 0 ? 1.1 : 0.9)));
           }}
+          role="group"
+          tabIndex={0}
         >
           <div
             className="flex size-full items-center justify-center p-8 [&_svg]:max-h-full [&_svg]:max-w-full [&_svg_text]:select-text [&_svg_tspan]:select-text"

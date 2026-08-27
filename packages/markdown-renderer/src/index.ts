@@ -320,7 +320,12 @@ const classNamesOf = (node: Element): string[] =>
 const createRenderError = (source: string, kind: DocumentRenderTaskKind): Element => ({
   type: 'element',
   tagName: 'span',
-  properties: { className: ['render-task-error'], hidden: true },
+  properties: {
+    ariaLive: 'assertive',
+    className: ['render-task-error'],
+    hidden: true,
+    role: 'alert',
+  },
   children: [
     {
       type: 'element',

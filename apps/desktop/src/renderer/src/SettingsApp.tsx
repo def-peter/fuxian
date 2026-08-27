@@ -313,21 +313,22 @@ export function SettingsApp(): React.JSX.Element {
               <Separator className="my-5" />
               <Field orientation="horizontal">
                 <FieldContent>
-                  <FieldLabel htmlFor="optimize-diagrams">
-                    优化图表
+                  <div className="flex items-center gap-1">
+                    <FieldLabel htmlFor="optimize-diagrams">优化图表</FieldLabel>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span
+                          <Button
                             aria-label="优化图表说明"
-                            className="inline-flex outline-none"
-                            tabIndex={0}
+                            size="icon-xs"
+                            type="button"
+                            variant="ghost"
                           >
                             <CircleHelp
                               aria-hidden="true"
                               className="size-4 text-muted-foreground"
                             />
-                          </span>
+                          </Button>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-72" side="right">
                           统一无显式样式图表的字体、颜色、背景、线条和留白；不会修改源文档，也不会覆盖作者主题或
@@ -335,7 +336,7 @@ export function SettingsApp(): React.JSX.Element {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  </FieldLabel>
+                  </div>
                   <FieldDescription>仅作用于没有显式主题或样式配置的图表。</FieldDescription>
                 </FieldContent>
                 <Switch

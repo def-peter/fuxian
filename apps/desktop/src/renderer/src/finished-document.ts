@@ -37,6 +37,7 @@ export interface FinishedDocumentController {
   find(query: string): FindResult;
   findNext(): FindResult;
   findPrevious(): FindResult;
+  focusDiagramAction(id: string, action: 'focus' | 'source'): void;
   getReadingPosition(): ReadingPosition;
   getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
@@ -231,7 +232,9 @@ export function bindFinishedDocument(
     const element = getRenderTaskElement(task);
     if (!element) continue;
     const toolbar = frameDocument.createElement('span');
+    toolbar.ariaLabel = '图表操作';
     toolbar.className = 'diagram-action-toolbar';
+    toolbar.role = 'toolbar';
     toolbar.append(
       createDiagramAction('source', '查看图表源码', Code2),
       createDiagramAction('focus', '全屏查看图表', Maximize2),
@@ -243,6 +246,7 @@ export function bindFinishedDocument(
     const element = getRenderTaskElement(task);
     if (!element) return;
     element.dataset.renderState = 'pending';
+    element.setAttribute('aria-busy', 'true');
     element.dataset.renderAttempt = `${attempt}`;
     const source = element.querySelector<HTMLElement>('.render-task-source');
     const output = element.querySelector<HTMLElement>('.render-task-output');
@@ -256,6 +260,7 @@ export function bindFinishedDocument(
     const element = getRenderTaskElement(task);
     const output = element?.querySelector<HTMLElement>('.render-task-output');
     if (!element || !output) throw new TypeError('渲染任务占位已不存在。');
+    element.setAttribute('aria-busy', 'false');
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
@@ -276,6 +281,7 @@ export function bindFinishedDocument(
     const element = getRenderTaskElement(task);
     if (!element) return;
     element.dataset.renderState = status;
+    element.setAttribute('aria-busy', 'false');
     const detail = element.querySelector<HTMLElement>('[data-render-error-detail]');
     if (detail)
       detail.textContent =
@@ -586,6 +592,13 @@ export function bindFinishedDocument(
     find,
     findNext: () => activateFindRange(currentFindIndex + 1),
     findPrevious: () => activateFindRange(currentFindIndex - 1),
+    focusDiagramAction: (id, action) => {
+      const task = renderTasks.get(id);
+      if (!task) return;
+      getRenderTaskElement(task)
+        ?.querySelector<HTMLButtonElement>(`[data-diagram-action="${action}"]`)
+        ?.focus();
+    },
     getReadingPosition,
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
