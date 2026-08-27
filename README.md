@@ -20,6 +20,8 @@ pnpm dev
 
 Use `pnpm build` for a production bundle, `pnpm typecheck` and `pnpm lint` for static checks, `pnpm test` for Vitest, and `pnpm format:check` to verify formatting.
 
+Release packaging and the manually dispatched installer workflow are documented in [`docs/release.md`](docs/release.md). The MVP publishes unsigned Windows x64 and macOS x64/arm64 installers; Linux remains a development and CI platform.
+
 ## Workspace
 
 - `apps/desktop`: Electron main, preload, and React renderer processes

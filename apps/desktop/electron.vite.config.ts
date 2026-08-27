@@ -40,7 +40,7 @@ const contentSecurityPolicyPlugin = (): Plugin => {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@fuxian/shared-types'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@fuxian/shared-types', 'plantuml-encoder'] })],
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: ['@fuxian/shared-types'] })],

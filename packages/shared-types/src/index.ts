@@ -11,6 +11,8 @@ export const desktopIpcChannels = {
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
   openSettings: 'fuxian:settings:open',
   openSourceDocuments: 'fuxian:source-documents:open',
+  sourceDocumentOpenRequested: 'fuxian:source-documents:open-requested',
+  sourceDocumentOpenReceiverReady: 'fuxian:source-documents:open-receiver-ready',
   pdfExportProgress: 'fuxian:pdf-export:progress',
   pdfExportReady: 'fuxian:pdf-export:ready',
   reportPdfExportProgress: 'fuxian:pdf-export:report-progress',
@@ -338,6 +340,7 @@ export interface FuxianDesktopBridge {
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   onPdfExportProgress(listener: (progress: PdfExportProgress) => void): () => void;
+  onSourceDocumentOpenRequested(listener: (result: OpenSourceDocumentsResult) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
   openSettings(): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;

@@ -22,6 +22,20 @@ import {
 } from '@fuxian/shared-types';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
+const pendingSourceDocumentOpenResults: OpenSourceDocumentsResult[] = [];
+const sourceDocumentOpenListeners = new Set<(result: OpenSourceDocumentsResult) => void>();
+
+ipcRenderer.on(
+  desktopIpcChannels.sourceDocumentOpenRequested,
+  (_event, result: OpenSourceDocumentsResult) => {
+    if (sourceDocumentOpenListeners.size === 0) {
+      pendingSourceDocumentOpenResults.push(result);
+      return;
+    }
+    for (const listener of sourceDocumentOpenListeners) listener(result);
+  },
+);
+
 const bridge: FuxianDesktopBridge = Object.freeze({
   cancelPdfExport: async (exportId: string): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.cancelPdfExport, exportId),
@@ -69,6 +83,14 @@ const bridge: FuxianDesktopBridge = Object.freeze({
       listener(progress);
     ipcRenderer.on(desktopIpcChannels.pdfExportProgress, handleProgress);
     return () => ipcRenderer.removeListener(desktopIpcChannels.pdfExportProgress, handleProgress);
+  },
+  onSourceDocumentOpenRequested: (
+    listener: (result: OpenSourceDocumentsResult) => void,
+  ): (() => void) => {
+    sourceDocumentOpenListeners.add(listener);
+    for (const result of pendingSourceDocumentOpenResults.splice(0)) listener(result);
+    ipcRenderer.send(desktopIpcChannels.sourceDocumentOpenReceiverReady);
+    return () => sourceDocumentOpenListeners.delete(listener);
   },
   openDroppedSourceDocuments: async (files: File[]): Promise<OpenSourceDocumentsResult> => {
     if (!Array.isArray(files) || files.length > 100) {

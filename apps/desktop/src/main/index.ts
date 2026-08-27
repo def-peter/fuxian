@@ -37,6 +37,7 @@ import {
   type SessionPersistence,
 } from './session-persistence';
 import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator';
+import { extractSourceDocumentPaths } from './system-open';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const appIconPath = join(currentDirectory, '../../resources/icon.png');
@@ -44,6 +45,10 @@ const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
+let mainWindow: BrowserWindow | undefined;
+let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
+const pendingSourceDocumentOpenRequests: string[][] = [];
+let sourceDocumentOpenDelivery = Promise.resolve();
 const activePlantUmlRequests = new Map<string, AbortController>();
 interface RendererDocumentWatches {
   coordinator: OpenDocumentWatchCoordinator;
@@ -214,6 +219,41 @@ const openSourceDocuments = async (): Promise<OpenSourceDocumentsResult> => {
   return selectedPaths ? readSourceDocuments(selectedPaths) : { status: 'cancelled' };
 };
 
+const deliverPendingSourceDocumentOpenRequests = (): void => {
+  const receiver = sourceDocumentOpenReceiver;
+  if (!receiver || receiver.isDestroyed() || pendingSourceDocumentOpenRequests.length === 0) return;
+
+  const requests = pendingSourceDocumentOpenRequests.splice(0);
+  sourceDocumentOpenDelivery = sourceDocumentOpenDelivery
+    .then(async () => {
+      for (let index = 0; index < requests.length; index += 1) {
+        if (receiver.isDestroyed() || sourceDocumentOpenReceiver !== receiver) {
+          pendingSourceDocumentOpenRequests.unshift(...requests.slice(index));
+          queueMicrotask(deliverPendingSourceDocumentOpenRequests);
+          return;
+        }
+        receiver.send(
+          desktopIpcChannels.sourceDocumentOpenRequested,
+          await readSourceDocuments(requests[index] ?? []),
+        );
+      }
+    })
+    .catch(() => {
+      if (!receiver.isDestroyed() && sourceDocumentOpenReceiver === receiver) {
+        receiver.send(desktopIpcChannels.sourceDocumentOpenRequested, {
+          message: '系统交给应用的文档暂时无法打开。',
+          status: 'error',
+        } satisfies OpenSourceDocumentsResult);
+      }
+    });
+};
+
+const enqueueSourceDocumentOpenRequest = (paths: readonly string[]): void => {
+  if (paths.length === 0) return;
+  pendingSourceDocumentOpenRequests.push([...paths]);
+  deliverPendingSourceDocumentOpenRequests();
+};
+
 const choosePdfExportPath = async (
   owner: BrowserWindow,
   sourceDocumentPath: string,
@@ -278,6 +318,15 @@ const registerDesktopHandlers = (
   preferencesPersistence: PreferencesPersistence,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  ipcMain.on(desktopIpcChannels.sourceDocumentOpenReceiverReady, (event) => {
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner || owner !== mainWindow) return;
+    sourceDocumentOpenReceiver = event.sender;
+    event.sender.once('destroyed', () => {
+      if (sourceDocumentOpenReceiver === event.sender) sourceDocumentOpenReceiver = undefined;
+    });
+    deliverPendingSourceDocumentOpenRequests();
+  });
   ipcMain.handle(
     desktopIpcChannels.configureOpenDocumentWatches,
     async (event, value: unknown): Promise<void> => {
@@ -757,6 +806,12 @@ const createWindow = (): BrowserWindow => {
   window.once('ready-to-show', () => {
     window.show();
   });
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = undefined;
+      sourceDocumentOpenReceiver = undefined;
+    }
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     void openExternalUrl(url);
@@ -785,7 +840,17 @@ const createWindow = (): BrowserWindow => {
     void window.loadFile(join(currentDirectory, '../renderer/index.html'));
   }
 
+  mainWindow = window;
   return window;
+};
+
+const activateMainWindow = (): void => {
+  const window =
+    (!mainWindow || mainWindow.isDestroyed()) && app.isReady() ? createWindow() : mainWindow;
+  if (!window || window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
 };
 
 const createSettingsWindow = (): BrowserWindow => {
@@ -830,32 +895,53 @@ const createSettingsWindow = (): BrowserWindow => {
   return window;
 };
 
-app.whenReady().then(() => {
-  app.setName('Fuxian');
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(appIconPath);
-  }
-  protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
-  const sessionPath =
-    !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE
-      ? process.env.FUXIAN_E2E_SESSION_FILE
-      : join(app.getPath('userData'), 'document-session.json');
-  const preferencesPath =
-    !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
-      ? process.env.FUXIAN_E2E_PREFERENCES_FILE
-      : join(app.getPath('userData'), 'reader-preferences.json');
-  registerDesktopHandlers(
-    new JsonFileSessionPersistence(sessionPath),
-    new JsonFilePreferencesPersistence(preferencesPath),
-  );
-  createWindow();
+if (!app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE) {
+  app.setPath('userData', `${process.env.FUXIAN_E2E_SESSION_FILE}.user-data`);
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  enqueueSourceDocumentOpenRequest(extractSourceDocumentPaths(process.argv, process.cwd()));
+  app.on('second-instance', (_event, argv, workingDirectory) => {
+    enqueueSourceDocumentOpenRequest(extractSourceDocumentPaths(argv, workingDirectory));
+    activateMainWindow();
   });
-});
+  app.on('open-file', (event, path) => {
+    event.preventDefault();
+    enqueueSourceDocumentOpenRequest([path]);
+    activateMainWindow();
+  });
+
+  void app.whenReady().then(() => {
+    app.setName('Fuxian');
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(appIconPath);
+    }
+    protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
+    const sessionPath =
+      !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE
+        ? process.env.FUXIAN_E2E_SESSION_FILE
+        : join(app.getPath('userData'), 'document-session.json');
+    const preferencesPath =
+      !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
+        ? process.env.FUXIAN_E2E_PREFERENCES_FILE
+        : join(app.getPath('userData'), 'reader-preferences.json');
+    registerDesktopHandlers(
+      new JsonFileSessionPersistence(sessionPath),
+      new JsonFilePreferencesPersistence(preferencesPath),
+    );
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

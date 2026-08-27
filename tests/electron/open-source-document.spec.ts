@@ -1,9 +1,10 @@
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -16,6 +17,7 @@ const disposablePreferencesFiles = new Set<string>();
 const disposableSessionFiles = new Set<string>();
 
 interface LaunchDesktopOptions {
+  commandLineSourcePaths?: string[];
   locateSourcePath?: string;
   preferencesFilePath?: string;
   sessionFilePath?: string;
@@ -37,7 +39,7 @@ const launchDesktop = async (
   }
   return electron.launch({
     executablePath: electronPath,
-    args: [desktopAppPath],
+    args: [desktopAppPath, ...(options.commandLineSourcePaths ?? [])],
     env: {
       ...process.env,
       ...(options.locateSourcePath
@@ -55,11 +57,14 @@ const launchDesktop = async (
 };
 
 test.afterAll(async () => {
-  await Promise.all(
-    [...disposablePreferencesFiles, ...disposableSessionFiles].map((path) =>
+  await Promise.all([
+    ...[...disposablePreferencesFiles, ...disposableSessionFiles].map((path) =>
       rm(path, { force: true }),
     ),
-  );
+    ...[...disposableSessionFiles].map((path) =>
+      rm(`${path}.user-data`, { force: true, recursive: true }),
+    ),
+  ]);
 });
 
 test('restores open-document order, active document, and reading position after restart', async () => {
@@ -143,7 +148,7 @@ test('restores available documents while unavailable items can be retried, locat
   const removePath = join(temporaryDirectory, 'remove.md');
   const reference = (path: string) => ({
     lastOpenedAt: Date.now(),
-    name: path.split('/').at(-1),
+    name: basename(path),
     path,
     readingPosition: { headingOffset: 0, relativeProgress: 0 },
   });
@@ -299,6 +304,85 @@ test('a reader can manage multiple open and recent documents without duplicates'
     await expect(startView.getByRole('button', { name: 'showcase.md' })).toBeVisible();
   } finally {
     await electronApp.close();
+  }
+});
+
+test('command-line paths open one document session and deduplicate canonical files', async () => {
+  const equivalentSourceDocumentPath = `${resolve(repositoryRoot, 'fixtures')}/../fixtures/basic.md`;
+  const electronApp = await launchDesktop(sourceDocumentPath, {
+    commandLineSourcePaths: [
+      sourceDocumentPath,
+      equivalentSourceDocumentPath,
+      showcaseDocumentPath,
+    ],
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('a second instance forwards Markdown paths to and activates the primary instance', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-single-instance-'));
+  const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+  const preferencesFilePath = join(temporaryDirectory, 'reader-preferences.json');
+  const electronApp = await launchDesktop(sourceDocumentPath, {
+    commandLineSourcePaths: [sourceDocumentPath],
+    preferencesFilePath,
+    sessionFilePath,
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toBeVisible();
+
+    const secondary = spawn(
+      electronPath,
+      [desktopAppPath, showcaseDocumentPath, sourceDocumentPath],
+      {
+        env: {
+          ...process.env,
+          FUXIAN_E2E_PREFERENCES_FILE: preferencesFilePath,
+          FUXIAN_E2E_SESSION_FILE: sessionFilePath,
+          NODE_ENV: 'test',
+        },
+        stdio: 'ignore',
+      },
+    );
+    await new Promise<void>((resolveExit, rejectExit) => {
+      const timeout = setTimeout(() => {
+        secondary.kill();
+        rejectExit(new Error('The secondary Fuxian instance did not exit.'));
+      }, 10_000);
+      secondary.once('error', (error) => {
+        clearTimeout(timeout);
+        rejectExit(error);
+      });
+      secondary.once('exit', () => {
+        clearTimeout(timeout);
+        resolveExit();
+      });
+    });
+
+    await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveCount(1);
+    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });
 

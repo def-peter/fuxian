@@ -1,0 +1,43 @@
+appId: com.defpeter.fuxian
+productName: 浮现 Fuxian
+electronVersion: 44.0.0
+directories:
+  buildResources: build
+  output: release
+files:
+  - apps/desktop/out/**/*
+  - apps/desktop/resources/**/*
+  - package.json
+  - '!node_modules/electron{,/**/*}'
+asarUnpack:
+  - apps/desktop/resources/**
+fileAssociations:
+  - ext:
+      - md
+      - markdown
+    name: Markdown Document
+    description: Markdown source document
+    role: Viewer
+win:
+  executableName: Fuxian
+  icon: build/icon.ico
+  target:
+    - nsis
+nsis:
+  artifactName: fuxian-${version}-windows-${arch}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  artifactName: fuxian-${version}-mac-${arch}.${ext}
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+  target:
+    - dmg
+npmRebuild: false
+publish:
+  provider: github
+  owner: def-peter
+  repo: fuxian

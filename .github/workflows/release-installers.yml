@@ -1,0 +1,159 @@
+name: Build release installers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-installers-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Release checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Reject an existing release version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          release_tag="v${version}"
+          if gh release view "${release_tag}" >/dev/null 2>&1 || \
+            git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
+            echo "Release ${release_tag} already exists. Increase package.json version before publishing."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run static and unit checks
+        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+
+      - name: Install Linux Electron dependencies
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Run Linux end-to-end tests
+        run: xvfb-run --auto-servernum pnpm test:e2e
+
+  package:
+    name: ${{ matrix.label }}
+    needs: checks
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows 11 compatible (x64)
+            runner: windows-2025
+            build-args: --win nsis --x64
+            artifact-name: fuxian-windows-x64
+            artifact-path: release/*-windows-x64-setup.exe
+            packaged-executable: release/win-unpacked/Fuxian.exe
+          - label: macOS Intel (x64)
+            runner: macos-15-intel
+            build-args: --mac dmg --x64
+            artifact-name: fuxian-macos-x64
+            artifact-path: release/*-mac-x64.dmg
+            packaged-executable: release/mac/浮现 Fuxian.app/Contents/MacOS/浮现 Fuxian
+          - label: macOS Apple Silicon (arm64)
+            runner: macos-15
+            build-args: --mac dmg --arm64
+            artifact-name: fuxian-macos-arm64
+            artifact-path: release/*-mac-arm64.dmg
+            packaged-executable: release/mac-arm64/浮现 Fuxian.app/Contents/MacOS/浮现 Fuxian
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify platform workflows
+        run: pnpm test:e2e
+
+      - name: Build installer
+        run: pnpm exec electron-builder ${{ matrix.build-args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Verify packaged application
+        run: pnpm verify:package
+
+      - name: Smoke-test packaged application
+        run: pnpm exec playwright test tests/electron/packaged-app.spec.ts
+        env:
+          FUXIAN_PACKAGED_EXECUTABLE: ${{ matrix.packaged-executable }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-path }}
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Download installers
+        uses: actions/download-artifact@v7
+        with:
+          path: release-assets
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
+          echo "title=浮现 Fuxian ${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TITLE: ${{ steps.release.outputs.title }}
+        run: |
+          gh release create "${RELEASE_TAG}" \
+            release-assets/fuxian-windows-x64/*.exe \
+            release-assets/fuxian-macos-x64/*.dmg \
+            release-assets/fuxian-macos-arm64/*.dmg \
+            --target "${GITHUB_SHA}" \
+            --title "${RELEASE_TITLE}" \
+            --generate-notes \
+            --latest

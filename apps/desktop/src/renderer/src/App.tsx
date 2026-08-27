@@ -175,6 +175,9 @@ export function App(): React.JSX.Element {
   );
   const [pdfExportProgress, setPdfExportProgress] = useState<PdfExportProgress>();
   const [pdfExportStarting, setPdfExportStarting] = useState(false);
+  const pendingSystemOpenResults = useRef<OpenSourceDocumentsResult[]>([]);
+  const restorationStatusRef = useRef(restorationStatus);
+  const acceptOpenResultRef = useRef<(result: OpenSourceDocumentsResult) => void>(() => undefined);
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
   const frameControllers = useRef(new Map<string, FinishedDocumentController>());
   const findInput = useRef<HTMLInputElement>(null);
@@ -761,6 +764,27 @@ export function App(): React.JSX.Element {
       return next;
     });
   };
+  acceptOpenResultRef.current = acceptOpenResult;
+  restorationStatusRef.current = restorationStatus;
+
+  useEffect(
+    () =>
+      window.fuxian.onSourceDocumentOpenRequested((result) => {
+        if (restorationStatusRef.current !== 'ready') {
+          pendingSystemOpenResults.current.push(result);
+          return;
+        }
+        acceptOpenResultRef.current(result);
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    if (restorationStatus !== 'ready') return;
+    for (const result of pendingSystemOpenResults.current.splice(0)) {
+      acceptOpenResultRef.current(result);
+    }
+  }, [restorationStatus]);
 
   const openSourceDocuments = async (): Promise<void> => {
     setOpening(true);
