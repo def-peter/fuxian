@@ -3,6 +3,9 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@/*": ["./src/renderer/src/*"]
+    },
     "types": ["node", "vite/client"]
   },
   "include": ["electron.vite.config.ts", "src/**/*.ts", "src/**/*.tsx"]

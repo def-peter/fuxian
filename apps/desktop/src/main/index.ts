@@ -1,8 +1,60 @@
-import { app, BrowserWindow, shell } from 'electron';
-import { dirname, join } from 'node:path';
+import { desktopIpcChannels, type OpenSourceDocumentResult } from '@fuxian/shared-types';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { readFile } from 'node:fs/promises';
+import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
+const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
+
+const chooseSourceDocument = async (): Promise<string | undefined> => {
+  const testSourceDocument = process.env.FUXIAN_E2E_SOURCE_DOCUMENT;
+  if (!app.isPackaged && process.env.NODE_ENV === 'test' && testSourceDocument) {
+    return testSourceDocument;
+  }
+
+  const selection = await dialog.showOpenDialog({
+    title: '打开 Markdown',
+    properties: ['openFile'],
+    filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+  });
+
+  return selection.canceled ? undefined : selection.filePaths[0];
+};
+
+const openSourceDocument = async (): Promise<OpenSourceDocumentResult> => {
+  const selectedPath = await chooseSourceDocument();
+  if (!selectedPath) {
+    return { status: 'cancelled' };
+  }
+
+  if (!supportedSourceDocumentExtensions.has(extname(selectedPath).toLowerCase())) {
+    return {
+      status: 'error',
+      message: '请选择 .md 或 .markdown 文件。',
+    };
+  }
+
+  try {
+    return {
+      status: 'opened',
+      document: {
+        name: basename(selectedPath),
+        path: selectedPath,
+        source: await readFile(selectedPath, 'utf8'),
+      },
+    };
+  } catch {
+    return {
+      status: 'error',
+      message: `无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`,
+    };
+  }
+};
+
+const registerDesktopHandlers = (): void => {
+  ipcMain.handle(desktopIpcChannels.openSourceDocument, openSourceDocument);
+};
 
 const openExternalUrl = async (url: string): Promise<void> => {
   const protocol = new URL(url).protocol;
@@ -20,7 +72,7 @@ const createWindow = (): BrowserWindow => {
     minHeight: 480,
     show: false,
     webPreferences: {
-      preload: join(currentDirectory, '../preload/index.mjs'),
+      preload: join(currentDirectory, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -54,6 +106,7 @@ const createWindow = (): BrowserWindow => {
 
 app.whenReady().then(() => {
   app.setName('Fuxian');
+  registerDesktopHandlers();
   createWindow();
 
   app.on('activate', () => {

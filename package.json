@@ -14,12 +14,14 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run --passWithNoTests",
+    "test:e2e": "pnpm build && playwright test",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "26.3.0",
     "eslint": "10.9.1",
     "eslint-plugin-react-hooks": "7.1.1",

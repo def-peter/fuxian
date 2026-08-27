@@ -1,4 +1,6 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { resolve } from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
 
@@ -38,12 +40,25 @@ const contentSecurityPolicyPlugin = (): Plugin => {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@fuxian/shared-types'] })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@fuxian/shared-types'] })],
+    build: {
+      rollupOptions: {
+        output: {
+          entryFileNames: '[name].cjs',
+          format: 'cjs',
+        },
+      },
+    },
   },
   renderer: {
-    plugins: [react(), contentSecurityPolicyPlugin()],
+    plugins: [react(), tailwindcss(), contentSecurityPolicyPlugin()],
+    resolve: {
+      alias: {
+        '@': resolve('src/renderer/src'),
+      },
+    },
   },
 });
