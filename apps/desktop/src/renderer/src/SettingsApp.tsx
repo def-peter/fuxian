@@ -6,12 +6,24 @@ import {
   type DocumentBodyFamily,
   type ReaderPreferences,
 } from '@fuxian/shared-types';
-import { FileText, Image, Info, Monitor, Moon, Network, RotateCcw, Sun, Type } from 'lucide-react';
+import {
+  CircleHelp,
+  FileText,
+  Image,
+  Info,
+  Monitor,
+  Moon,
+  Network,
+  RotateCcw,
+  Sun,
+  Type,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -22,7 +34,9 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
@@ -289,12 +303,49 @@ export function SettingsApp(): React.JSX.Element {
           ) : null}
 
           {section === 'diagram' ? (
-            <section aria-labelledby="reserved-settings-title">
-              <h2 className="text-base font-semibold" id="reserved-settings-title">
+            <section aria-labelledby="diagram-title">
+              <h2 className="text-base font-semibold" id="diagram-title">
                 图表
               </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                控制 Mermaid 与 PlantUML 的呈现方式。
+              </p>
               <Separator className="my-5" />
-              <p className="text-sm text-muted-foreground">当前没有可配置项。</p>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="optimize-diagrams">
+                    优化图表
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label="优化图表说明"
+                            className="inline-flex outline-none"
+                            tabIndex={0}
+                          >
+                            <CircleHelp
+                              aria-hidden="true"
+                              className="size-4 text-muted-foreground"
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-72" side="right">
+                          统一无显式样式图表的字体、颜色、背景、线条和留白；不会修改源文档，也不会覆盖作者主题或
+                          skinparam。
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </FieldLabel>
+                  <FieldDescription>仅作用于没有显式主题或样式配置的图表。</FieldDescription>
+                </FieldContent>
+                <Switch
+                  checked={preferences.diagram.optimize}
+                  id="optimize-diagrams"
+                  onCheckedChange={(optimize) =>
+                    updatePreferences({ ...preferences, diagram: { optimize } })
+                  }
+                />
+              </Field>
             </section>
           ) : null}
 

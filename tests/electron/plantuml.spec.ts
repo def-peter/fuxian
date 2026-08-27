@@ -29,6 +29,7 @@ const startServer = async (handler: RequestListener): Promise<string> => {
 
 const createPreferences = (serverUrl: string) => ({
   appearance: 'light',
+  diagram: { optimize: false },
   documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
   documentWidth: { customWidth: 860, mode: 'adaptive' },
   plantUml: { serverUrl },
@@ -92,7 +93,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     newServerRequests += 1;
     response.writeHead(200, { 'Content-Type': 'image/svg+xml' });
     response.end(
-      `<svg xmlns="http://www.w3.org/2000/svg"><text>${
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1200"><rect width="2000" height="1200" fill="white"/><text x="900" y="600">${
         newServerRequests === 1 ? 'Server validated' : 'Switched diagram'
       }</text></svg>`,
     );
@@ -103,7 +104,27 @@ test('validates and saves a new server, cancels the old request, and redraws sel
   const sessionFilePath = join(temporaryDirectory, 'document-session.json');
   await writeFile(
     sourceDocumentPath,
-    '# Architecture\n\n```plantuml\n@startuml\n!theme mars\nAlice -> Bob: hello\n@enduml\n```',
+    [
+      '# Architecture',
+      '',
+      ...Array.from(
+        { length: 24 },
+        (_, index) => `Paragraph ${index + 1}: finished document reading position.`,
+      ),
+      '',
+      '## Diagram',
+      '',
+      '```plantuml',
+      '@startuml',
+      '!theme mars',
+      'Alice -> Bob: hello',
+      '@enduml',
+      '```',
+      '',
+      '## Follow-up',
+      '',
+      ...Array.from({ length: 12 }, (_, index) => `Follow-up paragraph ${index + 1}.`),
+    ].join('\n\n'),
   );
   await writeFile(preferencesFilePath, JSON.stringify(createPreferences(oldServerUrl)));
   const electronApp = await launchDesktop(sourceDocumentPath, preferencesFilePath, sessionFilePath);
@@ -141,6 +162,77 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     await expect
       .poll(async () => JSON.parse(await readFile(preferencesFilePath, 'utf8')).plantUml.serverUrl)
       .toBe(newServerUrl);
+
+    await settingsWindow.getByRole('button', { name: '图表', exact: true }).click();
+    await settingsWindow.getByLabel('优化图表说明').hover();
+    await expect(settingsWindow.getByRole('tooltip')).toContainText('不会修改源文档');
+    const optimizeDiagrams = settingsWindow.getByRole('switch', { name: '优化图表' });
+    await optimizeDiagrams.focus();
+    await optimizeDiagrams.press('Space');
+
+    await plantUmlTask.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    const diagramHeading = finishedDocument.getByRole('heading', { name: 'Diagram' });
+    const headingPositionBeforeDrawer = await diagramHeading.evaluate(
+      (heading) => heading.getBoundingClientRect().top,
+    );
+    await plantUmlTask.hover();
+    const sourceAction = plantUmlTask.getByRole('button', { name: '查看图表源码' });
+    const focusAction = plantUmlTask.getByRole('button', { name: '全屏查看图表' });
+    await expect(sourceAction).toHaveAttribute('title', '查看图表源码');
+    await expect(focusAction).toBeEnabled();
+    await expect
+      .poll(() =>
+        plantUmlTask
+          .locator('.diagram-action-toolbar')
+          .evaluate((element) => getComputedStyle(element).opacity),
+      )
+      .toBe('1');
+
+    await sourceAction.focus();
+    await sourceAction.press('Enter');
+    const sourceDrawer = readerWindow.getByRole('complementary', { name: '图表源码' });
+    await expect(sourceDrawer).toBeVisible();
+    await expect(readerWindow.getByRole('complementary', { name: '内容目录' })).toHaveCount(0);
+    await sourceDrawer.getByRole('button', { name: '复制源码' }).click();
+    await expect
+      .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
+      .toContain('!theme mars');
+    await sourceDrawer.getByRole('button', { name: '复制 SVG' }).click();
+    await expect
+      .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
+      .toContain('Switched diagram');
+    await sourceDrawer.getByRole('button', { name: '关闭图表源码' }).click();
+    await expect(readerWindow.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect
+      .poll(() => diagramHeading.evaluate((heading) => heading.getBoundingClientRect().top))
+      .toBeCloseTo(headingPositionBeforeDrawer, 0);
+
+    await plantUmlTask.hover();
+    await focusAction.click();
+    const focusDialog = readerWindow.getByRole('dialog', { name: '全屏图表' });
+    await expect(focusDialog).toBeVisible();
+    await expect(focusDialog.locator('text')).toHaveText('Switched diagram');
+    await focusDialog.getByRole('button', { name: '放大图表' }).click();
+    await expect(focusDialog.getByText('120%')).toBeVisible();
+    const canvas = focusDialog.getByLabel('图表全屏画布');
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error('Full-screen diagram canvas is not visible.');
+    await readerWindow.mouse.move(bounds.x + 20, bounds.y + 20);
+    await readerWindow.mouse.down();
+    await readerWindow.mouse.move(bounds.x + 90, bounds.y + 70);
+    await readerWindow.mouse.up();
+    await expect(focusDialog.locator('[style*="translate"]')).not.toHaveAttribute(
+      'style',
+      /translate\(0px, 0px\)/,
+    );
+    await focusDialog.getByRole('button', { name: '适应窗口' }).click();
+    await expect(focusDialog.getByText('100%')).toBeVisible();
+    await expect(focusDialog.locator('[style*="translate"]')).toHaveAttribute(
+      'style',
+      /translate\(0px, 0px\) scale\(1\)/,
+    );
+    await focusDialog.getByRole('button', { name: '返回文档' }).click();
+    await expect(focusDialog).toHaveCount(0);
   } finally {
     await electronApp.close();
     await rm(temporaryDirectory, { force: true, recursive: true });

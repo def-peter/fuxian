@@ -445,7 +445,7 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
       finishedDocument.locator('[data-render-task-kind="math-display"] math[display="block"]'),
     ).toBeVisible();
     const mermaidTask = finishedDocument.locator('[data-render-task-kind="mermaid"]');
-    await expect(mermaidTask.locator('svg')).toBeVisible();
+    await expect(mermaidTask.locator('.render-task-output svg')).toBeVisible();
     await expect(mermaidTask).toContainText('Markdown 源文档');
     await expect(mermaidTask).toContainText('完成态文档');
     await expect(

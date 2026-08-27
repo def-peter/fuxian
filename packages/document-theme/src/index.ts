@@ -377,9 +377,84 @@ code {
 
 .math-render-task:not(.math-render-task-inline),
 .diagram-render-task {
+  position: relative;
   display: block;
   max-width: 100%;
   margin: 28px 0;
+}
+
+.diagram-action-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.diagram-render-task:hover > .diagram-action-toolbar,
+.diagram-render-task:focus-within > .diagram-action-toolbar {
+  opacity: 1;
+}
+
+.diagram-action-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--document-border);
+  border-radius: 3px;
+  color: var(--document-muted);
+  background: var(--document-surface);
+  cursor: pointer;
+}
+
+.diagram-action-button:hover,
+.diagram-action-button:focus-visible {
+  color: var(--document-text);
+  border-color: var(--document-accent);
+  outline: none;
+}
+
+.diagram-action-button:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--document-accent) 28%, transparent);
+}
+
+.diagram-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.diagram-action-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.diagram-action-button::after {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: none;
+  width: max-content;
+  max-width: 160px;
+  padding: 5px 7px;
+  border-radius: 3px;
+  color: var(--document-surface);
+  background: var(--document-text);
+  content: attr(data-tooltip);
+  font-size: 12px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.diagram-action-button:hover::after,
+.diagram-action-button:focus-visible::after {
+  display: block;
 }
 
 .math-render-task:not(.math-render-task-inline) > .render-task-source,

@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createDesktopPlantUmlRenderer,
   createDocumentRenderAdapter,
+  hasExplicitDiagramStyle,
+  optimizePlantUmlSource,
 } from './document-render-adapter';
 
 describe('document render adapter', () => {
@@ -24,6 +26,20 @@ describe('document render adapter', () => {
       svg: '<svg><text>diagram</text></svg>',
     });
     expect(renderPlantUml).toHaveBeenCalledWith(source, 'http://127.0.0.1:8080/plantuml', signal);
+  });
+
+  it('optimizes only diagrams without author styling and never mutates the original source', () => {
+    const plain = '@startuml\nAlice -> Bob\n@enduml';
+    const styled = '@startuml\n!theme mars\nskinparam shadowing true\nAlice -> Bob\n@enduml';
+
+    expect(optimizePlantUmlSource(plain, true)).toContain('skinparam backgroundColor transparent');
+    expect(optimizePlantUmlSource(plain, false)).toBe(plain);
+    expect(optimizePlantUmlSource(styled, true)).toBe(styled);
+    expect(hasExplicitDiagramStyle('mermaid', '%%{init: {"theme":"forest"}}%%\ngraph TD')).toBe(
+      true,
+    );
+    expect(hasExplicitDiagramStyle('mermaid', 'graph TD\nA --> B')).toBe(false);
+    expect(plain).toBe('@startuml\nAlice -> Bob\n@enduml');
   });
 
   it('forwards cancellation to the desktop bridge', async () => {

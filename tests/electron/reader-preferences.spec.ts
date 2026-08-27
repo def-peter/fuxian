@@ -119,6 +119,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
       .poll(async () => JSON.parse(await readFile(launchOptions.preferencesFilePath, 'utf8')))
       .toEqual({
         appearance: 'dark',
+        diagram: { optimize: false },
         documentTypography: { bodyFamily: 'sans-serif', bodySize: 22, lineHeight: 1.5 },
         documentWidth: { customWidth: 1200, mode: 'custom' },
         plantUml: { serverUrl: 'https://www.plantuml.com/plantuml' },

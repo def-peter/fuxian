@@ -1,6 +1,7 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type {
   OpenSourceDocumentsResult,
+  ReadingPosition,
   ReadSourceDocumentResult,
   SourceDocumentData,
 } from '@fuxian/shared-types';
@@ -38,9 +39,11 @@ import {
 import { DocumentSessionSidebar } from '@/document-session-sidebar';
 import { DocumentWidthPopover } from '@/document-width-controls';
 import { createDesktopPlantUmlRenderer } from '@/document-render-adapter';
+import { DiagramFocusDialog, DiagramSourceDrawer } from '@/diagram-inspection';
 import {
   bindFinishedDocument,
   createFinishedDocumentSource,
+  type DiagramSnapshot,
   type FindResult,
   type FinishedDocumentController,
 } from '@/finished-document';
@@ -78,11 +81,14 @@ export function App(): React.JSX.Element {
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
   const [findResult, setFindResult] = useState<FindResult>(emptyFindResult);
+  const [sourceDiagram, setSourceDiagram] = useState<DiagramSnapshot>();
+  const [focusedDiagram, setFocusedDiagram] = useState<DiagramSnapshot>();
   const finishedDocumentFrame = useRef<HTMLIFrameElement>(null);
   const finishedDocumentController = useRef<FinishedDocumentController | undefined>(undefined);
   const findInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const sessionRef = useRef(session);
+  const diagramLayoutReadingPosition = useRef<ReadingPosition | undefined>(undefined);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
@@ -170,6 +176,20 @@ export function App(): React.JSX.Element {
   }, [preferences.plantUml.serverUrl]);
 
   useEffect(() => {
+    finishedDocumentController.current?.applyDiagramOptimization(preferences.diagram.optimize);
+  }, [preferences.diagram.optimize]);
+
+  useEffect(() => {
+    const position = diagramLayoutReadingPosition.current;
+    if (!position) return;
+    const frame = window.requestAnimationFrame(() => {
+      finishedDocumentController.current?.restoreReadingPosition(position);
+      diagramLayoutReadingPosition.current = undefined;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [sourceDiagram]);
+
+  useEffect(() => {
     const controller = finishedDocumentController.current;
     setFindResult(
       findOpen ? (controller?.find(findQuery) ?? emptyFindResult()) : emptyFindResult(),
@@ -208,6 +228,13 @@ export function App(): React.JSX.Element {
     setFindOpen(false);
     setFindQuery('');
     setFindResult(emptyFindResult());
+    setSourceDiagram(undefined);
+    setFocusedDiagram(undefined);
+  };
+
+  const showDiagramSource = (diagram: DiagramSnapshot | undefined): void => {
+    diagramLayoutReadingPosition.current = finishedDocumentController.current?.getReadingPosition();
+    setSourceDiagram(diagram);
   };
 
   const handleFinishedDocumentLoad = (): void => {
@@ -221,6 +248,7 @@ export function App(): React.JSX.Element {
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
       initialAppearance: resolvedAppearance,
+      initialDiagramOptimization: preferences.diagram.optimize,
       initialPlantUmlServerUrl: preferences.plantUml.serverUrl,
       initialReadingPosition: activeDocument?.readingPosition ?? {
         headingOffset: 0,
@@ -228,6 +256,8 @@ export function App(): React.JSX.Element {
       },
       onActiveHeadingChange: setActiveHeadingId,
       onFindRequest: () => setFindOpen(true),
+      onFocusDiagram: setFocusedDiagram,
+      onInspectDiagram: (diagram) => showDiagramSource(diagram),
       onReadingPositionChange: (position) => {
         if (activeDocument) {
           setSession((current) =>
@@ -647,7 +677,9 @@ export function App(): React.JSX.Element {
             <div
               className={cn(
                 'grid min-h-0 grid-cols-[minmax(0,1fr)]',
-                outlinePreference === 'expanded' && 'grid-cols-[minmax(0,1fr)_232px]',
+                sourceDiagram
+                  ? 'grid-cols-[minmax(0,1fr)_360px]'
+                  : outlinePreference === 'expanded' && 'grid-cols-[minmax(0,1fr)_232px]',
               )}
             >
               <main className="min-h-0 bg-background p-3" aria-label="Finished-document region">
@@ -664,7 +696,13 @@ export function App(): React.JSX.Element {
                   title="Finished document"
                 />
               </main>
-              {outlinePreference === 'expanded' ? (
+              {sourceDiagram ? (
+                <DiagramSourceDrawer
+                  copyText={window.fuxian.copyText}
+                  diagram={sourceDiagram}
+                  onClose={() => showDiagramSource(undefined)}
+                />
+              ) : outlinePreference === 'expanded' ? (
                 <ContentOutline
                   activeHeadingId={activeHeadingId}
                   headings={activeDocument.headings}
@@ -673,6 +711,12 @@ export function App(): React.JSX.Element {
                 />
               ) : null}
             </div>
+            <DiagramFocusDialog
+              copyText={window.fuxian.copyText}
+              diagram={focusedDiagram}
+              key={focusedDiagram?.id ?? 'closed-diagram-focus'}
+              onClose={() => setFocusedDiagram(undefined)}
+            />
           </div>
         ) : (
           <main className="flex min-h-0 items-center justify-center overflow-y-auto px-8 py-12">

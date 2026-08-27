@@ -12,6 +12,9 @@ import {
   type RenderTaskScheduler,
 } from '@fuxian/render-protocol';
 import { defaultPlantUmlServerUrl, type ReadingPosition } from '@fuxian/shared-types';
+import { Code2, Maximize2 } from 'lucide-react';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
   createDocumentRenderAdapter,
   type DocumentRenderResult,
@@ -26,6 +29,7 @@ export interface FindResult {
 }
 
 export interface FinishedDocumentController {
+  applyDiagramOptimization(enabled: boolean): void;
   applyPlantUmlServer(serverUrl: string): void;
   applyTheme(preferences: DocumentThemePreferences): void;
   clearFind(): FindResult;
@@ -40,13 +44,23 @@ export interface FinishedDocumentController {
   whenRenderReady(): Promise<RenderRevisionSnapshot>;
 }
 
+export interface DiagramSnapshot {
+  id: string;
+  kind: 'mermaid' | 'plantuml';
+  source: string;
+  svg?: string;
+}
+
 interface BindFinishedDocumentOptions {
   copyText(text: string): Promise<void>;
   initialAppearance?: 'dark' | 'light';
+  initialDiagramOptimization?: boolean;
   initialPlantUmlServerUrl?: string;
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
+  onFocusDiagram?(diagram: DiagramSnapshot): void;
+  onInspectDiagram?(diagram: DiagramSnapshot): void;
   onReadingPositionChange(position: ReadingPosition): void;
   onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
   renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
@@ -165,8 +179,10 @@ export function bindFinishedDocument(
           (async () => {
             throw new TypeError('PlantUML 渲染服务不可用。');
           }),
+        options.initialDiagramOptimization,
       );
   const renderTaskList = collectRenderTasks(frameDocument);
+  const renderTasks = new Map(renderTaskList.map((task) => [task.id, task]));
   const renderTaskElements = new Map(
     Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
       (element) =>
@@ -175,6 +191,36 @@ export function bindFinishedDocument(
   );
   const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
     renderTaskElements.get(task.id);
+
+  const createDiagramAction = (
+    action: 'focus' | 'source',
+    label: string,
+    icon: typeof Code2,
+  ): HTMLButtonElement => {
+    const button = frameDocument.createElement('button');
+    button.ariaLabel = label;
+    button.className = 'diagram-action-button';
+    button.dataset.diagramAction = action;
+    button.dataset.tooltip = label;
+    button.disabled = action === 'focus';
+    button.title = label;
+    button.type = 'button';
+    button.innerHTML = renderToStaticMarkup(createElement(icon, { 'aria-hidden': true }));
+    return button;
+  };
+
+  for (const task of renderTaskList) {
+    if (task.kind !== 'mermaid' && task.kind !== 'plantuml') continue;
+    const element = getRenderTaskElement(task);
+    if (!element) continue;
+    const toolbar = frameDocument.createElement('span');
+    toolbar.className = 'diagram-action-toolbar';
+    toolbar.append(
+      createDiagramAction('source', '查看图表源码', Code2),
+      createDiagramAction('focus', '全屏查看图表', Maximize2),
+    );
+    element.prepend(toolbar);
+  }
 
   const setRenderTaskPending = (task: RenderTask, attempt: number): void => {
     const element = getRenderTaskElement(task);
@@ -200,6 +246,8 @@ export function bindFinishedDocument(
     }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-error')?.setAttribute('hidden', '');
+    const focusButton = element.querySelector<HTMLButtonElement>('[data-diagram-action="focus"]');
+    if (focusButton) focusButton.disabled = false;
     output.hidden = false;
   };
 
@@ -376,6 +424,22 @@ export function bindFinishedDocument(
 
   const handleFinishedDocumentClick = (event: MouseEvent): void => {
     const target = event.target as Element | null;
+    const diagramAction = target?.closest<HTMLButtonElement>('[data-diagram-action]');
+    if (diagramAction) {
+      const id = diagramAction.closest<HTMLElement>('[data-render-task-id]')?.dataset.renderTaskId;
+      const task = id ? renderTasks.get(id) : undefined;
+      if (!task || (task.kind !== 'mermaid' && task.kind !== 'plantuml')) return;
+      const svg = getRenderTaskElement(task)?.querySelector('.render-task-output svg')?.outerHTML;
+      const diagram: DiagramSnapshot = {
+        id: task.id,
+        kind: task.kind,
+        source: task.source,
+        ...(svg ? { svg } : {}),
+      };
+      if (diagramAction.dataset.diagramAction === 'source') options.onInspectDiagram?.(diagram);
+      if (diagramAction.dataset.diagramAction === 'focus' && svg) options.onFocusDiagram?.(diagram);
+      return;
+    }
     const renderRetryButton = target?.closest<HTMLButtonElement>('[data-retry-render-task]');
     if (renderRetryButton) {
       const id =
@@ -464,6 +528,12 @@ export function bindFinishedDocument(
   });
 
   return {
+    applyDiagramOptimization: (enabled) => {
+      documentRenderAdapter?.setDiagramOptimization(enabled);
+      for (const task of renderTaskList) {
+        if (task.kind === 'mermaid' || task.kind === 'plantuml') renderRevision.retry(task.id);
+      }
+    },
     applyPlantUmlServer: (serverUrl) => {
       documentRenderAdapter?.setPlantUmlServerUrl(serverUrl);
       for (const task of renderTaskList) {

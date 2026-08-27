@@ -29,6 +29,9 @@ export type DocumentWidthMode = 'a4' | 'adaptive' | 'custom';
 
 export interface ReaderPreferences {
   appearance: AppearancePreference;
+  diagram: {
+    optimize: boolean;
+  };
   documentTypography: {
     bodyFamily: DocumentBodyFamily;
     bodySize: number;
@@ -46,6 +49,9 @@ export interface ReaderPreferences {
 
 export const createDefaultReaderPreferences = (): ReaderPreferences => ({
   appearance: 'system',
+  diagram: {
+    optimize: false,
+  },
   documentTypography: {
     bodyFamily: 'serif',
     bodySize: 17,
@@ -96,6 +102,7 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   const candidate = value as {
     appearance?: unknown;
+    diagram?: { optimize?: unknown };
     documentTypography?: {
       bodyFamily?: unknown;
       bodySize?: unknown;
@@ -124,6 +131,12 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   return {
     appearance,
+    diagram: {
+      optimize:
+        typeof candidate.diagram?.optimize === 'boolean'
+          ? candidate.diagram.optimize
+          : defaults.diagram.optimize,
+    },
     documentTypography: {
       bodyFamily,
       bodySize: clampPreference(

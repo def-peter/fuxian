@@ -48,6 +48,7 @@ describe('reader preferences', () => {
       }),
     ).toEqual({
       appearance: 'dark',
+      diagram: { optimize: false },
       documentTypography: {
         bodyFamily: 'sans-serif',
         bodySize: readerPreferenceLimits.bodySize.max,
