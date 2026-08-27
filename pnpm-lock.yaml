@@ -71,6 +71,9 @@ importers:
       mermaid:
         specifier: ^11.17.2
         version: 11.17.2
+      plantuml-encoder:
+        specifier: ^1.4.0
+        version: 1.4.0
       radix-ui:
         specifier: ^1.6.7
         version: 1.6.7(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -87,6 +90,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.3.0)(jiti@2.7.0)(lightningcss@1.32.0))
+      '@types/plantuml-encoder':
+        specifier: ^1.4.2
+        version: 1.4.2
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1776,6 +1782,9 @@ packages:
   '@types/node@26.3.0':
     resolution: {integrity: sha512-L3fgrnchriRC2ExBflb8j4uZZURHZfQsmQeyVzhjcHW4kkwVyo8/0h1B2MVzMTrYUJYu6G7EWs14hW/L9putqw==}
 
+  '@types/plantuml-encoder@1.4.2':
+    resolution: {integrity: sha512-R60SYlcXyTXQebyVwcarGSJUucuwYY5wetBWAOnRt3k52flBXgt4R1KrxaZ4xpk5MpVo9titpVBBhgl/A9JWRQ==}
+
   '@types/react-dom@19.2.5':
     resolution: {integrity: sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==}
     peerDependencies:
@@ -2829,6 +2838,9 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  plantuml-encoder@1.4.0:
+    resolution: {integrity: sha512-sxMwpDw/ySY1WB2CE3+IdMuEcWibJ72DDOsXLkSmEaSzwEUaYBT6DWgOfBiHGCux4q433X6+OEFWjlVqp7gL6g==}
 
   playwright-core@1.62.1:
     resolution: {integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==}
@@ -4759,6 +4771,10 @@ snapshots:
     dependencies:
       undici-types: 8.3.0
 
+  '@types/plantuml-encoder@1.4.2':
+    dependencies:
+      '@types/node': 26.3.0
+
   '@types/react-dom@19.2.5(@types/react@19.2.18)':
     dependencies:
       '@types/react': 19.2.18
@@ -6128,6 +6144,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  plantuml-encoder@1.4.0: {}
 
   playwright-core@1.62.1: {}
 

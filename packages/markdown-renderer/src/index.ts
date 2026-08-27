@@ -33,7 +33,7 @@ export interface FinishedDocument {
   resources: DocumentResource[];
 }
 
-export type DocumentRenderTaskKind = 'math-display' | 'math-inline' | 'mermaid';
+export type DocumentRenderTaskKind = 'math-display' | 'math-inline' | 'mermaid' | 'plantuml';
 
 export interface DocumentRenderTask {
   id: string;
@@ -326,7 +326,12 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
       type: 'element',
       tagName: 'strong',
       properties: { className: ['render-task-error-title'] },
-      children: [{ type: 'text', value: kind === 'mermaid' ? '无法呈现图表' : '无法呈现公式' }],
+      children: [
+        {
+          type: 'text',
+          value: kind === 'mermaid' || kind === 'plantuml' ? '无法呈现图表' : '无法呈现公式',
+        },
+      ],
     },
     {
       type: 'element',
@@ -355,14 +360,20 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
 
 const createRenderTaskNode = (task: DocumentRenderTask): Element => {
   const inline = task.kind === 'math-inline';
+  const diagram = task.kind === 'mermaid' || task.kind === 'plantuml';
   return {
     type: 'element',
-    tagName: inline ? 'span' : task.kind === 'mermaid' ? 'figure' : 'div',
+    tagName: inline ? 'span' : diagram ? 'figure' : 'div',
     properties: {
-      ariaLabel: task.kind === 'mermaid' ? 'Mermaid 图表' : undefined,
+      ariaLabel:
+        task.kind === 'mermaid'
+          ? 'Mermaid 图表'
+          : task.kind === 'plantuml'
+            ? 'PlantUML 图表'
+            : undefined,
       className: [
         'render-task',
-        task.kind === 'mermaid' ? 'diagram-render-task' : 'math-render-task',
+        diagram ? 'diagram-render-task' : 'math-render-task',
         ...(inline ? ['math-render-task-inline'] : []),
       ],
       dataRenderState: 'pending',
@@ -413,6 +424,11 @@ const createRenderTasks: Plugin<[DocumentRenderTask[]], Root> = (renderTasks) =>
       kind = 'math-display';
     } else if (node.tagName === 'pre' && classNames.includes('language-mermaid')) {
       kind = 'mermaid';
+    } else if (
+      node.tagName === 'pre' &&
+      (classNames.includes('language-plantuml') || classNames.includes('language-puml'))
+    ) {
+      kind = 'plantuml';
     }
 
     if (!kind) return;

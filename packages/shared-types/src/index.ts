@@ -1,4 +1,5 @@
 export const desktopIpcChannels = {
+  cancelPlantUmlRender: 'fuxian:plantuml:cancel-render',
   copyText: 'fuxian:clipboard:write-text',
   loadDocumentSession: 'fuxian:document-session:load',
   loadReaderPreferences: 'fuxian:reader-preferences:load',
@@ -7,10 +8,14 @@ export const desktopIpcChannels = {
   openSettings: 'fuxian:settings:open',
   openSourceDocuments: 'fuxian:source-documents:open',
   readerPreferencesChanged: 'fuxian:reader-preferences:changed',
+  renderPlantUml: 'fuxian:plantuml:render',
   retrySourceDocument: 'fuxian:source-documents:retry',
   saveDocumentSession: 'fuxian:document-session:save',
   saveReaderPreferences: 'fuxian:reader-preferences:save',
+  validatePlantUmlServer: 'fuxian:plantuml:validate-server',
 } as const;
+
+export const defaultPlantUmlServerUrl = 'https://www.plantuml.com/plantuml';
 
 export const readerPreferenceLimits = {
   bodySize: { max: 22, min: 14 },
@@ -33,6 +38,9 @@ export interface ReaderPreferences {
     customWidth: number;
     mode: DocumentWidthMode;
   };
+  plantUml: {
+    serverUrl: string;
+  };
   version: 1;
 }
 
@@ -47,8 +55,32 @@ export const createDefaultReaderPreferences = (): ReaderPreferences => ({
     customWidth: 860,
     mode: 'adaptive',
   },
+  plantUml: {
+    serverUrl: defaultPlantUmlServerUrl,
+  },
   version: 1,
 });
+
+export const normalizePlantUmlServerUrl = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || value.length > 2_048) return undefined;
+
+  try {
+    const url = new URL(value.trim());
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return undefined;
+    }
+    const pathname = url.pathname.replace(/\/+$/, '');
+    return `${url.origin}${pathname}`;
+  } catch {
+    return undefined;
+  }
+};
 
 const clampPreference = (value: number, minimum: number, maximum: number): number =>
   Math.min(maximum, Math.max(minimum, value));
@@ -70,6 +102,7 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
       lineHeight?: unknown;
     };
     documentWidth?: { customWidth?: unknown; mode?: unknown };
+    plantUml?: { serverUrl?: unknown };
   };
   const appearance =
     candidate.appearance === 'dark' ||
@@ -118,9 +151,26 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
       ),
       mode: widthMode,
     },
+    plantUml: {
+      serverUrl:
+        normalizePlantUmlServerUrl(candidate.plantUml?.serverUrl) ?? defaults.plantUml.serverUrl,
+    },
     version: 1,
   };
 };
+
+export interface PlantUmlRenderRequest {
+  requestId: string;
+  serverUrl: string;
+  source: string;
+}
+
+export interface PlantUmlRenderResult {
+  svg: string;
+}
+
+export type PlantUmlServerValidationResult =
+  { serverUrl: string; status: 'valid' } | { message: string; status: 'invalid' };
 
 export interface SourceDocumentData {
   name: string;
@@ -181,6 +231,7 @@ export type LocateSourceDocumentResult =
   | { message: string; status: 'unavailable' };
 
 export interface FuxianDesktopBridge {
+  cancelPlantUmlRender(requestId: string): void;
   copyText(text: string): Promise<void>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
   loadReaderPreferences(): Promise<ReaderPreferences>;
@@ -189,7 +240,9 @@ export interface FuxianDesktopBridge {
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
   openSettings(): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
+  renderPlantUml(request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult>;
   retrySourceDocument(path: string): Promise<ReadSourceDocumentResult>;
   saveDocumentSession(session: PersistedDocumentSession): Promise<void>;
   saveReaderPreferences(preferences: ReaderPreferences): Promise<ReaderPreferences>;
+  validatePlantUmlServer(serverUrl: string): Promise<PlantUmlServerValidationResult>;
 }

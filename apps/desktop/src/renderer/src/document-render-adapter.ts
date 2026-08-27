@@ -1,12 +1,22 @@
 import type { RenderTask, RenderTaskAdapter } from '@fuxian/render-protocol';
+import type { FuxianDesktopBridge } from '@fuxian/shared-types';
 
 export type DocumentRenderAppearance = 'dark' | 'light';
 
 export type DocumentRenderResult =
-  { html: string; kind: 'math' } | { kind: 'mermaid'; svg: string };
+  | { html: string; kind: 'math' }
+  | { kind: 'mermaid'; svg: string }
+  | { kind: 'plantuml'; svg: string };
 
-export interface LocalDocumentRenderAdapter extends RenderTaskAdapter<DocumentRenderResult> {
+export type PlantUmlRenderer = (
+  source: string,
+  serverUrl: string,
+  signal: AbortSignal,
+) => Promise<string>;
+
+export interface DocumentRenderAdapter extends RenderTaskAdapter<DocumentRenderResult> {
   setAppearance(appearance: DocumentRenderAppearance): void;
+  setPlantUmlServerUrl(serverUrl: string): void;
 }
 
 let mermaidRenderId = 0;
@@ -21,14 +31,40 @@ const throwIfAborted = (signal: AbortSignal): void => {
   if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
 };
 
-export const createLocalDocumentRenderAdapter = (
+let plantUmlRequestId = 0;
+
+export const createDesktopPlantUmlRenderer =
+  (
+    bridge: Pick<FuxianDesktopBridge, 'cancelPlantUmlRender' | 'renderPlantUml'>,
+  ): PlantUmlRenderer =>
+  async (source, serverUrl, signal) => {
+    throwIfAborted(signal);
+    const requestId = `plantuml-${Date.now()}-${++plantUmlRequestId}`;
+    const cancel = (): void => bridge.cancelPlantUmlRender(requestId);
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      const result = await bridge.renderPlantUml({ requestId, serverUrl, source });
+      throwIfAborted(signal);
+      return result.svg;
+    } finally {
+      signal.removeEventListener('abort', cancel);
+    }
+  };
+
+export const createDocumentRenderAdapter = (
   initialAppearance: DocumentRenderAppearance,
-): LocalDocumentRenderAdapter => {
+  initialPlantUmlServerUrl: string,
+  renderPlantUml: PlantUmlRenderer,
+): DocumentRenderAdapter => {
   let appearance = initialAppearance;
+  let plantUmlServerUrl = initialPlantUmlServerUrl;
 
   return {
     setAppearance: (nextAppearance) => {
       appearance = nextAppearance;
+    },
+    setPlantUmlServerUrl: (nextServerUrl) => {
+      plantUmlServerUrl = nextServerUrl;
     },
     render: async (task: RenderTask, signal: AbortSignal): Promise<DocumentRenderResult> => {
       throwIfAborted(signal);
@@ -44,6 +80,13 @@ export const createLocalDocumentRenderAdapter = (
             trust: false,
           }),
           kind: 'math',
+        };
+      }
+
+      if (task.kind === 'plantuml') {
+        return {
+          kind: 'plantuml',
+          svg: await renderPlantUml(task.source, plantUmlServerUrl, signal),
         };
       }
 

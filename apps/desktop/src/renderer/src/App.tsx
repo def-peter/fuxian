@@ -37,6 +37,7 @@ import {
 } from '@/document-session';
 import { DocumentSessionSidebar } from '@/document-session-sidebar';
 import { DocumentWidthPopover } from '@/document-width-controls';
+import { createDesktopPlantUmlRenderer } from '@/document-render-adapter';
 import {
   bindFinishedDocument,
   createFinishedDocumentSource,
@@ -49,6 +50,7 @@ import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
+const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
 
 const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocument => {
   const finishedDocument = renderMarkdown({
@@ -164,6 +166,10 @@ export function App(): React.JSX.Element {
   }, [preferences, resolvedAppearance]);
 
   useEffect(() => {
+    finishedDocumentController.current?.applyPlantUmlServer(preferences.plantUml.serverUrl);
+  }, [preferences.plantUml.serverUrl]);
+
+  useEffect(() => {
     const controller = finishedDocumentController.current;
     setFindResult(
       findOpen ? (controller?.find(findQuery) ?? emptyFindResult()) : emptyFindResult(),
@@ -215,6 +221,7 @@ export function App(): React.JSX.Element {
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
       initialAppearance: resolvedAppearance,
+      initialPlantUmlServerUrl: preferences.plantUml.serverUrl,
       initialReadingPosition: activeDocument?.readingPosition ?? {
         headingOffset: 0,
         relativeProgress: 0,
@@ -228,6 +235,7 @@ export function App(): React.JSX.Element {
           );
         }
       },
+      renderPlantUml,
     });
     controller.applyTheme(toDocumentThemePreferences(preferences, resolvedAppearance));
     finishedDocumentController.current = controller;

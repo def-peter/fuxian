@@ -144,4 +144,30 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).not.toMatch(/onclick=|javascript:/i);
     expect(finishedDocument.html).not.toContain('class="code-block"><figcaption');
   });
+
+  it('creates PlantUML tasks without changing author themes or skin parameters', () => {
+    const source = [
+      '```plantuml',
+      '@startuml',
+      '!theme mars',
+      'skinparam handwritten true',
+      'Alice -> Bob: hello',
+      '@enduml',
+      '```',
+    ].join('\n');
+    const finishedDocument = renderMarkdown({ source });
+
+    expect(finishedDocument.renderTasks).toEqual([
+      {
+        id: 'render-task-1',
+        kind: 'plantuml',
+        source:
+          '@startuml\n!theme mars\nskinparam handwritten true\nAlice -> Bob: hello\n@enduml\n',
+      },
+    ]);
+    expect(finishedDocument.html).toContain('aria-label="PlantUML 图表"');
+    expect(finishedDocument.html).toContain('data-render-task-kind="plantuml"');
+    expect(finishedDocument.html).toContain('!theme mars');
+    expect(finishedDocument.html).toContain('skinparam handwritten true');
+  });
 });

@@ -1,16 +1,27 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import {
+  defaultPlantUmlServerUrl,
   readerPreferenceLimits,
   type AppearancePreference,
   type DocumentBodyFamily,
   type ReaderPreferences,
 } from '@fuxian/shared-types';
-import { FileText, Image, Monitor, Moon, Network, Sun, Type } from 'lucide-react';
+import { FileText, Image, Info, Monitor, Moon, Network, RotateCcw, Sun, Type } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel, FieldTitle } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
+import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
@@ -18,6 +29,11 @@ import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 
 type SettingsSection = 'appearance' | 'diagram' | 'document' | 'plantuml';
+type PlantUmlValidationState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { message: string; status: 'error' }
+  | { status: 'saved' };
 
 const previewSource = `# 完成文档示例
 
@@ -75,8 +91,13 @@ const updateDocumentTypography = (
 export function SettingsApp(): React.JSX.Element {
   const { preferences, ready, resolvedAppearance, updatePreferences } = useReaderPreferences();
   const [section, setSection] = useState<SettingsSection>('appearance');
+  const [plantUmlServerDraft, setPlantUmlServerDraft] = useState<string>();
+  const [plantUmlValidation, setPlantUmlValidation] = useState<PlantUmlValidationState>({
+    status: 'idle',
+  });
   const previewFrame = useRef<HTMLIFrameElement>(null);
   const documentTheme = toDocumentThemePreferences(preferences, resolvedAppearance);
+  const plantUmlServerValue = plantUmlServerDraft ?? preferences.plantUml.serverUrl;
 
   useEffect(() => {
     const frameDocument = previewFrame.current?.contentDocument;
@@ -101,6 +122,28 @@ export function SettingsApp(): React.JSX.Element {
   const selectBodyFamily = (bodyFamily: string): void => {
     if (bodyFamily === 'serif' || bodyFamily === 'sans-serif') {
       updatePreferences(updateDocumentTypography(preferences, { bodyFamily }));
+    }
+  };
+
+  const validateAndSavePlantUmlServer = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    setPlantUmlValidation({ status: 'checking' });
+    try {
+      const result = await window.fuxian.validatePlantUmlServer(plantUmlServerValue);
+      if (result.status === 'invalid') {
+        setPlantUmlValidation({ message: result.message, status: 'error' });
+        return;
+      }
+      updatePreferences({
+        ...preferences,
+        plantUml: { serverUrl: result.serverUrl },
+      });
+      setPlantUmlServerDraft(undefined);
+      setPlantUmlValidation({ status: 'saved' });
+    } catch {
+      setPlantUmlValidation({ message: '暂时无法验证 PlantUML Server。', status: 'error' });
     }
   };
 
@@ -245,13 +288,92 @@ export function SettingsApp(): React.JSX.Element {
             </section>
           ) : null}
 
-          {section === 'diagram' || section === 'plantuml' ? (
+          {section === 'diagram' ? (
             <section aria-labelledby="reserved-settings-title">
               <h2 className="text-base font-semibold" id="reserved-settings-title">
-                {section === 'diagram' ? '图表' : 'PlantUML'}
+                图表
               </h2>
               <Separator className="my-5" />
               <p className="text-sm text-muted-foreground">当前没有可配置项。</p>
+            </section>
+          ) : null}
+
+          {section === 'plantuml' ? (
+            <section aria-labelledby="plantuml-title">
+              <h2 className="text-base font-semibold" id="plantuml-title">
+                PlantUML
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                配置用于生成 PlantUML SVG 的公共、本地或私有服务。
+              </p>
+              <Separator className="my-5" />
+
+              <form onSubmit={(event) => void validateAndSavePlantUmlServer(event)}>
+                <FieldGroup>
+                  <Field data-invalid={plantUmlValidation.status === 'error'}>
+                    <FieldLabel htmlFor="plantuml-server-url">Server 地址</FieldLabel>
+                    <Input
+                      aria-invalid={plantUmlValidation.status === 'error'}
+                      autoCapitalize="none"
+                      autoComplete="off"
+                      disabled={plantUmlValidation.status === 'checking'}
+                      id="plantuml-server-url"
+                      onChange={(event) => {
+                        setPlantUmlServerDraft(event.target.value);
+                        setPlantUmlValidation({ status: 'idle' });
+                      }}
+                      placeholder="http://127.0.0.1:8080/plantuml"
+                      spellCheck={false}
+                      type="url"
+                      value={plantUmlServerValue}
+                    />
+                    <FieldDescription>
+                      默认使用公共服务。地址验证通过后才会保存，并立即重绘已打开文档中的 PlantUML
+                      图表。
+                    </FieldDescription>
+                    {plantUmlValidation.status === 'error' ? (
+                      <FieldError>{plantUmlValidation.message}</FieldError>
+                    ) : null}
+                    {plantUmlValidation.status === 'saved' ? (
+                      <FieldDescription aria-live="polite">连接成功，地址已保存。</FieldDescription>
+                    ) : null}
+                  </Field>
+
+                  <Field orientation="horizontal">
+                    <Button
+                      disabled={plantUmlValidation.status === 'checking'}
+                      size="sm"
+                      type="submit"
+                    >
+                      {plantUmlValidation.status === 'checking' ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : null}
+                      {plantUmlValidation.status === 'checking' ? '正在验证' : '验证并保存'}
+                    </Button>
+                    <Button
+                      disabled={plantUmlValidation.status === 'checking'}
+                      onClick={() => {
+                        setPlantUmlServerDraft(defaultPlantUmlServerUrl);
+                        setPlantUmlValidation({ status: 'idle' });
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <RotateCcw data-icon="inline-start" />
+                      恢复默认
+                    </Button>
+                  </Field>
+                </FieldGroup>
+              </form>
+
+              <Alert className="mt-6">
+                <Info />
+                <AlertTitle>源码发送范围</AlertTitle>
+                <AlertDescription>
+                  PlantUML 源码会发送到上方配置的服务。不要在图表中放入不应离开设备的敏感内容。
+                </AlertDescription>
+              </Alert>
             </section>
           ) : null}
         </main>

@@ -11,11 +11,12 @@ import {
   type RenderTaskAdapter,
   type RenderTaskScheduler,
 } from '@fuxian/render-protocol';
-import type { ReadingPosition } from '@fuxian/shared-types';
+import { defaultPlantUmlServerUrl, type ReadingPosition } from '@fuxian/shared-types';
 import {
-  createLocalDocumentRenderAdapter,
+  createDocumentRenderAdapter,
   type DocumentRenderResult,
-  type LocalDocumentRenderAdapter,
+  type DocumentRenderAdapter,
+  type PlantUmlRenderer,
 } from './document-render-adapter';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
 
@@ -25,6 +26,7 @@ export interface FindResult {
 }
 
 export interface FinishedDocumentController {
+  applyPlantUmlServer(serverUrl: string): void;
   applyTheme(preferences: DocumentThemePreferences): void;
   clearFind(): FindResult;
   destroy(): void;
@@ -41,12 +43,14 @@ export interface FinishedDocumentController {
 interface BindFinishedDocumentOptions {
   copyText(text: string): Promise<void>;
   initialAppearance?: 'dark' | 'light';
+  initialPlantUmlServerUrl?: string;
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
   onReadingPositionChange(position: ReadingPosition): void;
   onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
   renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
+  renderPlantUml?: PlantUmlRenderer;
   renderScheduler?: RenderTaskScheduler;
   renderTimeoutMilliseconds?: number;
   revisionId?: string;
@@ -55,7 +59,7 @@ interface BindFinishedDocumentOptions {
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 let finishedDocumentRevision = 0;
 
-const renderTaskKinds = new Set(['math-display', 'math-inline', 'mermaid']);
+const renderTaskKinds = new Set(['math-display', 'math-inline', 'mermaid', 'plantuml']);
 
 const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
   Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
@@ -69,11 +73,11 @@ const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
     },
   );
 
-const sanitizeMermaidSvg = (frameDocument: Document, source: string): SVGElement => {
+const sanitizeDiagramSvg = (frameDocument: Document, source: string): SVGElement => {
   const template = frameDocument.createElement('template');
   template.innerHTML = source;
   const svg = template.content.querySelector('svg');
-  if (!svg) throw new TypeError('Mermaid 没有返回有效的 SVG。');
+  if (!svg) throw new TypeError('图表服务没有返回有效的 SVG。');
   for (const element of svg.querySelectorAll('script, foreignObject, iframe, object, embed')) {
     element.remove();
   }
@@ -152,9 +156,16 @@ export function bindFinishedDocument(
   let appearance =
     options.initialAppearance ??
     (frameDocument.documentElement.dataset.appearance === 'dark' ? 'dark' : 'light');
-  const localRenderAdapter: LocalDocumentRenderAdapter | undefined = options.renderAdapter
+  const documentRenderAdapter: DocumentRenderAdapter | undefined = options.renderAdapter
     ? undefined
-    : createLocalDocumentRenderAdapter(appearance);
+    : createDocumentRenderAdapter(
+        appearance,
+        options.initialPlantUmlServerUrl ?? defaultPlantUmlServerUrl,
+        options.renderPlantUml ??
+          (async () => {
+            throw new TypeError('PlantUML 渲染服务不可用。');
+          }),
+      );
   const renderTaskList = collectRenderTasks(frameDocument);
   const renderTaskElements = new Map(
     Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
@@ -185,7 +196,7 @@ export function bindFinishedDocument(
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
-      output.replaceChildren(sanitizeMermaidSvg(frameDocument, result.svg));
+      output.replaceChildren(sanitizeDiagramSvg(frameDocument, result.svg));
     }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-error')?.setAttribute('hidden', '');
@@ -211,7 +222,7 @@ export function bindFinishedDocument(
   };
 
   const renderCoordinator = new RenderCoordinator<DocumentRenderResult>({
-    adapter: options.renderAdapter ?? localRenderAdapter!,
+    adapter: options.renderAdapter ?? documentRenderAdapter!,
     onSnapshot: (snapshot) => {
       frameDocument.documentElement.dataset.renderReadiness = snapshot.readiness.complete
         ? 'ready'
@@ -453,11 +464,17 @@ export function bindFinishedDocument(
   });
 
   return {
+    applyPlantUmlServer: (serverUrl) => {
+      documentRenderAdapter?.setPlantUmlServerUrl(serverUrl);
+      for (const task of renderTaskList) {
+        if (task.kind === 'plantuml') renderRevision.retry(task.id);
+      }
+    },
     applyTheme: (preferences) => {
       applyDocumentTheme(frameDocument, preferences);
       if (appearance !== preferences.appearance) {
         appearance = preferences.appearance;
-        localRenderAdapter?.setAppearance(appearance);
+        documentRenderAdapter?.setAppearance(appearance);
         for (const task of renderTaskList) {
           if (task.kind === 'mermaid') renderRevision.retry(task.id);
         }

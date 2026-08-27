@@ -1,9 +1,13 @@
 import {
   desktopIpcChannels,
+  normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
+  type PlantUmlRenderRequest,
+  type PlantUmlRenderResult,
+  type PlantUmlServerValidationResult,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
   type SourceDocumentData,
@@ -17,6 +21,7 @@ import {
   JsonFilePreferencesPersistence,
   type PreferencesPersistence,
 } from './preferences-persistence';
+import { fetchPlantUmlSvg, validatePlantUmlServer } from './plantuml-server';
 import {
   isPersistedDocumentSession,
   JsonFileSessionPersistence,
@@ -29,6 +34,13 @@ const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
+const activePlantUmlRequests = new Map<string, AbortController>();
+
+const plantUmlRequestKey = (webContentsId: number, requestId: string): string =>
+  `${webContentsId}:${requestId}`;
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error && error.message ? error.message : 'PlantUML Server 验证失败。';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -199,6 +211,10 @@ const registerDesktopHandlers = (
   preferencesPersistence: PreferencesPersistence,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  ipcMain.on(desktopIpcChannels.cancelPlantUmlRender, (event, requestId: unknown) => {
+    if (typeof requestId !== 'string') return;
+    activePlantUmlRequests.get(plantUmlRequestKey(event.sender.id, requestId))?.abort();
+  });
   ipcMain.handle(desktopIpcChannels.copyText, (_event, text: unknown) => {
     if (typeof text !== 'string' || text.length > 1_000_000) {
       throw new TypeError('Clipboard text must be a string no longer than 1,000,000 characters.');
@@ -208,6 +224,63 @@ const registerDesktopHandlers = (
   });
   ipcMain.handle(desktopIpcChannels.openSourceDocuments, openSourceDocuments);
   ipcMain.handle(desktopIpcChannels.openDroppedSourceDocuments, openDroppedSourceDocuments);
+  ipcMain.handle(
+    desktopIpcChannels.renderPlantUml,
+    async (event, value: unknown): Promise<PlantUmlRenderResult> => {
+      const request = value as Partial<PlantUmlRenderRequest> | undefined;
+      const serverUrl = normalizePlantUmlServerUrl(request?.serverUrl);
+      if (
+        !request ||
+        typeof request.requestId !== 'string' ||
+        request.requestId.length > 128 ||
+        !serverUrl ||
+        typeof request.source !== 'string'
+      ) {
+        throw new TypeError('PlantUML 渲染请求无效。');
+      }
+
+      const key = plantUmlRequestKey(event.sender.id, request.requestId);
+      activePlantUmlRequests.get(key)?.abort();
+      const controller = new AbortController();
+      const abortOnDestroyed = (): void => controller.abort();
+      activePlantUmlRequests.set(key, controller);
+      event.sender.once('destroyed', abortOnDestroyed);
+      try {
+        return {
+          svg: await fetchPlantUmlSvg(serverUrl, request.source, controller.signal),
+        };
+      } finally {
+        event.sender.removeListener('destroyed', abortOnDestroyed);
+        if (activePlantUmlRequests.get(key) === controller) activePlantUmlRequests.delete(key);
+      }
+    },
+  );
+  ipcMain.handle(
+    desktopIpcChannels.validatePlantUmlServer,
+    async (_event, value: unknown): Promise<PlantUmlServerValidationResult> => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8_000);
+      try {
+        return {
+          serverUrl: await validatePlantUmlServer(
+            typeof value === 'string' ? value : '',
+            controller.signal,
+          ),
+          status: 'valid',
+        };
+      } catch (error) {
+        return {
+          message:
+            controller.signal.aborted && !(error instanceof TypeError)
+              ? '连接 PlantUML Server 超时。'
+              : errorMessage(error),
+          status: 'invalid',
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
   ipcMain.handle(desktopIpcChannels.loadReaderPreferences, () => preferencesPersistence.load());
   ipcMain.handle(desktopIpcChannels.openSettings, () => {
     createSettingsWindow();

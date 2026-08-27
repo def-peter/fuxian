@@ -5,6 +5,9 @@ import {
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
+  type PlantUmlRenderRequest,
+  type PlantUmlRenderResult,
+  type PlantUmlServerValidationResult,
   type PersistedDocumentSession,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
@@ -12,6 +15,8 @@ import {
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 const bridge: FuxianDesktopBridge = Object.freeze({
+  cancelPlantUmlRender: (requestId: string): void =>
+    ipcRenderer.send(desktopIpcChannels.cancelPlantUmlRender, requestId),
   copyText: async (text: string): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.copyText, text),
   loadDocumentSession: async (): Promise<LoadDocumentSessionResult> =>
@@ -44,12 +49,16 @@ const bridge: FuxianDesktopBridge = Object.freeze({
   openSettings: async (): Promise<void> => ipcRenderer.invoke(desktopIpcChannels.openSettings),
   openSourceDocuments: async (): Promise<OpenSourceDocumentsResult> =>
     ipcRenderer.invoke(desktopIpcChannels.openSourceDocuments),
+  renderPlantUml: async (request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.renderPlantUml, request),
   retrySourceDocument: async (path: string): Promise<ReadSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.retrySourceDocument, path),
   saveDocumentSession: async (session: PersistedDocumentSession): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.saveDocumentSession, session),
   saveReaderPreferences: async (preferences: ReaderPreferences): Promise<ReaderPreferences> =>
     ipcRenderer.invoke(desktopIpcChannels.saveReaderPreferences, preferences),
+  validatePlantUmlServer: async (serverUrl: string): Promise<PlantUmlServerValidationResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.validatePlantUmlServer, serverUrl),
 });
 
 contextBridge.exposeInMainWorld('fuxian', bridge);
