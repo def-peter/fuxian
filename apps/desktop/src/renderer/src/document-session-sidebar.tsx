@@ -18,6 +18,7 @@ import type {
   RecentDocument,
   UnavailableSessionDocument,
 } from '@/document-session';
+import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 
 interface DocumentSessionSidebarProps {
@@ -102,20 +103,6 @@ function UnavailableDocumentItem({
         <X aria-hidden="true" />
       </Button>
     </div>
-  );
-}
-
-function FuxianMark(): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      className="relative size-6 shrink-0 overflow-hidden rounded-sm border border-primary/35 bg-accent"
-    >
-      <span className="absolute inset-x-1 bottom-1 h-px bg-primary/45" />
-      <span className="absolute bottom-1 left-[6px] h-2 w-px bg-primary" />
-      <span className="absolute bottom-1 left-[11px] h-3 w-px bg-primary" />
-      <span className="absolute bottom-1 left-4 h-1.5 w-px bg-primary" />
-    </span>
   );
 }
 
@@ -210,7 +197,7 @@ export function DocumentSessionSidebar({
       className="grid h-full min-h-0 grid-rows-[44px_minmax(0,1fr)] border-r bg-muted/35"
     >
       <header className="flex items-center gap-2 border-b px-3">
-        <FuxianMark />
+        <FuxianMark className="size-7" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现 Fuxian</span>
         <Tooltip>
           <TooltipTrigger asChild>

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="design/logo/final/fuxian-app-icon.svg" alt="浮现 Fuxian" width="128" height="128" />
+</p>
+
 # Fuxian
 
 Fuxian is a focused Electron application for opening and presenting Markdown documents.

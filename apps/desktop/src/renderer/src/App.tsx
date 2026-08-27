@@ -43,6 +43,7 @@ import {
   type FindResult,
   type FinishedDocumentController,
 } from '@/finished-document';
+import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
@@ -696,7 +697,7 @@ export function App(): React.JSX.Element {
               </Alert>
             ) : (
               <section className="w-full max-w-xl" aria-labelledby="start-title">
-                <div className="mb-10 h-px w-14 bg-primary" />
+                <FuxianMark className="mb-6 size-20" />
                 <h1 id="start-title" className="text-3xl font-semibold text-foreground">
                   浮现 Fuxian
                 </h1>

@@ -24,6 +24,7 @@ import {
 } from './session-persistence';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
+const appIconPath = join(currentDirectory, '../../resources/icon.png');
 const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
@@ -294,6 +295,7 @@ const createWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: appIconPath,
     minWidth: 720,
     minHeight: 480,
     show: false,
@@ -351,6 +353,7 @@ const createSettingsWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     width: 1000,
     height: 720,
+    icon: appIconPath,
     minWidth: 820,
     minHeight: 620,
     show: false,
@@ -382,6 +385,9 @@ const createSettingsWindow = (): BrowserWindow => {
 
 app.whenReady().then(() => {
   app.setName('Fuxian');
+  if (process.platform === 'darwin') {
+    app.dock?.setIcon(appIconPath);
+  }
   protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
   const sessionPath =
     !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE
