@@ -1,9 +1,11 @@
 import {
   desktopIpcChannels,
+  normalizeReaderPreferences,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type OpenSourceDocumentsResult,
   type ReadSourceDocumentResult,
+  type ReaderPreferences,
   type SourceDocumentData,
 } from '@fuxian/shared-types';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, protocol, shell } from 'electron';
@@ -11,6 +13,10 @@ import { readFile, realpath } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
+import {
+  JsonFilePreferencesPersistence,
+  type PreferencesPersistence,
+} from './preferences-persistence';
 import {
   isPersistedDocumentSession,
   JsonFileSessionPersistence,
@@ -21,6 +27,7 @@ const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
+let settingsWindow: BrowserWindow | undefined;
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -186,7 +193,11 @@ const handleDocumentResourceRequest = async (request: Request): Promise<Response
   }
 };
 
-const registerDesktopHandlers = (sessionPersistence: SessionPersistence): void => {
+const registerDesktopHandlers = (
+  sessionPersistence: SessionPersistence,
+  preferencesPersistence: PreferencesPersistence,
+): void => {
+  let preferencesSaveQueue = Promise.resolve();
   ipcMain.handle(desktopIpcChannels.copyText, (_event, text: unknown) => {
     if (typeof text !== 'string' || text.length > 1_000_000) {
       throw new TypeError('Clipboard text must be a string no longer than 1,000,000 characters.');
@@ -196,6 +207,28 @@ const registerDesktopHandlers = (sessionPersistence: SessionPersistence): void =
   });
   ipcMain.handle(desktopIpcChannels.openSourceDocuments, openSourceDocuments);
   ipcMain.handle(desktopIpcChannels.openDroppedSourceDocuments, openDroppedSourceDocuments);
+  ipcMain.handle(desktopIpcChannels.loadReaderPreferences, () => preferencesPersistence.load());
+  ipcMain.handle(desktopIpcChannels.openSettings, () => {
+    createSettingsWindow();
+  });
+  ipcMain.handle(
+    desktopIpcChannels.saveReaderPreferences,
+    (_event, value: unknown): Promise<ReaderPreferences> => {
+      const normalized = normalizeReaderPreferences(value);
+      const save = preferencesSaveQueue.then(async () => {
+        const preferences = await preferencesPersistence.save(normalized);
+        for (const browserWindow of BrowserWindow.getAllWindows()) {
+          browserWindow.webContents.send(desktopIpcChannels.readerPreferencesChanged, preferences);
+        }
+        return preferences;
+      });
+      preferencesSaveQueue = save.then(
+        () => undefined,
+        () => undefined,
+      );
+      return save;
+    },
+  );
   ipcMain.handle(
     desktopIpcChannels.loadDocumentSession,
     async (): Promise<LoadDocumentSessionResult> => {
@@ -306,6 +339,47 @@ const createWindow = (): BrowserWindow => {
   return window;
 };
 
+const createSettingsWindow = (): BrowserWindow => {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) {
+      settingsWindow.restore();
+    }
+    settingsWindow.focus();
+    return settingsWindow;
+  }
+
+  const window = new BrowserWindow({
+    width: 1000,
+    height: 720,
+    minWidth: 820,
+    minHeight: 620,
+    show: false,
+    title: '浮现设置',
+    webPreferences: {
+      preload: join(currentDirectory, '../preload/index.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  settingsWindow = window;
+  window.once('ready-to-show', () => window.show());
+  window.on('closed', () => {
+    settingsWindow = undefined;
+  });
+
+  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
+    const url = new URL(process.env.ELECTRON_RENDERER_URL);
+    url.searchParams.set('view', 'settings');
+    void window.loadURL(url.toString());
+  } else {
+    void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
+      query: { view: 'settings' },
+    });
+  }
+  return window;
+};
+
 app.whenReady().then(() => {
   app.setName('Fuxian');
   protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
@@ -313,7 +387,14 @@ app.whenReady().then(() => {
     !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE
       ? process.env.FUXIAN_E2E_SESSION_FILE
       : join(app.getPath('userData'), 'document-session.json');
-  registerDesktopHandlers(new JsonFileSessionPersistence(sessionPath));
+  const preferencesPath =
+    !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
+      ? process.env.FUXIAN_E2E_PREFERENCES_FILE
+      : join(app.getPath('userData'), 'reader-preferences.json');
+  registerDesktopHandlers(
+    new JsonFileSessionPersistence(sessionPath),
+    new JsonFilePreferencesPersistence(preferencesPath),
+  );
   createWindow();
 
   app.on('activate', () => {

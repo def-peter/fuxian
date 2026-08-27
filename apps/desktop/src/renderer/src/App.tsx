@@ -36,6 +36,7 @@ import {
   type SessionDocument,
 } from '@/document-session';
 import { DocumentSessionSidebar } from '@/document-session-sidebar';
+import { DocumentWidthPopover } from '@/document-width-controls';
 import {
   bindFinishedDocument,
   createFinishedDocumentSource,
@@ -43,6 +44,8 @@ import {
   type FinishedDocumentController,
 } from '@/finished-document';
 import { cn } from '@/lib/utils';
+import { toDocumentThemePreferences } from '@/reader-preferences-theme';
+import { useReaderPreferences } from '@/use-reader-preferences';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 
@@ -60,6 +63,7 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
 };
 
 export function App(): React.JSX.Element {
+  const { preferences, resolvedAppearance, updatePreferences } = useReaderPreferences();
   const [session, setSession] = useState(createDocumentSession);
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
@@ -153,6 +157,12 @@ export function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    finishedDocumentController.current?.applyTheme(
+      toDocumentThemePreferences(preferences, resolvedAppearance),
+    );
+  }, [preferences, resolvedAppearance]);
+
+  useEffect(() => {
     const controller = finishedDocumentController.current;
     setFindResult(
       findOpen ? (controller?.find(findQuery) ?? emptyFindResult()) : emptyFindResult(),
@@ -217,6 +227,7 @@ export function App(): React.JSX.Element {
         }
       },
     });
+    controller.applyTheme(toDocumentThemePreferences(preferences, resolvedAppearance));
     finishedDocumentController.current = controller;
     setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
   };
@@ -494,6 +505,7 @@ export function App(): React.JSX.Element {
           onClose={closeOpenDocument}
           onLocate={(path) => void locateUnavailableDocument(path)}
           onOpen={() => void openSourceDocuments()}
+          onOpenSettings={() => void window.fuxian.openSettings()}
           onRemoveUnavailable={(path) =>
             setSession((current) => removeUnavailableDocument(current, path))
           }
@@ -545,6 +557,10 @@ export function App(): React.JSX.Element {
               </div>
 
               <div className="ml-4 flex shrink-0 items-center gap-1">
+                <DocumentWidthPopover
+                  onChange={(documentWidth) => updatePreferences({ ...preferences, documentWidth })}
+                  value={preferences.documentWidth}
+                />
                 {findOpen ? (
                   <div className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs">
                     <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />

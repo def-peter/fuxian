@@ -1,4 +1,8 @@
-import { documentThemeCss } from '@fuxian/document-theme';
+import {
+  documentThemeCss,
+  getDocumentThemeVariables,
+  type DocumentThemePreferences,
+} from '@fuxian/document-theme';
 import type { ReadingPosition } from '@fuxian/shared-types';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
 
@@ -8,6 +12,7 @@ export interface FindResult {
 }
 
 export interface FinishedDocumentController {
+  applyTheme(preferences: DocumentThemePreferences): void;
   clearFind(): FindResult;
   destroy(): void;
   find(query: string): FindResult;
@@ -27,6 +32,16 @@ interface BindFinishedDocumentOptions {
 }
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
+
+export const applyDocumentTheme = (
+  frameDocument: Document,
+  preferences: DocumentThemePreferences,
+): void => {
+  frameDocument.documentElement.dataset.appearance = preferences.appearance;
+  for (const [name, value] of Object.entries(getDocumentThemeVariables(preferences))) {
+    frameDocument.documentElement.style.setProperty(name, value);
+  }
+};
 
 export function createFinishedDocumentSource(body: string): string {
   return `<!doctype html>
@@ -274,6 +289,7 @@ export function bindFinishedDocument(
   });
 
   return {
+    applyTheme: (preferences) => applyDocumentTheme(frameDocument, preferences),
     clearFind: clearFindHighlights,
     destroy: () => {
       clearFindHighlights();

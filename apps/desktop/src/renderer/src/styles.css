@@ -51,6 +51,27 @@
   --ring: oklch(0.55 0.075 162);
 }
 
+.dark {
+  --background: oklch(0.19 0.008 245);
+  --foreground: oklch(0.91 0.008 245);
+  --card: oklch(0.215 0.009 245);
+  --card-foreground: oklch(0.91 0.008 245);
+  --popover: oklch(0.235 0.01 245);
+  --popover-foreground: oklch(0.91 0.008 245);
+  --primary: oklch(0.7 0.08 162);
+  --primary-foreground: oklch(0.17 0.02 162);
+  --secondary: oklch(0.27 0.012 245);
+  --secondary-foreground: oklch(0.9 0.008 245);
+  --muted: oklch(0.25 0.009 245);
+  --muted-foreground: oklch(0.68 0.015 245);
+  --accent: oklch(0.31 0.03 162);
+  --accent-foreground: oklch(0.9 0.02 162);
+  --destructive: oklch(0.68 0.16 30);
+  --border: oklch(0.34 0.012 245);
+  --input: oklch(0.4 0.014 245);
+  --ring: oklch(0.67 0.075 162);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

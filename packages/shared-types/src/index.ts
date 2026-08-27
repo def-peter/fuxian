@@ -1,12 +1,126 @@
 export const desktopIpcChannels = {
   copyText: 'fuxian:clipboard:write-text',
   loadDocumentSession: 'fuxian:document-session:load',
+  loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
+  openSettings: 'fuxian:settings:open',
   openSourceDocuments: 'fuxian:source-documents:open',
+  readerPreferencesChanged: 'fuxian:reader-preferences:changed',
   retrySourceDocument: 'fuxian:source-documents:retry',
   saveDocumentSession: 'fuxian:document-session:save',
+  saveReaderPreferences: 'fuxian:reader-preferences:save',
 } as const;
+
+export const readerPreferenceLimits = {
+  bodySize: { max: 22, min: 14 },
+  customWidth: { max: 1200, min: 640 },
+  lineHeight: { max: 2.2, min: 1.5 },
+} as const;
+
+export type AppearancePreference = 'dark' | 'light' | 'system';
+export type DocumentBodyFamily = 'sans-serif' | 'serif';
+export type DocumentWidthMode = 'a4' | 'adaptive' | 'custom';
+
+export interface ReaderPreferences {
+  appearance: AppearancePreference;
+  documentTypography: {
+    bodyFamily: DocumentBodyFamily;
+    bodySize: number;
+    lineHeight: number;
+  };
+  documentWidth: {
+    customWidth: number;
+    mode: DocumentWidthMode;
+  };
+  version: 1;
+}
+
+export const createDefaultReaderPreferences = (): ReaderPreferences => ({
+  appearance: 'system',
+  documentTypography: {
+    bodyFamily: 'serif',
+    bodySize: 17,
+    lineHeight: 1.85,
+  },
+  documentWidth: {
+    customWidth: 860,
+    mode: 'adaptive',
+  },
+  version: 1,
+});
+
+const clampPreference = (value: number, minimum: number, maximum: number): number =>
+  Math.min(maximum, Math.max(minimum, value));
+
+const finiteNumberOr = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+export const normalizeReaderPreferences = (value: unknown): ReaderPreferences => {
+  const defaults = createDefaultReaderPreferences();
+  if (!value || typeof value !== 'object' || (value as { version?: unknown }).version !== 1) {
+    return defaults;
+  }
+
+  const candidate = value as {
+    appearance?: unknown;
+    documentTypography?: {
+      bodyFamily?: unknown;
+      bodySize?: unknown;
+      lineHeight?: unknown;
+    };
+    documentWidth?: { customWidth?: unknown; mode?: unknown };
+  };
+  const appearance =
+    candidate.appearance === 'dark' ||
+    candidate.appearance === 'light' ||
+    candidate.appearance === 'system'
+      ? candidate.appearance
+      : defaults.appearance;
+  const bodyFamily =
+    candidate.documentTypography?.bodyFamily === 'sans-serif' ||
+    candidate.documentTypography?.bodyFamily === 'serif'
+      ? candidate.documentTypography.bodyFamily
+      : defaults.documentTypography.bodyFamily;
+  const widthMode =
+    candidate.documentWidth?.mode === 'a4' ||
+    candidate.documentWidth?.mode === 'adaptive' ||
+    candidate.documentWidth?.mode === 'custom'
+      ? candidate.documentWidth.mode
+      : defaults.documentWidth.mode;
+
+  return {
+    appearance,
+    documentTypography: {
+      bodyFamily,
+      bodySize: clampPreference(
+        finiteNumberOr(
+          candidate.documentTypography?.bodySize,
+          defaults.documentTypography.bodySize,
+        ),
+        readerPreferenceLimits.bodySize.min,
+        readerPreferenceLimits.bodySize.max,
+      ),
+      lineHeight: clampPreference(
+        finiteNumberOr(
+          candidate.documentTypography?.lineHeight,
+          defaults.documentTypography.lineHeight,
+        ),
+        readerPreferenceLimits.lineHeight.min,
+        readerPreferenceLimits.lineHeight.max,
+      ),
+    },
+    documentWidth: {
+      customWidth: clampPreference(
+        finiteNumberOr(candidate.documentWidth?.customWidth, defaults.documentWidth.customWidth),
+        readerPreferenceLimits.customWidth.min,
+        readerPreferenceLimits.customWidth.max,
+      ),
+      mode: widthMode,
+    },
+    version: 1,
+  };
+};
 
 export interface SourceDocumentData {
   name: string;
@@ -69,9 +183,13 @@ export type LocateSourceDocumentResult =
 export interface FuxianDesktopBridge {
   copyText(text: string): Promise<void>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
+  loadReaderPreferences(): Promise<ReaderPreferences>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
+  onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
+  openSettings(): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
   retrySourceDocument(path: string): Promise<ReadSourceDocumentResult>;
   saveDocumentSession(session: PersistedDocumentSession): Promise<void>;
+  saveReaderPreferences(preferences: ReaderPreferences): Promise<ReaderPreferences>;
 }

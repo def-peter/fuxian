@@ -5,6 +5,7 @@ import {
   FolderOpen,
   FolderSearch,
   RotateCcw,
+  Settings,
   X,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -26,6 +27,7 @@ interface DocumentSessionSidebarProps {
   onClose(path: string): void;
   onLocate(path: string): void;
   onOpen(): void;
+  onOpenSettings(): void;
   onRemoveUnavailable(path: string): void;
   onReopen(path: string): void;
   onRetry(path: string): void;
@@ -195,6 +197,7 @@ export function DocumentSessionSidebar({
   onClose,
   onLocate,
   onOpen,
+  onOpenSettings,
   onRemoveUnavailable,
   onReopen,
   onRetry,
@@ -223,6 +226,16 @@ export function DocumentSessionSidebar({
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={6}>
             添加文档
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button aria-label="设置" onClick={onOpenSettings} size="icon-sm" variant="ghost">
+              <Settings aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={6}>
+            设置
           </TooltipContent>
         </Tooltip>
       </header>
