@@ -54,13 +54,17 @@ const readDocumentVariables = (page: Page, title: string) =>
   page
     .frameLocator(`iframe[title="${title}"]`)
     .locator('html')
-    .evaluate((root) => ({
-      appearance: root.dataset.appearance,
-      bodyFont: root.style.getPropertyValue('--document-body-font'),
-      bodySize: root.style.getPropertyValue('--document-body-size'),
-      lineHeight: root.style.getPropertyValue('--document-line-height'),
-      width: root.style.getPropertyValue('--document-width'),
-    }));
+    .evaluate((root) => {
+      const bodyParagraph = root.querySelector('p');
+      return {
+        appearance: root.dataset.appearance,
+        bodyFont: root.style.getPropertyValue('--document-body-font'),
+        bodySize: root.style.getPropertyValue('--document-body-size'),
+        computedBodyFont: bodyParagraph ? getComputedStyle(bodyParagraph).fontFamily : undefined,
+        lineHeight: root.style.getPropertyValue('--document-line-height'),
+        width: root.style.getPropertyValue('--document-width'),
+      };
+    });
 
 test('preferences synchronize live, persist at their limits, and restore after restart', async () => {
   test.setTimeout(60_000);
@@ -105,12 +109,19 @@ test('preferences synchronize live, persist at their limits, and restore after r
       appearance: 'dark',
       bodyFont: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       bodySize: '22px',
+      computedBodyFont:
+        'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       lineHeight: '1.5',
       width: '1200px',
     };
     await expect
       .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
       .toEqual(expectedVariables);
+    await expect
+      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .toEqual(expectedVariables);
+    await settingsWindow.close();
+    await expect.poll(() => electronApp.windows().length).toBe(1);
     await expect
       .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
       .toEqual(expectedVariables);
