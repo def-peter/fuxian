@@ -39,6 +39,25 @@ describe('document theme preferences', () => {
     );
   });
 
+  it('keeps the finished-document scrollbar quiet without shrinking its hit area', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toContain(
+      '--document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 30%, transparent);',
+    );
+    expect(css).toContain(
+      '--document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 58%, transparent);',
+    );
+    expect(css).toContain('@supports not selector(::-webkit-scrollbar-thumb)');
+    expect(css).toContain('scrollbar-color: var(--document-scrollbar-thumb-idle) transparent;');
+    expect(css).toContain(':root[data-scroll-active="true"]');
+    expect(css).toContain('::-webkit-scrollbar-thumb:hover');
+    expect(css).toContain('@media (forced-colors: active)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('@media print');
+    expect(css).not.toContain('scrollbar-width:');
+  });
+
   it('keeps all content constrained by the finished-document width', () => {
     const css = createDocumentThemeCss(preferences);
     expect(css).toContain('width: min(100%, var(--document-width))');

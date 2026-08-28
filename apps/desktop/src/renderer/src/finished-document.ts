@@ -219,6 +219,7 @@ export function bindFinishedDocument(
   const findRanges: Range[] = [];
   let currentFindIndex = -1;
   let scrollAnimationFrame = 0;
+  let scrollIdleTimer = 0;
   let restoreAnimationFrame = 0;
   let restoringReadingPosition = true;
   let appearance =
@@ -468,6 +469,16 @@ export function bindFinishedDocument(
     }
   };
 
+  const handleViewportScroll = (): void => {
+    frameDocument.documentElement.dataset.scrollActive = 'true';
+    if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = window.setTimeout(() => {
+      scrollIdleTimer = 0;
+      delete frameDocument.documentElement.dataset.scrollActive;
+    }, 700);
+    scheduleActiveHeadingUpdate();
+  };
+
   const clearFindHighlights = (): FindResult => {
     frameWindow.CSS?.highlights?.delete('fuxian-find-results');
     frameWindow.CSS?.highlights?.delete('fuxian-find-current');
@@ -621,7 +632,7 @@ export function bindFinishedDocument(
   frameDocument.addEventListener('error', handleResourceError, true);
   frameDocument.addEventListener('load', handleResourceLoad, true);
   frameWindow.addEventListener('keydown', handleFinishedDocumentKeyDown);
-  frameWindow.addEventListener('scroll', scheduleActiveHeadingUpdate, { passive: true });
+  frameWindow.addEventListener('scroll', handleViewportScroll, { passive: true });
 
   for (const image of frameDocument.querySelectorAll<HTMLImageElement>('img[data-resource-url]')) {
     if (image.complete && image.naturalWidth === 0) {
@@ -672,11 +683,15 @@ export function bindFinishedDocument(
       if (restoreAnimationFrame) {
         frameWindow.cancelAnimationFrame(restoreAnimationFrame);
       }
+      if (scrollIdleTimer) {
+        window.clearTimeout(scrollIdleTimer);
+      }
+      delete frameDocument.documentElement.dataset.scrollActive;
       frameDocument.removeEventListener('click', handleFinishedDocumentClick);
       frameDocument.removeEventListener('error', handleResourceError, true);
       frameDocument.removeEventListener('load', handleResourceLoad, true);
       frameWindow.removeEventListener('keydown', handleFinishedDocumentKeyDown);
-      frameWindow.removeEventListener('scroll', scheduleActiveHeadingUpdate);
+      frameWindow.removeEventListener('scroll', handleViewportScroll);
     },
     find,
     findNext: () => activateFindRange(currentFindIndex + 1),

@@ -60,6 +60,8 @@ export const documentThemeCss = `
   --document-error: #74372f;
   --document-error-border: #cbaea8;
   --document-error-background: #fbf7f6;
+  --document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 30%, transparent);
+  --document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 58%, transparent);
   --document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --document-body-size: 15px;
   --document-line-height: 1.85;
@@ -70,6 +72,34 @@ export const documentThemeCss = `
   font-family: var(--document-body-font);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+@supports not selector(::-webkit-scrollbar-thumb) {
+  :root {
+    scrollbar-color: var(--document-scrollbar-thumb-idle) transparent;
+  }
+
+  :root[data-scroll-active="true"] {
+    scrollbar-color: var(--document-scrollbar-thumb-active) transparent;
+  }
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: var(--document-background);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 999px;
+  background-color: var(--document-scrollbar-thumb-idle);
+  background-clip: padding-box;
+  transition: background-color 120ms ease-out;
+}
+
+:root[data-scroll-active="true"]::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--document-scrollbar-thumb-active);
 }
 
 :root[data-appearance="dark"] {
@@ -599,12 +629,26 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  ::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+
   .render-task[data-render-state="succeeded"] > .render-task-output {
     animation: none;
   }
 }
 
 @media (forced-colors: active) {
+  :root {
+    scrollbar-color: auto;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner,
+  ::-webkit-scrollbar-thumb {
+    forced-color-adjust: auto;
+  }
+
   .code-copy-button:focus-visible,
   .diagram-action-button:focus-visible,
   .resource-retry-button:focus-visible,
@@ -824,6 +868,10 @@ svg {
 }
 
 @media print {
+  :root {
+    scrollbar-color: auto;
+  }
+
   .finished-document {
     width: 100%;
     padding: 0;

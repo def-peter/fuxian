@@ -112,7 +112,7 @@ The operating system owns window controls and the application menu. The content 
 - Restart and crash recovery restore the previously open documents, the active document, and each document's reading position.
 - Open and recent documents appear on the left; the active document's content outline appears on the right.
 - Document items show identity, active state, external-revision state, and recovery state, but never display reading progress. Recent documents still retain their reading positions after they leave the active session.
-- Reading progress is not displayed as a percentage, progress bar, or bottom status bar. The viewport scrollbar communicates spatial progress and the content outline communicates semantic position.
+- Reading progress is not displayed as a percentage, progress bar, or bottom status bar. The viewport scrollbar communicates spatial progress with low contrast while idle and restrained emphasis during interaction; the content outline communicates semantic position.
 - Reading positions use the nearest heading and an offset, with relative document progress as a fallback after content changes.
 - Unavailable restored documents remain visible with locate, retry, and remove actions instead of blocking startup or disappearing silently.
 - Recent documents contain at most the ten most recently opened documents and expire thirty days after their last open time.
