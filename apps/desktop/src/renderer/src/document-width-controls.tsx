@@ -95,7 +95,9 @@ export function DocumentWidthPopover({
       <PopoverContent align="end" sideOffset={8}>
         <PopoverHeader>
           <PopoverTitle>文档宽度</PopoverTitle>
-          <PopoverDescription>统一调整正文、表格、代码和图表的内容宽度。</PopoverDescription>
+          <PopoverDescription>
+            调整整个白色文档区域；正文、表格、代码和图表共用纸内宽度。
+          </PopoverDescription>
         </PopoverHeader>
         <div className="mt-4">
           <DocumentWidthControls onChange={onChange} value={value} />

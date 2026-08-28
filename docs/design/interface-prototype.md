@@ -101,7 +101,7 @@ The operating system owns window controls and the application menu. The content 
 - The content outline is open by default, can be collapsed, and remembers the user's choice.
 - The first review demonstrates one distinctive Fuxian document theme rather than a theme gallery.
 - Content appears progressively as real render tasks settle; diagrams and formulas must not delay readable text.
-- Document width applies to prose, tables, code, formulas, and diagrams together. Adaptive width is the initial default; the toolbar switches between adaptive, A4, and custom modes, with a drag control for custom width. The user's later choice is remembered.
+- Document width controls the entire white finished-document surface, not an inner prose column. Adaptive mode fills the available reading region with small inner gutters so wide diagrams retain space; A4 and custom modes center a white surface at the selected width. Prose, tables, code, formulas, and diagrams share the resulting inner width without independent breakout. Adaptive width is the initial default; the toolbar switches between adaptive, A4, and custom modes, with a drag control for custom width. The user's later choice is remembered.
 - Mermaid and PlantUML diagrams remain selectable content. Hover or keyboard focus exposes source and full-screen controls without replacing the diagram in place.
 - Diagram source opens in a side drawer while the rendered diagram remains visible. Full-screen opens a focused layer with zoom, pan, fit-to-window, and return actions.
 - Users can select diagram labels, copy diagram source, and copy the rendered SVG.

@@ -16,6 +16,7 @@ describe('document theme preferences', () => {
       '--document-body-font':
         'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       '--document-body-size': '20px',
+      '--document-inline-padding': 'clamp(32px, 5vw, 48px)',
       '--document-line-height': '1.65',
       '--document-width': '1050px',
     });
@@ -24,7 +25,7 @@ describe('document theme preferences', () => {
   it('uses stable adaptive and A4 widths', () => {
     expect(
       getDocumentThemeVariables({ ...preferences, widthMode: 'adaptive' })['--document-width'],
-    ).toBe('960px');
+    ).toBe('100%');
     expect(getDocumentThemeVariables({ ...preferences, widthMode: 'a4' })['--document-width']).toBe(
       '794px',
     );
@@ -33,7 +34,8 @@ describe('document theme preferences', () => {
   it('keeps all content constrained by the finished-document width', () => {
     const css = createDocumentThemeCss(preferences);
     expect(css).toContain('width: min(100%, var(--document-width))');
-    expect(css).toContain('padding: 72px clamp(40px, 5vw, 64px) 120px');
+    expect(css).toContain('padding: 72px var(--document-inline-padding) 120px');
+    expect(css).toContain('--document-inline-padding: clamp(32px, 5vw, 48px)');
     expect(css).toContain('--document-width: 1050px');
     expect(css).toContain(':root[data-appearance="dark"]');
   });

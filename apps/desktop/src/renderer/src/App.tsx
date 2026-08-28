@@ -5,6 +5,7 @@ import type {
   PdfExportProgress,
   ReadingPosition,
   ReadSourceDocumentResult,
+  ReaderPreferences,
   SourceDocumentData,
 } from '@fuxian/shared-types';
 import {
@@ -95,6 +96,7 @@ interface FinishedDocumentFrameRevision {
 }
 
 interface FinishedDocumentFrameProps {
+  documentWidth: ReaderPreferences['documentWidth'];
   draggingFiles: boolean;
   frame: FinishedDocumentFrameRevision;
   onLoad(frame: FinishedDocumentFrameRevision, element: HTMLIFrameElement): void;
@@ -103,6 +105,7 @@ interface FinishedDocumentFrameProps {
 }
 
 function FinishedDocumentFrame({
+  documentWidth,
   draggingFiles,
   frame,
   onLoad,
@@ -111,20 +114,28 @@ function FinishedDocumentFrame({
 }: FinishedDocumentFrameProps): React.JSX.Element {
   const element = useRef<HTMLIFrameElement>(null);
   useEffect(() => () => onRemove(frame.id), [frame.id, onRemove]);
+  const surfaceWidth =
+    documentWidth.mode === 'adaptive'
+      ? '100%'
+      : documentWidth.mode === 'a4'
+        ? '794px'
+        : `${documentWidth.customWidth}px`;
 
   return (
     <iframe
       aria-hidden={!visible}
       className={cn(
-        'col-start-1 row-start-1 block size-full min-h-0 min-w-0 border bg-card',
+        'col-start-1 row-start-1 block h-full min-h-0 min-w-0 max-w-full justify-self-center border bg-card',
         visible ? 'visible z-10' : 'invisible pointer-events-none',
         draggingFiles && 'pointer-events-none',
       )}
+      data-document-width-mode={documentWidth.mode}
       data-frame-revision={frame.id}
       onLoad={() => element.current && onLoad(frame, element.current)}
       ref={element}
       sandbox="allow-popups allow-same-origin"
       srcDoc={createFinishedDocumentSource(frame.document.html)}
+      style={{ width: surfaceWidth }}
       tabIndex={visible ? 0 : -1}
       title={visible ? 'Finished document' : 'Preparing finished document'}
     />
@@ -1216,6 +1227,7 @@ export function App(): React.JSX.Element {
               </div>
               {pendingFrames.map((frame) => (
                 <FinishedDocumentFrame
+                  documentWidth={preferences.documentWidth}
                   draggingFiles={draggingFiles}
                   frame={frame}
                   key={frame.id}
@@ -1454,6 +1466,7 @@ export function App(): React.JSX.Element {
               >
                 {documentFrames.map((frame) => (
                   <FinishedDocumentFrame
+                    documentWidth={preferences.documentWidth}
                     draggingFiles={draggingFiles}
                     frame={frame}
                     key={frame.id}

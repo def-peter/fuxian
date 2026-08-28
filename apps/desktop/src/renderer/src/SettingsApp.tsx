@@ -226,7 +226,9 @@ export function SettingsApp(): React.JSX.Element {
               <Separator className="my-5" />
               <Field>
                 <FieldTitle>文档宽度</FieldTitle>
-                <FieldDescription>正文、表格、代码、公式、图片和图表共用此宽度。</FieldDescription>
+                <FieldDescription>
+                  调整整个白色文档区域；正文、表格、代码、公式、图片和图表共用纸内宽度。
+                </FieldDescription>
                 <DocumentWidthControls
                   onChange={(documentWidth) => updatePreferences({ ...preferences, documentWidth })}
                   value={preferences.documentWidth}

@@ -11,8 +11,11 @@ const widthForMode = ({ customWidth, widthMode }: DocumentThemePreferences): str
   if (widthMode === 'a4') {
     return '794px';
   }
-  return widthMode === 'custom' ? `${customWidth}px` : '960px';
+  return widthMode === 'custom' ? `${customWidth}px` : '100%';
 };
+
+const inlinePaddingForMode = ({ widthMode }: DocumentThemePreferences): string =>
+  widthMode === 'adaptive' ? 'clamp(16px, 2vw, 24px)' : 'clamp(32px, 5vw, 48px)';
 
 const bodyFontForFamily = (family: DocumentThemePreferences['bodyFamily']): string =>
   family === 'sans-serif'
@@ -25,6 +28,7 @@ export const getDocumentThemeVariables = (
   '--document-body-font': bodyFontForFamily(preferences.bodyFamily),
   '--document-body-size': `${preferences.bodySize}px`,
   '--document-line-height': `${preferences.lineHeight}`,
+  '--document-inline-padding': inlinePaddingForMode(preferences),
   '--document-width': widthForMode(preferences),
 });
 
@@ -59,7 +63,8 @@ export const documentThemeCss = `
   --document-body-font: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
   --document-body-size: 17px;
   --document-line-height: 1.85;
-  --document-width: 960px;
+  --document-inline-padding: clamp(16px, 2vw, 24px);
+  --document-width: 100%;
   color: var(--document-foreground);
   background: var(--document-background);
   font-family: var(--document-body-font);
@@ -121,7 +126,7 @@ body {
   width: min(100%, var(--document-width));
   min-width: 0;
   margin: 0 auto;
-  padding: 72px clamp(40px, 5vw, 64px) 120px;
+  padding: 72px var(--document-inline-padding) 120px;
 }
 
 h1,
@@ -799,7 +804,7 @@ svg {
 
 @media (max-width: 700px) {
   .finished-document {
-    padding: 48px 32px 88px;
+    padding: 48px 20px 88px;
   }
 }
 
