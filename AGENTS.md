@@ -29,6 +29,8 @@ Write strict TypeScript with two-space indentation; defer formatting to Prettier
 
 Name Vitest files `*.test.ts(x)` and Playwright files `*.spec.ts`. Prioritize unsafe content, relative resources, diagram failures, file watching, and deterministic PDF output. PDF tests must wait for `export-ready`.
 
+Electron E2E runs hidden by default. Use `FUXIAN_E2E_WINDOW_MODE=secondary` for visual debugging on a non-primary display, optionally with `FUXIAN_E2E_DISPLAY_ID`; use `visible` only for explicitly requested foreground QA.
+
 ## Commit & Pull Request Guidelines
 
 Use scoped Conventional Commits, for example `feat(renderer): add Mermaid task tracking`. Pull requests should cover behavior, tests, issues, and security. Include screenshots for UI changes and a sample PDF for rendering changes.

@@ -29,6 +29,7 @@ import {
   Menu,
   type MenuItemConstructorOptions,
   protocol,
+  screen,
   shell,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
@@ -68,6 +69,49 @@ interface RendererDocumentWatches {
 const rendererDocumentWatches = new Map<number, RendererDocumentWatches>();
 const documentWatchConfigurationGenerations = new Map<number, number>();
 const documentWatchCleanupRegistered = new Set<number>();
+
+type E2EWindowMode = 'hidden' | 'secondary' | 'visible';
+
+const isE2ERuntime = !app.isPackaged && process.env.NODE_ENV === 'test';
+const e2eWindowMode: E2EWindowMode = isE2ERuntime
+  ? process.env.FUXIAN_E2E_WINDOW_MODE === 'secondary' ||
+    process.env.FUXIAN_E2E_WINDOW_MODE === 'visible'
+    ? process.env.FUXIAN_E2E_WINDOW_MODE
+    : 'hidden'
+  : 'visible';
+
+const e2eWebPreferences = isE2ERuntime ? { paintWhenInitiallyHidden: true } : {};
+
+const configureE2EWindow = (window: BrowserWindow): void => {
+  if (isE2ERuntime) window.webContents.setBackgroundThrottling(false);
+};
+
+const positionWindowOnSecondaryDisplay = (window: BrowserWindow): void => {
+  const requestedDisplayId = Number.parseInt(process.env.FUXIAN_E2E_DISPLAY_ID ?? '', 10);
+  const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const display =
+    (Number.isFinite(requestedDisplayId)
+      ? displays.find(({ id }) => id === requestedDisplayId)
+      : undefined) ?? displays.find(({ id }) => id !== primaryDisplay.id);
+  if (!display) return;
+
+  const { height, width } = window.getBounds();
+  const { height: availableHeight, width: availableWidth, x, y } = display.workArea;
+  window.setPosition(
+    x + Math.max(0, Math.round((availableWidth - width) / 2)),
+    y + Math.max(0, Math.round((availableHeight - height) / 2)),
+    false,
+  );
+};
+
+const revealInteractiveWindow = (window: BrowserWindow, focus = false): void => {
+  if (e2eWindowMode === 'hidden') return;
+  if (e2eWindowMode === 'secondary') positionWindowOnSecondaryDisplay(window);
+  if (window.isMinimized()) window.restore();
+  window.show();
+  if (focus) window.focus();
+};
 
 interface PdfExportJob {
   cancelled: boolean;
@@ -825,15 +869,17 @@ const createWindow = (): BrowserWindow => {
     show: false,
     title: '浮现',
     webPreferences: {
+      ...e2eWebPreferences,
       preload: join(currentDirectory, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
+  configureE2EWindow(window);
 
   window.once('ready-to-show', () => {
-    window.show();
+    revealInteractiveWindow(window);
   });
   window.on('closed', () => {
     if (mainWindow === window) {
@@ -877,17 +923,12 @@ const activateMainWindow = (): void => {
   const window =
     (!mainWindow || mainWindow.isDestroyed()) && app.isReady() ? createWindow() : mainWindow;
   if (!window || window.isDestroyed()) return;
-  if (window.isMinimized()) window.restore();
-  window.show();
-  window.focus();
+  revealInteractiveWindow(window, true);
 };
 
 const createSettingsWindow = (): BrowserWindow => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
-    if (settingsWindow.isMinimized()) {
-      settingsWindow.restore();
-    }
-    settingsWindow.focus();
+    revealInteractiveWindow(settingsWindow, true);
     return settingsWindow;
   }
 
@@ -900,14 +941,16 @@ const createSettingsWindow = (): BrowserWindow => {
     show: false,
     title: '浮现设置',
     webPreferences: {
+      ...e2eWebPreferences,
       preload: join(currentDirectory, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
+  configureE2EWindow(window);
   settingsWindow = window;
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => revealInteractiveWindow(window));
   window.on('closed', () => {
     settingsWindow = undefined;
   });
@@ -1070,7 +1113,8 @@ if (!hasSingleInstanceLock) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'darwin') {
-      app.dock?.setIcon(appIconPath);
+      if (e2eWindowMode === 'hidden') app.dock?.hide();
+      else app.dock?.setIcon(appIconPath);
     }
     protocol.handle(documentResourceScheme, handleDocumentResourceRequest);
     const sessionPath =
