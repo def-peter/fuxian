@@ -26,6 +26,7 @@
     "package:dir": "pnpm build && electron-builder --dir --publish never",
     "package:mac": "pnpm build && electron-builder --mac dmg --publish never",
     "package:win": "pnpm build && electron-builder --win nsis --publish never",
+    "prototype:theme": "pnpm --filter @fuxian/desktop exec vite prototypes/theme-shell --host 127.0.0.1",
     "verify:package": "node scripts/verify-packaged-app.mjs release",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
