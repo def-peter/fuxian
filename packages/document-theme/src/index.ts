@@ -557,6 +557,10 @@ code {
   user-select: text;
 }
 
+.diagram-render-task[data-render-task-kind="infographic"] foreignObject span {
+  user-select: text;
+}
+
 .render-task[data-render-state="succeeded"] > .render-task-output {
   animation: render-task-fade-in 150ms ease-out;
 }

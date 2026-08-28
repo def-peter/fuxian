@@ -20,6 +20,7 @@ import {
   type DocumentRenderResult,
   type DocumentRenderAdapter,
   type PlantUmlRenderer,
+  type InfographicRenderer,
   type VegaLiteRenderer,
 } from './document-render-adapter';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
@@ -55,7 +56,7 @@ export interface RenderedVisualSnapshot {
   headingId?: string;
   headingText?: string;
   id: string;
-  kind: 'mermaid' | 'plantuml' | 'vega-lite';
+  kind: 'infographic' | 'mermaid' | 'plantuml' | 'vega-lite';
   ordinal: number;
   source: string;
   svg?: string;
@@ -74,6 +75,7 @@ interface BindFinishedDocumentOptions {
   onReadingPositionChange(position: ReadingPosition): void;
   onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
   renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
+  renderInfographic?: InfographicRenderer;
   renderPlantUml?: PlantUmlRenderer;
   renderVegaLite?: VegaLiteRenderer;
   renderScheduler?: RenderTaskScheduler;
@@ -85,16 +87,74 @@ const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 let finishedDocumentRevision = 0;
 
 const renderTaskKinds = new Set([
+  'infographic',
   'math-display',
   'math-inline',
   'mermaid',
   'plantuml',
   'vega-lite',
 ]);
-const renderedVisualTaskKinds = new Set(['mermaid', 'plantuml', 'vega-lite']);
+const renderedVisualTaskKinds = new Set(['infographic', 'mermaid', 'plantuml', 'vega-lite']);
 const maximumRenderedVisualElements = 100_000;
 const renderedVisualLabel = (kind: string): string =>
-  kind === 'mermaid' ? 'Mermaid' : kind === 'plantuml' ? 'PlantUML' : 'Vega-Lite';
+  kind === 'infographic'
+    ? 'AntV Infographic'
+    : kind === 'mermaid'
+      ? 'Mermaid'
+      : kind === 'plantuml'
+        ? 'PlantUML'
+        : 'Vega-Lite';
+
+const allowedInfographicTextStyles = new Map<string, RegExp>([
+  ['align-content', /^(?:center|flex-end|flex-start)$/u],
+  ['align-items', /^(?:center|flex-end|flex-start)$/u],
+  ['color', /^(?:#[0-9a-f]{3,8}|rgba?\([\d ,.]+\))$/iu],
+  ['display', /^flex$/u],
+  ['flex-wrap', /^(?:nowrap|wrap)$/u],
+  ['font-size', /^(?:\d+(?:\.\d+)?)px$/u],
+  ['font-style', /^(?:italic|normal)$/u],
+  ['font-weight', /^(?:bold|normal|[1-9]00)$/u],
+  ['height', /^(?:100%|\d+(?:\.\d+)?px)$/u],
+  ['justify-content', /^(?:center|flex-end|flex-start)$/u],
+  ['letter-spacing', /^-?\d+(?:\.\d+)?px$/u],
+  ['line-height', /^\d+(?:\.\d+)?(?:px)?$/u],
+  ['overflow', /^(?:hidden|visible)$/u],
+  ['text-align', /^(?:center|left|right)$/u],
+  ['white-space', /^(?:normal|pre-wrap)$/u],
+  ['width', /^(?:100%|\d+(?:\.\d+)?px)$/u],
+  ['word-break', /^(?:break-word|normal)$/u],
+]);
+
+const sanitizeInfographicText = (svg: Element): void => {
+  for (const foreignObject of svg.querySelectorAll('foreignObject')) {
+    const span = foreignObject.firstElementChild as HTMLElement | null;
+    if (
+      foreignObject.childElementCount !== 1 ||
+      span?.localName !== 'span' ||
+      span.childElementCount !== 0
+    ) {
+      foreignObject.remove();
+      continue;
+    }
+    for (const attribute of [...foreignObject.attributes]) {
+      if (!['height', 'overflow', 'transform', 'width', 'x', 'y'].includes(attribute.name)) {
+        foreignObject.removeAttribute(attribute.name);
+      }
+    }
+    for (const attribute of [...span.attributes]) {
+      if (attribute.name !== 'style' && attribute.name !== 'xmlns') {
+        span.removeAttribute(attribute.name);
+      }
+    }
+    for (const property of [...span.style]) {
+      const value = span.style.getPropertyValue(property).trim();
+      if (!allowedInfographicTextStyles.get(property)?.test(value)) {
+        span.style.removeProperty(property);
+      }
+    }
+    if (!span.getAttribute('style')?.trim()) span.removeAttribute('style');
+  }
+};
 
 const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
   Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
@@ -108,7 +168,11 @@ const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
     },
   );
 
-const sanitizeDiagramSvg = (frameDocument: Document, source: string): SVGElement => {
+export const sanitizeRenderedVisualSvg = (
+  frameDocument: Document,
+  source: string,
+  kind: RenderTask['kind'],
+): SVGElement => {
   const template = frameDocument.createElement('template');
   template.innerHTML = source;
   const svg = template.content.firstElementChild;
@@ -119,10 +183,13 @@ const sanitizeDiagramSvg = (frameDocument: Document, source: string): SVGElement
     throw new TypeError('图表包含过多 SVG 元素。');
   }
   for (const element of svg.querySelectorAll(
-    'script, foreignObject, iframe, object, embed, image, audio, video, source',
+    kind === 'infographic'
+      ? 'script, iframe, object, embed, image, audio, video, source'
+      : 'script, foreignObject, iframe, object, embed, image, audio, video, source',
   )) {
     element.remove();
   }
+  if (kind === 'infographic') sanitizeInfographicText(svg);
   for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
   for (const style of svg.querySelectorAll('style')) {
     if (/@import\b|url\s*\(/iu.test(style.textContent ?? '')) style.remove();
@@ -265,6 +332,7 @@ export function bindFinishedDocument(
           }),
         options.initialDiagramOptimization,
         options.renderVegaLite,
+        options.renderInfographic,
       );
   const renderTaskList = collectRenderTasks(frameDocument);
   const renderTasks = new Map(renderTaskList.map((task) => [task.id, task]));
@@ -386,7 +454,7 @@ export function bindFinishedDocument(
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
-      const svg = sanitizeDiagramSvg(frameDocument, result.svg);
+      const svg = sanitizeRenderedVisualSvg(frameDocument, result.svg, task.kind);
       if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
       output.replaceChildren(svg);
     }

@@ -71,3 +71,7 @@ _Avoid_: Visualization block, chart
 **Visualization block**:
 A Vega-Lite rendered visual block that expresses quantitative data as a chart from an author-provided specification.
 _Avoid_: Diagram block, dashboard
+
+**Infographic block**:
+An AntV Infographic rendered visual block that combines narrative text, information structure, and graphic semantics using an official template. It preserves author styling and is not changed by diagram optimization.
+_Avoid_: Diagram block, visualization block, image

@@ -28,6 +28,25 @@ describe('document render adapter', () => {
     expect(renderPlantUml).toHaveBeenCalledWith(source, 'http://127.0.0.1:8080/plantuml', signal);
   });
 
+  it('renders Infographic independently from diagram optimization', async () => {
+    const renderInfographic = vi.fn(async () => '<svg><foreignObject /></svg>');
+    const adapter = createDocumentRenderAdapter(
+      'light',
+      'https://first.test/plantuml',
+      vi.fn(),
+      true,
+      vi.fn(),
+      renderInfographic,
+    );
+    const signal = new AbortController().signal;
+    const source = 'infographic list-row-simple-horizontal-arrow\ndata\n  lists\n';
+
+    await expect(
+      adapter.render({ id: 'infographic-1', kind: 'infographic', source }, signal),
+    ).resolves.toEqual({ kind: 'infographic', svg: '<svg><foreignObject /></svg>' });
+    expect(renderInfographic).toHaveBeenCalledWith(source, signal);
+  });
+
   it('optimizes only diagrams without author styling and never mutates the original source', () => {
     const plain = '@startuml\nAlice -> Bob\n@enduml';
     const styled = '@startuml\n!theme mars\nskinparam shadowing true\nAlice -> Bob\n@enduml';

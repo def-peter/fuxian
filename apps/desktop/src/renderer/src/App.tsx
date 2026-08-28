@@ -1002,10 +1002,13 @@ export function App(): React.JSX.Element {
             (
               diagram,
             ): diagram is RenderedVisualSnapshot & {
-              kind: 'plantuml' | 'vega-lite';
+              kind: 'infographic' | 'plantuml' | 'vega-lite';
               svg: string;
             } =>
-              (diagram.kind === 'plantuml' || diagram.kind === 'vega-lite') && Boolean(diagram.svg),
+              (diagram.kind === 'infographic' ||
+                diagram.kind === 'plantuml' ||
+                diagram.kind === 'vega-lite') &&
+              Boolean(diagram.svg),
           )
           .map(({ kind, source, svg }) => ({ kind, source, svg })),
         source: document.document.source,

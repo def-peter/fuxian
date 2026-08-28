@@ -12,7 +12,13 @@ import { copyDiagramContent, type CopyStatus } from '@/diagram-copy';
 import type { RenderedVisualSnapshot } from '@/finished-document';
 
 const diagramKindLabel = (kind: RenderedVisualSnapshot['kind']): string =>
-  kind === 'mermaid' ? 'Mermaid' : kind === 'plantuml' ? 'PlantUML' : 'Vega-Lite';
+  kind === 'infographic'
+    ? 'AntV Infographic'
+    : kind === 'mermaid'
+      ? 'Mermaid'
+      : kind === 'plantuml'
+        ? 'PlantUML'
+        : 'Vega-Lite';
 
 interface CopyButtonProps {
   copyText(text: string): Promise<void>;

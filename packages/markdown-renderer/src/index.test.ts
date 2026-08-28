@@ -186,4 +186,25 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('data-render-task-kind="vega-lite"');
     expect(finishedDocument.html).toContain('language-vegalite');
   });
+
+  it('creates AntV Infographic tasks only for the canonical fence name', () => {
+    const source = [
+      'infographic list-row-simple-horizontal-arrow',
+      'data',
+      '  lists',
+      '    - label 需求确认',
+    ].join('\n');
+    const finishedDocument = renderMarkdown({
+      source: ['```infographic', source, '```', '', '```antv-infographic', source, '```'].join(
+        '\n',
+      ),
+    });
+
+    expect(finishedDocument.renderTasks).toEqual([
+      { id: 'render-task-1', kind: 'infographic', source: `${source}\n` },
+    ]);
+    expect(finishedDocument.html).toContain('aria-label="AntV Infographic 信息图"');
+    expect(finishedDocument.html).toContain('data-render-task-kind="infographic"');
+    expect(finishedDocument.html).toContain('language-antv-infographic');
+  });
 });

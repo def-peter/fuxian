@@ -1,11 +1,13 @@
 import type { RenderTask, RenderTaskAdapter } from '@fuxian/render-protocol';
 import type { FuxianDesktopBridge } from '@fuxian/shared-types';
+import { renderInfographic as defaultRenderInfographic } from './infographic-renderer';
 import { renderVegaLite as defaultRenderVegaLite } from './vega-lite-renderer';
 
 export type DocumentRenderAppearance = 'dark' | 'light';
 
 export type DocumentRenderResult =
   | { html: string; kind: 'math' }
+  | { kind: 'infographic'; svg: string }
   | { kind: 'mermaid'; svg: string }
   | { kind: 'plantuml'; svg: string }
   | { kind: 'vega-lite'; svg: string };
@@ -17,6 +19,7 @@ export type PlantUmlRenderer = (
 ) => Promise<string>;
 
 export type VegaLiteRenderer = (source: string, signal: AbortSignal) => Promise<string>;
+export type InfographicRenderer = (source: string, signal: AbortSignal) => Promise<string>;
 
 export interface DocumentRenderAdapter extends RenderTaskAdapter<DocumentRenderResult> {
   setAppearance(appearance: DocumentRenderAppearance): void;
@@ -79,6 +82,7 @@ export const createDocumentRenderAdapter = (
   renderPlantUml: PlantUmlRenderer,
   initialDiagramOptimization = false,
   renderVegaLite: VegaLiteRenderer = defaultRenderVegaLite,
+  renderInfographic: InfographicRenderer = defaultRenderInfographic,
 ): DocumentRenderAdapter => {
   let appearance = initialAppearance;
   let optimizeDiagrams = initialDiagramOptimization;
@@ -124,6 +128,10 @@ export const createDocumentRenderAdapter = (
 
       if (task.kind === 'vega-lite') {
         return { kind: 'vega-lite', svg: await renderVegaLite(task.source, signal) };
+      }
+
+      if (task.kind === 'infographic') {
+        return { kind: 'infographic', svg: await renderInfographic(task.source, signal) };
       }
 
       if (task.kind !== 'mermaid') throw new TypeError(`Unknown render task kind: ${task.kind}`);

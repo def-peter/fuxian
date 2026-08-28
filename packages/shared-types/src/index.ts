@@ -304,7 +304,7 @@ export type StartPdfExportResult =
   | { exportId: string; status: 'started' };
 
 export interface PdfExportRenderedVisual {
-  kind: 'plantuml' | 'vega-lite';
+  kind: 'infographic' | 'plantuml' | 'vega-lite';
   source: string;
   svg: string;
 }

@@ -508,7 +508,9 @@ const registerDesktopHandlers = (
         request.renderedVisuals.some(
           (visual) =>
             !visual ||
-            (visual.kind !== 'plantuml' && visual.kind !== 'vega-lite') ||
+            (visual.kind !== 'infographic' &&
+              visual.kind !== 'plantuml' &&
+              visual.kind !== 'vega-lite') ||
             typeof visual.source !== 'string' ||
             visual.source.length > 1_000_000 ||
             typeof visual.svg !== 'string' ||

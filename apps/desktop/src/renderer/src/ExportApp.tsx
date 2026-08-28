@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   createDesktopPlantUmlRenderer,
   optimizePlantUmlSource,
+  type InfographicRenderer,
   type PlantUmlRenderer,
   type VegaLiteRenderer,
 } from '@/document-render-adapter';
@@ -39,6 +40,20 @@ const createExportVegaLiteRenderer = (payload: PdfExportPayload): VegaLiteRender
     if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
     const svg = renderedVisuals.get(source);
     if (!svg) throw new TypeError('可视化快照不可用，无法保证 PDF 与屏幕内容一致。');
+    return svg;
+  };
+};
+
+const createExportInfographicRenderer = (payload: PdfExportPayload): InfographicRenderer => {
+  const renderedVisuals = new Map(
+    payload.renderedVisuals
+      .filter((visual) => visual.kind === 'infographic')
+      .map(({ source, svg }) => [source, svg]),
+  );
+  return async (source, signal) => {
+    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
+    const svg = renderedVisuals.get(source);
+    if (!svg) throw new TypeError('信息图快照不可用，无法保证 PDF 与屏幕内容一致。');
     return svg;
   };
 };
@@ -101,6 +116,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
       },
       renderPlantUml: createExportPlantUmlRenderer(payload),
       renderVegaLite: createExportVegaLiteRenderer(payload),
+      renderInfographic: createExportInfographicRenderer(payload),
       revisionId: `pdf-export:${exportId}`,
     });
     controller.current = bound;

@@ -34,7 +34,7 @@ export interface FinishedDocument {
 }
 
 export type DocumentRenderTaskKind =
-  'math-display' | 'math-inline' | 'mermaid' | 'plantuml' | 'vega-lite';
+  'infographic' | 'math-display' | 'math-inline' | 'mermaid' | 'plantuml' | 'vega-lite';
 
 export interface DocumentRenderTask {
   id: string;
@@ -336,9 +336,11 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
         {
           type: 'text',
           value:
-            kind === 'mermaid' || kind === 'plantuml' || kind === 'vega-lite'
-              ? '无法呈现图表'
-              : '无法呈现公式',
+            kind === 'infographic'
+              ? '无法呈现信息图'
+              : kind === 'mermaid' || kind === 'plantuml' || kind === 'vega-lite'
+                ? '无法呈现图表'
+                : '无法呈现公式',
         },
       ],
     },
@@ -369,19 +371,25 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
 
 const createRenderTaskNode = (task: DocumentRenderTask): Element => {
   const inline = task.kind === 'math-inline';
-  const diagram = task.kind === 'mermaid' || task.kind === 'plantuml' || task.kind === 'vega-lite';
+  const diagram =
+    task.kind === 'infographic' ||
+    task.kind === 'mermaid' ||
+    task.kind === 'plantuml' ||
+    task.kind === 'vega-lite';
   return {
     type: 'element',
     tagName: inline ? 'span' : diagram ? 'figure' : 'div',
     properties: {
       ariaLabel:
-        task.kind === 'mermaid'
-          ? 'Mermaid 图表'
-          : task.kind === 'plantuml'
-            ? 'PlantUML 图表'
-            : task.kind === 'vega-lite'
-              ? 'Vega-Lite 数据图表'
-              : undefined,
+        task.kind === 'infographic'
+          ? 'AntV Infographic 信息图'
+          : task.kind === 'mermaid'
+            ? 'Mermaid 图表'
+            : task.kind === 'plantuml'
+              ? 'PlantUML 图表'
+              : task.kind === 'vega-lite'
+                ? 'Vega-Lite 数据图表'
+                : undefined,
       className: [
         'render-task',
         diagram ? 'diagram-render-task' : 'math-render-task',
@@ -442,6 +450,8 @@ const createRenderTasks: Plugin<[DocumentRenderTask[]], Root> = (renderTasks) =>
       kind = 'plantuml';
     } else if (node.tagName === 'pre' && classNames.includes('language-vega-lite')) {
       kind = 'vega-lite';
+    } else if (node.tagName === 'pre' && classNames.includes('language-infographic')) {
+      kind = 'infographic';
     }
 
     if (!kind) return;

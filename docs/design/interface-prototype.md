@@ -140,6 +140,7 @@ The operating system owns window controls and the application menu. The content 
 - File selection supports multiple Markdown documents. Dropping multiple documents adds all of them to the session, and attempting to open an already-open document activates its existing document item.
 - Diagram optimization affects only diagrams without explicit styles: it harmonizes typography, color, background, line treatment, whitespace, and document-width fit without modifying source files.
 - Vega-Lite accepts only the canonical `vega-lite` fence with JSON and bounded `data.values`. It renders locally in cancellable workers, rejects external resources and nondeterministic capabilities, preserves author styling, and is never changed by diagram optimization.
+- AntV Infographic accepts only the canonical `infographic` fence and renders official built-in templates in a cancellable worker. Its dedicated sanitizer preserves the official `foreignObject > span` text structure through a strict allowlist; remote resources, arbitrary attributes, illustrations, animation, and interaction remain disabled. Official template layout and author styling take precedence over diagram optimization.
 - PDF export reuses the active finished document's sanitized PlantUML and Vega-Lite SVG snapshots. It does not recompile Vega-Lite in the export window.
 - The toolbar shows the filename; the complete path is available in a tooltip.
 - After the save location is chosen, PDF export uses a non-modal progress panel so reading can continue.
