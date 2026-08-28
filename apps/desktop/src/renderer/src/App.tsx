@@ -564,6 +564,13 @@ export function App(): React.JSX.Element {
     restoreDiagramActionFocus(diagram, 'source');
   };
 
+  const locateSourceDiagram = (): void => {
+    if (!sourceDiagram) return;
+    if (!finishedDocumentController.current?.locateDiagram(sourceDiagram.id)) {
+      setSourceDiagram(undefined);
+    }
+  };
+
   const handleFinishedDocumentFrameRemove = useCallback((id: string): void => {
     const controller = frameControllers.current.get(id);
     controller?.destroy();
@@ -682,6 +689,8 @@ export function App(): React.JSX.Element {
         if (active) {
           visibleFrameIdRef.current = frame.id;
           finishedDocumentController.current = controller;
+          setSourceDiagram(undefined);
+          setFocusedDiagram(undefined);
           setActiveHeadingId(readingPosition.headingId ?? frame.document.headings[0]?.id);
           setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
         }
@@ -1489,6 +1498,7 @@ export function App(): React.JSX.Element {
                   copyText={window.fuxian.copyText}
                   diagram={sourceDiagram}
                   onClose={closeDiagramSource}
+                  onLocate={locateSourceDiagram}
                 />
               ) : contentOutlineInline ? (
                 <ContentOutline
@@ -1546,6 +1556,7 @@ export function App(): React.JSX.Element {
                     copyText={window.fuxian.copyText}
                     diagram={sourceDiagram}
                     onClose={closeDiagramSource}
+                    onLocate={locateSourceDiagram}
                   />
                 </SheetContent>
               </Sheet>

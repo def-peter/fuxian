@@ -42,6 +42,7 @@ export interface FinishedDocumentController {
   getReadingPosition(): ReadingPosition;
   getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
+  locateDiagram(id: string): boolean;
   restoreReadingPosition(position: ReadingPosition): void;
   scrollToEnd(): ReadingPosition;
   scrollToHeading(id: string): void;
@@ -49,8 +50,12 @@ export interface FinishedDocumentController {
 }
 
 export interface DiagramSnapshot {
+  contextLabel: string;
+  headingId?: string;
+  headingText?: string;
   id: string;
   kind: 'mermaid' | 'plantuml';
+  ordinal: number;
   source: string;
   svg?: string;
 }
@@ -240,10 +245,43 @@ export function bindFinishedDocument(
   );
   const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
     renderTaskElements.get(task.id);
+  const diagramContexts = new Map(
+    renderTaskList
+      .filter((task) => task.kind === 'mermaid' || task.kind === 'plantuml')
+      .flatMap((task, index) => {
+        const element = getRenderTaskElement(task);
+        if (!element) return [];
+        const heading = headingElements.findLast((candidate) =>
+          Boolean(candidate.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING),
+        );
+        const headingText = heading?.textContent?.trim();
+        const ordinal = index + 1;
+        return [
+          [
+            task.id,
+            {
+              contextLabel: `${headingText || '文档开头'} · 图表 ${ordinal}`,
+              ...(heading ? { headingId: heading.id } : {}),
+              ...(headingText ? { headingText } : {}),
+              ordinal,
+            },
+          ] as const,
+        ];
+      }),
+  );
   const getDiagramSnapshot = (task: RenderTask): DiagramSnapshot | undefined => {
     if (task.kind !== 'mermaid' && task.kind !== 'plantuml') return undefined;
-    const svg = getRenderTaskElement(task)?.querySelector('.render-task-output svg')?.outerHTML;
-    return { id: task.id, kind: task.kind, source: task.source, ...(svg ? { svg } : {}) };
+    const element = getRenderTaskElement(task);
+    const context = diagramContexts.get(task.id);
+    if (!element || !context) return undefined;
+    const svg = element.querySelector('.render-task-output svg')?.outerHTML;
+    return {
+      ...context,
+      id: task.id,
+      kind: task.kind,
+      source: task.source,
+      ...(svg ? { svg } : {}),
+    };
   };
 
   const getViewportFollowState = (): { distanceFromEnd: number; hasSelection: boolean } => {
@@ -279,6 +317,11 @@ export function bindFinishedDocument(
     if (task.kind !== 'mermaid' && task.kind !== 'plantuml') continue;
     const element = getRenderTaskElement(task);
     if (!element) continue;
+    const diagram = getDiagramSnapshot(task);
+    if (diagram) {
+      element.ariaLabel = `${task.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 图表 ${diagram.ordinal}，${diagram.headingText || '文档开头'}`;
+      element.tabIndex = -1;
+    }
     const toolbar = frameDocument.createElement('span');
     toolbar.ariaLabel = '图表操作';
     toolbar.className = 'diagram-action-toolbar';
@@ -649,6 +692,15 @@ export function bindFinishedDocument(
     getReadingPosition,
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
+    locateDiagram: (id) => {
+      const task = renderTasks.get(id);
+      if (!task || (task.kind !== 'mermaid' && task.kind !== 'plantuml')) return false;
+      const element = getRenderTaskElement(task);
+      if (!element) return false;
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.focus({ preventScroll: true });
+      return true;
+    },
     restoreReadingPosition,
     scrollToEnd: () => {
       frameWindow.scrollTo({

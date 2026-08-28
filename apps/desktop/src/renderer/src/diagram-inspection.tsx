@@ -1,4 +1,4 @@
-import { Check, Code2, Copy, Minus, Plus, Scan, X } from 'lucide-react';
+import { Check, Code2, Copy, LocateFixed, Minus, Plus, Scan, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,24 +42,29 @@ interface DiagramSourceDrawerProps {
   copyText(text: string): Promise<void>;
   diagram: DiagramSnapshot;
   onClose(): void;
+  onLocate(): void;
 }
 
 export function DiagramSourceDrawer({
   copyText,
   diagram,
   onClose,
+  onLocate,
 }: DiagramSourceDrawerProps): React.JSX.Element {
   return (
     <aside
       aria-label="图表源码"
-      className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)_52px] border-l bg-muted/35"
+      className="grid min-h-0 grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted/35"
     >
       <header className="flex items-center justify-between border-b px-3">
         <div className="flex min-w-0 items-center gap-2">
           <Code2 aria-hidden="true" className="size-4 text-muted-foreground" />
-          <h2 className="truncate text-xs font-semibold">
-            {diagram.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 源码
-          </h2>
+          <div className="min-w-0">
+            <h2 className="truncate text-xs font-semibold">
+              {diagram.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 源码
+            </h2>
+            <p className="truncate text-xs text-muted-foreground">{diagram.contextLabel}</p>
+          </div>
         </div>
         <Button aria-label="关闭图表源码" onClick={onClose} size="icon-xs" variant="ghost">
           <X aria-hidden="true" data-icon="inline-start" />
@@ -75,6 +80,10 @@ export function DiagramSourceDrawer({
         </pre>
       </div>
       <footer className="flex items-center gap-2 border-t px-3">
+        <Button onClick={onLocate} size="sm" variant="outline">
+          <LocateFixed aria-hidden="true" data-icon="inline-start" />
+          定位到图表
+        </Button>
         <CopyButton copyText={copyText} label="复制源码" text={diagram.source} />
         <CopyButton
           copyText={copyText}

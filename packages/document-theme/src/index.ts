@@ -386,6 +386,14 @@ code {
   display: block;
   max-width: 100%;
   margin: 28px 0;
+  outline: 2px solid transparent;
+  outline-offset: 5px;
+  scroll-margin-block: 32px;
+  transition: outline-color 120ms ease-out;
+}
+
+.diagram-render-task:focus {
+  outline-color: color-mix(in srgb, var(--document-primary) 55%, transparent);
 }
 
 .diagram-action-toolbar {
