@@ -20,7 +20,7 @@ import type {
   RecentDocument,
   UnavailableSessionDocument,
 } from '@/document-session';
-import { FuxianMark } from '@/fuxian-mark';
+import { FuxianLockup } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 
 interface DocumentSessionSidebarProps {
@@ -218,8 +218,7 @@ export function DocumentSessionSidebar({
       className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted/35"
     >
       <header className="flex min-w-0 items-center gap-1 border-b px-2">
-        <FuxianMark className="size-7" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现</span>
+        <FuxianLockup className="mr-auto h-7 w-auto" decorative={false} />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">

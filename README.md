@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="design/logo/final/fuxian-app-icon.svg" alt="浮现 Fuxian" width="128" height="128" />
+  <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现 Fuxian" width="128" height="128" />
 </p>
 
 # Fuxian
