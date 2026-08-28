@@ -60,8 +60,8 @@ export const documentThemeCss = `
   --document-error: #74372f;
   --document-error-border: #cbaea8;
   --document-error-background: #fbf7f6;
-  --document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 30%, transparent);
-  --document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 58%, transparent);
+  --document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 12%, transparent);
+  --document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 42%, transparent);
   --document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --document-body-size: 15px;
   --document-line-height: 1.85;
@@ -84,9 +84,12 @@ export const documentThemeCss = `
   }
 }
 
+::-webkit-scrollbar,
 ::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
 ::-webkit-scrollbar-corner {
-  background: var(--document-background);
+  border: 0;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {

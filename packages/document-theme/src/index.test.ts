@@ -39,14 +39,17 @@ describe('document theme preferences', () => {
     );
   });
 
-  it('keeps the finished-document scrollbar quiet without shrinking its hit area', () => {
+  it('keeps only a faint thumb without a visible scrollbar track', () => {
     const css = createDocumentThemeCss(preferences);
 
     expect(css).toContain(
-      '--document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 30%, transparent);',
+      '--document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 12%, transparent);',
     );
     expect(css).toContain(
-      '--document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 58%, transparent);',
+      '--document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 42%, transparent);',
+    );
+    expect(css).toMatch(
+      /::-webkit-scrollbar,\s*::-webkit-scrollbar-track,\s*::-webkit-scrollbar-track-piece,\s*::-webkit-scrollbar-corner\s*\{(?=[^}]*background: transparent;)(?=[^}]*border: 0;)[^}]*\}/s,
     );
     expect(css).toContain('@supports not selector(::-webkit-scrollbar-thumb)');
     expect(css).toContain('scrollbar-color: var(--document-scrollbar-thumb-idle) transparent;');

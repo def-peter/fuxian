@@ -65,7 +65,7 @@ test('finished-document scrollbar stays scoped, quiet, and stable while scrollin
     });
     expect(idleState.scrollable).toBe(true);
     expect(idleState.thumbToken).toContain('color-mix');
-    expect(idleState.thumbToken).toContain('30%');
+    expect(idleState.thumbToken).toContain('12%');
     expect(
       await window
         .locator('html')
