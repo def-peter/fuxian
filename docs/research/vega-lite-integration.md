@@ -88,3 +88,9 @@ Vega、Vega-Lite、Vega-Embed 与 interpreter 均声明 BSD-3-Clause。二进制
 ## 实施门槛
 
 在进入产品代码前，先用 production bundler 记录初始 chunk、lazy chunk、asar 和安装包增量；再做一个 worker spike，验证 CSP、硬超时、固定字体 SVG、屏幕/PDF 同源快照和连续 revision 替换。若 worker 方案不可行，必须缩小 transform/表达式能力，而不是把同线程 `Promise.race` 描述为取消。
+
+## 实施结果
+
+Issue #23 的 production build 将 Vega-Lite、Vega、AST interpreter、Ajv 和 bundled schema 合并为一个按需加载的 Worker 产物，未进入应用启动路径。2026-08-28 锁定版本构建出的未压缩 Worker 文件为约 `4,018 KB`；该数字应在依赖升级时重新测量。
+
+Worker spike 与 Electron 测试确认：生产 CSP 可以加载同源 Worker；取消或超时会终止运行中的 Worker；同时最多运行两个 Worker；屏幕与 PDF 的已清理 SVG 快照逐字一致。macOS 与 Windows 目录包均通过发布包校验，并在应用资源目录携带 `THIRD_PARTY_NOTICES.md`。
