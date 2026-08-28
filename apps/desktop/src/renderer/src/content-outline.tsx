@@ -1,7 +1,8 @@
 import type { DocumentHeading } from '@fuxian/markdown-renderer';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Network } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   buildContentOutline,
   findOutlinePath,
@@ -14,12 +15,14 @@ interface ContentOutlineProps {
   activeHeadingId: string | undefined;
   headings: DocumentHeading[];
   onNavigate(id: string): void;
+  onOpenStructureMap(): void;
 }
 
 export function ContentOutline({
   activeHeadingId,
   headings,
   onNavigate,
+  onOpenStructureMap,
 }: ContentOutlineProps): React.JSX.Element {
   const outline = useMemo(() => buildContentOutline(headings), [headings]);
   const [expandedHeadings, setExpandedHeadings] = useState<ReadonlySet<string>>(new Set());
@@ -104,8 +107,24 @@ export function ContentOutline({
       className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
       aria-label="内容目录"
     >
-      <header className="flex items-center border-b px-3">
+      <header className="flex items-center justify-between border-b px-3">
         <h2 className="text-xs font-semibold text-foreground">内容目录</h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="查看文章结构图"
+                disabled={headings.length === 0}
+                onClick={onOpenStructureMap}
+                size="icon-xs"
+                variant="ghost"
+              >
+                <Network aria-hidden="true" data-icon="inline-start" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>文章结构图</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </header>
       <nav className="min-h-0 overflow-y-auto py-2" aria-label="文档标题">
         {outline.length > 0 ? (

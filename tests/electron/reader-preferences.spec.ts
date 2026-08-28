@@ -103,6 +103,8 @@ test('preferences synchronize live, persist at their limits, and restore after r
     let settingsWindow = await getSettingsWindow(electronApp);
     await readerWindow.getByRole('button', { name: '设置' }).click();
     await expect.poll(() => electronApp.windows().length).toBe(2);
+    await expect(settingsWindow.getByRole('button', { name: '图表', exact: true })).toHaveCount(0);
+    await expect(settingsWindow.getByRole('switch', { name: '优化图表' })).toHaveCount(0);
 
     await settingsWindow.getByRole('button', { name: '文档', exact: true }).click();
     await expect(settingsWindow.getByRole('radio', { name: '无衬线' })).toHaveAttribute(
@@ -154,7 +156,6 @@ test('preferences synchronize live, persist at their limits, and restore after r
       .poll(async () => JSON.parse(await readFile(launchOptions.preferencesFilePath, 'utf8')))
       .toEqual({
         appearance: 'dark',
-        diagram: { optimize: false },
         documentTypography: { bodyFamily: 'sans-serif', bodySize: 22, lineHeight: 1.5 },
         documentWidth: { customWidth: 1200, mode: 'custom' },
         plantUml: { serverUrl: 'https://www.plantuml.com/plantuml' },

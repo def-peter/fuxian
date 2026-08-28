@@ -108,6 +108,26 @@
   }
 }
 
+.article-structure-map.markmap {
+  --markmap-a-color: var(--foreground);
+  --markmap-a-hover-color: var(--foreground);
+  --markmap-circle-open-bg: var(--card);
+  --markmap-code-bg: var(--muted);
+  --markmap-code-color: var(--foreground);
+  --markmap-font: 400 14px/20px var(--font-sans);
+  --markmap-text-color: var(--foreground);
+}
+
+.article-structure-map foreignObject,
+.article-structure-map foreignObject * {
+  user-select: text;
+}
+
+.article-structure-map circle[role='button']:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
 @media (forced-colors: active) {
   button:focus-visible,
   input:focus-visible,

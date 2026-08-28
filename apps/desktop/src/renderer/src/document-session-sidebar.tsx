@@ -1,5 +1,6 @@
 import {
   ChevronRight,
+  CircleArrowUp,
   FileText,
   FileWarning,
   FolderOpen,
@@ -37,6 +38,7 @@ interface DocumentSessionSidebarProps {
   onRetry(path: string): void;
   openDocuments: OpenDocumentItem[];
   recentDocuments: RecentDocument[];
+  updateAttention?: 'available' | 'downloaded' | 'downloading';
 }
 
 interface UnavailableDocumentItemProps {
@@ -211,6 +213,7 @@ export function DocumentSessionSidebar({
   onRetry,
   openDocuments,
   recentDocuments,
+  updateAttention,
 }: DocumentSessionSidebarProps): React.JSX.Element {
   return (
     <aside
@@ -247,12 +250,23 @@ export function DocumentSessionSidebar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button aria-label="设置" onClick={onOpenSettings} size="icon-sm" variant="ghost">
-              <Settings aria-hidden="true" />
+            <Button
+              aria-label={updateAttention ? '设置，有可用更新' : '设置'}
+              onClick={onOpenSettings}
+              size="icon-sm"
+              variant="ghost"
+            >
+              {updateAttention === 'downloading' ? (
+                <Spinner aria-hidden="true" />
+              ) : updateAttention ? (
+                <CircleArrowUp aria-hidden="true" />
+              ) : (
+                <Settings aria-hidden="true" />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={6}>
-            设置
+            {updateAttention ? '有可用更新' : '设置'}
           </TooltipContent>
         </Tooltip>
       </header>

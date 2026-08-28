@@ -31,7 +31,6 @@ const launchDesktop = (
 
 const preferences = (plantUmlServerUrl = 'https://www.plantuml.com/plantuml') => ({
   appearance: 'light',
-  diagram: { optimize: false },
   documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
   documentWidth: { customWidth: 860, mode: 'adaptive' },
   plantUml: { serverUrl: plantUmlServerUrl },

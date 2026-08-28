@@ -207,4 +207,15 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('data-render-task-kind="infographic"');
     expect(finishedDocument.html).toContain('language-antv-infographic');
   });
+
+  it('keeps Markmap fences as ordinary code blocks', () => {
+    const source = '# 浮现\n## 快速阅读\n- Markdown\n- PDF';
+    const finishedDocument = renderMarkdown({
+      source: ['```markmap', source, '```'].join('\n'),
+    });
+
+    expect(finishedDocument.renderTasks).toEqual([]);
+    expect(finishedDocument.html).toContain('language-markmap');
+    expect(finishedDocument.html).toContain('快速阅读');
+  });
 });

@@ -3,18 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createDesktopPlantUmlRenderer,
   createDocumentRenderAdapter,
-  hasExplicitDiagramStyle,
-  optimizePlantUmlSource,
 } from './document-render-adapter';
 
 describe('document render adapter', () => {
   it('uses the current PlantUML server without changing the source', async () => {
     const renderPlantUml = vi.fn(async () => '<svg><text>diagram</text></svg>');
-    const adapter = createDocumentRenderAdapter(
-      'light',
-      'https://first.test/plantuml',
-      renderPlantUml,
-    );
+    const adapter = createDocumentRenderAdapter('https://first.test/plantuml', renderPlantUml);
     adapter.setPlantUmlServerUrl('http://127.0.0.1:8080/plantuml');
     const signal = new AbortController().signal;
     const source = '@startuml\n!theme mars\nAlice -> Bob\n@enduml\n';
@@ -28,13 +22,11 @@ describe('document render adapter', () => {
     expect(renderPlantUml).toHaveBeenCalledWith(source, 'http://127.0.0.1:8080/plantuml', signal);
   });
 
-  it('renders Infographic independently from diagram optimization', async () => {
+  it('renders Infographic through its dedicated renderer', async () => {
     const renderInfographic = vi.fn(async () => '<svg><foreignObject /></svg>');
     const adapter = createDocumentRenderAdapter(
-      'light',
       'https://first.test/plantuml',
       vi.fn(),
-      true,
       vi.fn(),
       renderInfographic,
     );
@@ -45,20 +37,6 @@ describe('document render adapter', () => {
       adapter.render({ id: 'infographic-1', kind: 'infographic', source }, signal),
     ).resolves.toEqual({ kind: 'infographic', svg: '<svg><foreignObject /></svg>' });
     expect(renderInfographic).toHaveBeenCalledWith(source, signal);
-  });
-
-  it('optimizes only diagrams without author styling and never mutates the original source', () => {
-    const plain = '@startuml\nAlice -> Bob\n@enduml';
-    const styled = '@startuml\n!theme mars\nskinparam shadowing true\nAlice -> Bob\n@enduml';
-
-    expect(optimizePlantUmlSource(plain, true)).toContain('skinparam backgroundColor transparent');
-    expect(optimizePlantUmlSource(plain, false)).toBe(plain);
-    expect(optimizePlantUmlSource(styled, true)).toBe(styled);
-    expect(hasExplicitDiagramStyle('mermaid', '%%{init: {"theme":"forest"}}%%\ngraph TD')).toBe(
-      true,
-    );
-    expect(hasExplicitDiagramStyle('mermaid', 'graph TD\nA --> B')).toBe(false);
-    expect(plain).toBe('@startuml\nAlice -> Bob\n@enduml');
   });
 
   it('forwards cancellation to the desktop bridge', async () => {

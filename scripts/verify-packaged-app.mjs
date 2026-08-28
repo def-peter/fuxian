@@ -80,6 +80,12 @@ export const verifyPackagedApp = async (outputDirectory) => {
     if (!mainSource.includes('loadFile(')) {
       errors.push(`${relative(root, archive)} does not load its bundled renderer`);
     }
+    if (!mainSource.includes('disableWebInstaller')) {
+      errors.push(`${relative(root, archive)} does not contain the software-update runtime`);
+    }
+    if (/from ["']electron-updater["']|require\(["']electron-updater["']\)/.test(mainSource)) {
+      errors.push(`${relative(root, archive)} leaves electron-updater as an external dependency`);
+    }
     if (
       !rendererIndex.includes(
         'default-src &#39;self&#39;; script-src &#39;self&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; connect-src &#39;self&#39;',

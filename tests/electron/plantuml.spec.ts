@@ -29,7 +29,6 @@ const startServer = async (handler: RequestListener): Promise<string> => {
 
 const createPreferences = (serverUrl: string) => ({
   appearance: 'light',
-  diagram: { optimize: false },
   documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
   documentWidth: { customWidth: 860, mode: 'adaptive' },
   plantUml: { serverUrl },
@@ -177,13 +176,6 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     await expect
       .poll(async () => JSON.parse(await readFile(preferencesFilePath, 'utf8')).plantUml.serverUrl)
       .toBe(newServerUrl);
-
-    await settingsWindow.getByRole('button', { name: '图表', exact: true }).click();
-    await settingsWindow.getByLabel('优化图表说明').hover();
-    await expect(settingsWindow.getByRole('tooltip')).toContainText('不会修改源文档');
-    const optimizeDiagrams = settingsWindow.getByRole('switch', { name: '优化图表' });
-    await optimizeDiagrams.focus();
-    await optimizeDiagrams.press('Space');
 
     await plantUmlTask.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     const diagramHeading = finishedDocument.getByRole('heading', { name: 'Diagram' });

@@ -4,7 +4,6 @@ import type { PdfExportPayload } from '@fuxian/shared-types';
 import { useEffect, useRef, useState } from 'react';
 import {
   createDesktopPlantUmlRenderer,
-  optimizePlantUmlSource,
   type InfographicRenderer,
   type PlantUmlRenderer,
   type VegaLiteRenderer,
@@ -19,10 +18,7 @@ const createExportPlantUmlRenderer = (payload: PdfExportPayload): PlantUmlRender
   const renderedDiagrams = new Map(
     payload.renderedVisuals
       .filter((visual) => visual.kind === 'plantuml')
-      .map(({ source, svg }) => [
-        optimizePlantUmlSource(source, payload.preferences.diagram.optimize),
-        svg,
-      ]),
+      .map(({ source, svg }) => [source, svg]),
   );
   return async (source, serverUrl, signal) => {
     if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
@@ -99,8 +95,6 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
     const appearance = resolveAppearance(payload);
     const bound = bindFinishedDocument(document, {
       copyText: window.fuxian.copyText,
-      initialAppearance: appearance,
-      initialDiagramOptimization: payload.preferences.diagram.optimize,
       initialPlantUmlServerUrl: payload.preferences.plantUml.serverUrl,
       initialReadingPosition: { headingOffset: 0, relativeProgress: 0 },
       onActiveHeadingChange: () => undefined,

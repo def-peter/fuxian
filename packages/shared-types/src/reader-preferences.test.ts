@@ -28,6 +28,15 @@ describe('reader preferences', () => {
     );
   });
 
+  it('drops the retired diagram-optimization field from existing preference files', () => {
+    const normalized = normalizeReaderPreferences({
+      diagram: { optimize: true },
+      version: 1,
+    });
+
+    expect(normalized).not.toHaveProperty('diagram');
+  });
+
   it('normalizes safe PlantUML base URLs and rejects ambiguous or credentialed URLs', () => {
     expect(normalizePlantUmlServerUrl(' http://127.0.0.1:8080/plantuml/// ')).toBe(
       'http://127.0.0.1:8080/plantuml',
@@ -56,7 +65,6 @@ describe('reader preferences', () => {
       }),
     ).toEqual({
       appearance: 'dark',
-      diagram: { optimize: false },
       documentTypography: {
         bodyFamily: 'sans-serif',
         bodySize: readerPreferenceLimits.bodySize.max,

@@ -3,8 +3,6 @@ import type { FuxianDesktopBridge } from '@fuxian/shared-types';
 import { renderInfographic as defaultRenderInfographic } from './infographic-renderer';
 import { renderVegaLite as defaultRenderVegaLite } from './vega-lite-renderer';
 
-export type DocumentRenderAppearance = 'dark' | 'light';
-
 export type DocumentRenderResult =
   | { html: string; kind: 'math' }
   | { kind: 'infographic'; svg: string }
@@ -22,27 +20,8 @@ export type VegaLiteRenderer = (source: string, signal: AbortSignal) => Promise<
 export type InfographicRenderer = (source: string, signal: AbortSignal) => Promise<string>;
 
 export interface DocumentRenderAdapter extends RenderTaskAdapter<DocumentRenderResult> {
-  setAppearance(appearance: DocumentRenderAppearance): void;
-  setDiagramOptimization(enabled: boolean): void;
   setPlantUmlServerUrl(serverUrl: string): void;
 }
-
-export const hasExplicitDiagramStyle = (kind: string, source: string): boolean => {
-  if (kind === 'plantuml') {
-    return /^\s*(?:!theme\b|skinparam\b|<style>|!include\b|!define\b)/im.test(source);
-  }
-  return kind === 'mermaid' && /%%\{\s*(?:init|config):|"theme"\s*:|themeVariables/i.test(source);
-};
-
-export const optimizePlantUmlSource = (source: string, enabled: boolean): string => {
-  if (!enabled || hasExplicitDiagramStyle('plantuml', source)) return source;
-  const style = [
-    'skinparam backgroundColor transparent',
-    'skinparam defaultFontName sans-serif',
-    'skinparam shadowing false',
-  ].join('\n');
-  return source.replace(/@startuml[^\n]*\n/i, (opening) => `${opening}${style}\n`);
-};
 
 let mermaidRenderId = 0;
 let katexModule: ReturnType<typeof importKatex> | undefined;
@@ -77,24 +56,14 @@ export const createDesktopPlantUmlRenderer =
   };
 
 export const createDocumentRenderAdapter = (
-  initialAppearance: DocumentRenderAppearance,
   initialPlantUmlServerUrl: string,
   renderPlantUml: PlantUmlRenderer,
-  initialDiagramOptimization = false,
   renderVegaLite: VegaLiteRenderer = defaultRenderVegaLite,
   renderInfographic: InfographicRenderer = defaultRenderInfographic,
 ): DocumentRenderAdapter => {
-  let appearance = initialAppearance;
-  let optimizeDiagrams = initialDiagramOptimization;
   let plantUmlServerUrl = initialPlantUmlServerUrl;
 
   return {
-    setAppearance: (nextAppearance) => {
-      appearance = nextAppearance;
-    },
-    setDiagramOptimization: (enabled) => {
-      optimizeDiagrams = enabled;
-    },
     setPlantUmlServerUrl: (nextServerUrl) => {
       plantUmlServerUrl = nextServerUrl;
     },
@@ -118,11 +87,7 @@ export const createDocumentRenderAdapter = (
       if (task.kind === 'plantuml') {
         return {
           kind: 'plantuml',
-          svg: await renderPlantUml(
-            optimizePlantUmlSource(task.source, optimizeDiagrams),
-            plantUmlServerUrl,
-            signal,
-          ),
+          svg: await renderPlantUml(task.source, plantUmlServerUrl, signal),
         };
       }
 
@@ -142,12 +107,7 @@ export const createDocumentRenderAdapter = (
         securityLevel: 'strict',
         startOnLoad: false,
         suppressErrorRendering: true,
-        theme:
-          optimizeDiagrams && !hasExplicitDiagramStyle('mermaid', task.source)
-            ? appearance === 'dark'
-              ? 'dark'
-              : 'neutral'
-            : 'default',
+        theme: 'default',
       });
       const result = await mermaid.render(`fuxian-mermaid-${++mermaidRenderId}`, task.source);
       throwIfAborted(signal);

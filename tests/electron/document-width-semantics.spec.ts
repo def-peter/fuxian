@@ -13,7 +13,6 @@ type WidthMode = 'a4' | 'adaptive' | 'custom';
 
 const preferences = (mode: WidthMode) => ({
   appearance: 'light',
-  diagram: { optimize: false },
   documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
   documentWidth: { customWidth: 860, mode },
   plantUml: { serverUrl: 'http://127.0.0.1:1/plantuml' },

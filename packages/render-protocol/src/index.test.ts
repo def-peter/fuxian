@@ -71,7 +71,9 @@ describe('RenderCoordinator', () => {
     const applied: string[] = [];
     const coordinator = new RenderCoordinator({
       adapter,
-      onTaskSuccess: ({ id }, result) => applied.push(`${id}:${result}`),
+      onTaskSuccess: ({ id }, result) => {
+        applied.push(`${id}:${result}`);
+      },
       timeoutMilliseconds: 10_000,
     });
     const revision = coordinator.startRevision('revision-1', [task('math'), task('mermaid')]);
@@ -124,7 +126,9 @@ describe('RenderCoordinator', () => {
     const applied: string[] = [];
     const coordinator = new RenderCoordinator({
       adapter,
-      onTaskSuccess: ({ id }, result) => applied.push(`${id}:${result}`),
+      onTaskSuccess: ({ id }, result) => {
+        applied.push(`${id}:${result}`);
+      },
       timeoutMilliseconds: 10_000,
     });
     const oldRevision = coordinator.startRevision('old', [task('old-task')]);
@@ -144,7 +148,9 @@ describe('RenderCoordinator', () => {
     const applied: string[] = [];
     const coordinator = new RenderCoordinator({
       adapter,
-      onTaskSuccess: (_task, result) => applied.push(result),
+      onTaskSuccess: (_task, result) => {
+        applied.push(result);
+      },
       timeoutMilliseconds: 10_000,
     });
     const revision = coordinator.startRevision('revision-1', [task('mermaid')]);
@@ -158,5 +164,23 @@ describe('RenderCoordinator', () => {
       status: 'succeeded',
     });
     expect(applied).toEqual(['current theme']);
+  });
+
+  it('keeps readiness pending until an asynchronous result is applied', async () => {
+    const adapter = new ControlledAdapter();
+    const application = deferred<void>();
+    const coordinator = new RenderCoordinator({
+      adapter,
+      onTaskSuccess: () => application.promise,
+      timeoutMilliseconds: 10_000,
+    });
+    const revision = coordinator.startRevision('revision-1', [task('async-visual')]);
+
+    adapter.attempt('async-visual').resolve('tree');
+    await flushPromises();
+    expect(revision.snapshot().readiness.pending).toBe(1);
+
+    application.resolve();
+    expect((await revision.whenReady()).tasks[0]?.status).toBe('succeeded');
   });
 });

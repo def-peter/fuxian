@@ -31,7 +31,6 @@ export interface FindResult {
 }
 
 export interface FinishedDocumentController {
-  applyDiagramOptimization(enabled: boolean): void;
   applyPlantUmlServer(serverUrl: string): void;
   applyTheme(preferences: DocumentThemePreferences): void;
   clearFind(): FindResult;
@@ -64,8 +63,6 @@ export interface RenderedVisualSnapshot {
 
 interface BindFinishedDocumentOptions {
   copyText(text: string): Promise<void>;
-  initialAppearance?: 'dark' | 'light';
-  initialDiagramOptimization?: boolean;
   initialPlantUmlServerUrl?: string;
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
@@ -318,19 +315,14 @@ export function bindFinishedDocument(
   let scrollIdleTimer = 0;
   let restoreAnimationFrame = 0;
   let restoringReadingPosition = true;
-  let appearance =
-    options.initialAppearance ??
-    (frameDocument.documentElement.dataset.appearance === 'dark' ? 'dark' : 'light');
   const documentRenderAdapter: DocumentRenderAdapter | undefined = options.renderAdapter
     ? undefined
     : createDocumentRenderAdapter(
-        appearance,
         options.initialPlantUmlServerUrl ?? defaultPlantUmlServerUrl,
         options.renderPlantUml ??
           (async () => {
             throw new TypeError('PlantUML 渲染服务不可用。');
           }),
-        options.initialDiagramOptimization,
         options.renderVegaLite,
         options.renderInfographic,
       );
@@ -396,7 +388,7 @@ export function bindFinishedDocument(
   };
 
   const createDiagramAction = (
-    action: 'focus' | 'source',
+    action: 'fit' | 'focus' | 'source' | 'zoom-in' | 'zoom-out',
     label: string,
     icon: typeof Code2,
   ): HTMLButtonElement => {
@@ -446,7 +438,10 @@ export function bindFinishedDocument(
     if (error) error.hidden = true;
   };
 
-  const applyRenderResult = (task: RenderTask, result: DocumentRenderResult): void => {
+  const applyRenderResult = async (
+    task: RenderTask,
+    result: DocumentRenderResult,
+  ): Promise<void> => {
     const element = getRenderTaskElement(task);
     const output = element?.querySelector<HTMLElement>('.render-task-output');
     if (!element || !output) throw new TypeError('渲染任务占位已不存在。');
@@ -492,7 +487,12 @@ export function bindFinishedDocument(
         : 'pending';
       frameDocument.documentElement.dataset.renderPendingTasks = `${snapshot.readiness.pending}`;
       for (const task of snapshot.tasks) {
-        if (task.status === 'pending') setRenderTaskPending(task, task.attempt);
+        if (task.status === 'pending') {
+          const element = getRenderTaskElement(task);
+          if (element?.dataset.renderAttempt !== `${task.attempt}`) {
+            setRenderTaskPending(task, task.attempt);
+          }
+        }
         if (task.status === 'succeeded') {
           const element = getRenderTaskElement(task);
           if (element) element.dataset.renderState = 'succeeded';
@@ -750,12 +750,6 @@ export function bindFinishedDocument(
   });
 
   return {
-    applyDiagramOptimization: (enabled) => {
-      documentRenderAdapter?.setDiagramOptimization(enabled);
-      for (const task of renderTaskList) {
-        if (task.kind === 'mermaid' || task.kind === 'plantuml') renderRevision.retry(task.id);
-      }
-    },
     applyPlantUmlServer: (serverUrl) => {
       documentRenderAdapter?.setPlantUmlServerUrl(serverUrl);
       for (const task of renderTaskList) {
@@ -764,13 +758,6 @@ export function bindFinishedDocument(
     },
     applyTheme: (preferences) => {
       applyDocumentTheme(frameDocument, preferences);
-      if (appearance !== preferences.appearance) {
-        appearance = preferences.appearance;
-        documentRenderAdapter?.setAppearance(appearance);
-        for (const task of renderTaskList) {
-          if (task.kind === 'mermaid') renderRevision.retry(task.id);
-        }
-      }
     },
     clearFind: clearFindHighlights,
     destroy: () => {

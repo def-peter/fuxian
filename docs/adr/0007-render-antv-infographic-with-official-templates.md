@@ -8,7 +8,7 @@ Accepted
 
 Fuxian recognizes only the canonical `infographic` fenced block and renders it with the pinned official `@antv/infographic` runtime. Rendering runs in a terminable Web Worker with at most two concurrent tasks. The Worker uses the official browser `Infographic` and `exportToSVG` APIs, with LinkeDOM supplying an offline DOM, and blocks every real network request.
 
-The first release accepts exact built-in template and theme names, bounded data, and a small safe theme-field allowlist. It rejects illustrations, arbitrary attributes, remote and inline resources, custom designs, animated templates, interactive templates, and word clouds. Diagram optimization never changes Infographic source or output.
+The first release accepts exact built-in template and theme names, bounded data, and a small safe theme-field allowlist. It rejects illustrations, arbitrary attributes, remote and inline resources, custom designs, animated templates, interactive templates, and word clouds. Fuxian preserves the accepted Infographic source and output styling.
 
 AntV uses `foreignObject > span` for its primary text. Fuxian therefore applies an Infographic-specific sanitizer that preserves only that exact single-span structure, plain text, geometry attributes, and reviewed layout styles. Other embedded HTML and all external references remain forbidden. Screen, focused view, copying, and PDF export reuse the same sanitized SVG snapshot.
 

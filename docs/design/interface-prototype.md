@@ -103,9 +103,10 @@ The operating system owns window controls and the application menu. The content 
 - Content appears progressively as real render tasks settle; diagrams and formulas must not delay readable text.
 - Document width controls the entire white finished-document surface, not an inner prose column. Adaptive mode fills the available reading region with small inner gutters so wide diagrams retain space; A4 and custom modes center a white surface at the selected width. Prose, tables, code, formulas, and diagrams share the resulting inner width without independent breakout. Adaptive width is the initial default; the toolbar switches between adaptive, A4, and custom modes, with a drag control for custom width. The user's later choice is remembered.
 - Mermaid and PlantUML diagram blocks and Vega-Lite visualization blocks remain selectable SVG content. Hover or keyboard focus exposes source and full-screen controls without replacing the rendered visual in place.
+- The content-outline header provides an article-structure-map action. It derives a temporary interactive mind map from the active document's existing title hierarchy and opens it in a focused dialog with folding, pan, zoom, and fit controls. It is not a Markdown fence, finished-document block, or PDF content.
 - Diagram source opens in a side drawer while the rendered diagram remains visible. Full-screen opens a focused layer with zoom, pan, fit-to-window, and return actions.
 - Users can select diagram labels, copy diagram source, and copy the rendered SVG.
-- Source-authored diagram styling is preserved by default. An optional diagram-optimization setting remains under discussion.
+- Source-authored diagram styling is always preserved. Fuxian does not rewrite Mermaid or PlantUML source to impose application styling.
 - PlantUML initially uses the public server by default and allows a local or private server to be configured.
 - Fuxian runs as one application instance with a restorable multi-document session.
 - Open documents and recent documents are session navigation, not a representation of the filesystem hierarchy.
@@ -131,16 +132,20 @@ The operating system owns window controls and the application menu. The content 
 - Switching to an inactive document whose latest render is incomplete shows its last successful version immediately with `正在更新...` until the latest version is ready.
 - Opening a closed document during external writes shows its cached successful version with `正在同步最新内容...` when available, or a stable loading skeleton otherwise. The first settled revision replaces that state atomically.
 - Opening diagram source temporarily replaces the right-side content outline with a wider source drawer. Closing the drawer restores the content outline without changing document position.
-- Settings use a separate desktop window with appearance, document, diagram, and PlantUML sections.
+- Settings use a separate desktop window with appearance, document, PlantUML, and “关于与更新” sections.
+- Packaged Windows and macOS builds check the stable update channel after a short non-blocking startup delay. Development builds show that updates are unavailable instead of contacting the production feed.
+- The Help menu opens “关于与更新” and starts a manual check. Manual checks distinguish checking, current, available, and failed states; background checks do not interrupt reading.
+- Available updates show the target version and plain-text release notes. Download begins only after explicit confirmation, remains cancellable, and reports progress while the reader stays usable.
+- A downloaded update offers “重启并更新” and “稍后”. Normal application quit never installs it silently. Installation waits for document-session persistence and is refused while PDF export is active.
+- The document-session Settings action changes to a restrained update indicator while an update is available, downloading, or ready, so the state remains discoverable without a modal interruption.
 - With no open documents, the central start view shows the Fuxian identity, open/drop actions, and recent documents without feature marketing. The document-session sidebar may collapse in this state to avoid duplicating recent documents.
 - The start view initially shows five recent documents in a compact list with a `查看全部` action for the remaining history.
 - The finished-document header shows filename and external-revision status on the left, with document-width, find, PDF export, and overflow actions on the right.
 - The content outline shows headings H1-H3 by default. Deeper headings remain collapsed under their parents, and the active heading is kept visible automatically.
 - `Ctrl/Cmd + F` expands an in-header find control with match count, previous, next, and close actions.
 - File selection supports multiple Markdown documents. Dropping multiple documents adds all of them to the session, and attempting to open an already-open document activates its existing document item.
-- Diagram optimization affects only diagrams without explicit styles: it harmonizes typography, color, background, line treatment, whitespace, and document-width fit without modifying source files.
-- Vega-Lite accepts only the canonical `vega-lite` fence with JSON and bounded `data.values`. It renders locally in cancellable workers, rejects external resources and nondeterministic capabilities, preserves author styling, and is never changed by diagram optimization.
-- AntV Infographic accepts only the canonical `infographic` fence and renders official built-in templates in a cancellable worker. Its dedicated sanitizer preserves the official `foreignObject > span` text structure through a strict allowlist; remote resources, arbitrary attributes, illustrations, animation, and interaction remain disabled. Official template layout and author styling take precedence over diagram optimization.
+- Vega-Lite accepts only the canonical `vega-lite` fence with JSON and bounded `data.values`. It renders locally in cancellable workers, rejects external resources and nondeterministic capabilities, and preserves author styling.
+- AntV Infographic accepts only the canonical `infographic` fence and renders official built-in templates in a cancellable worker. Its dedicated sanitizer preserves the official `foreignObject > span` text structure through a strict allowlist; remote resources, arbitrary attributes, illustrations, animation, and interaction remain disabled. Official template layout and author styling are preserved.
 - PDF export reuses the active finished document's sanitized PlantUML and Vega-Lite SVG snapshots. It does not recompile Vega-Lite in the export window.
 - The toolbar shows the filename; the complete path is available in a tooltip.
 - After the save location is chosen, PDF export uses a non-modal progress panel so reading can continue.

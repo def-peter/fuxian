@@ -1,4 +1,12 @@
 export const desktopIpcChannels = {
+  appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
+  appUpdateCheck: 'fuxian:app-update:check',
+  appUpdateDownload: 'fuxian:app-update:download',
+  appUpdateGetStatus: 'fuxian:app-update:get-status',
+  appUpdateInstall: 'fuxian:app-update:install',
+  appUpdateInstallPreparationFinished: 'fuxian:app-update:install-preparation-finished',
+  appUpdatePrepareInstall: 'fuxian:app-update:prepare-install',
+  appUpdateStatusChanged: 'fuxian:app-update:status-changed',
   cancelPlantUmlRender: 'fuxian:plantuml:cancel-render',
   cancelPdfExport: 'fuxian:pdf-export:cancel',
   copyText: 'fuxian:clipboard:write-text',
@@ -21,9 +29,47 @@ export const desktopIpcChannels = {
   retrySourceDocument: 'fuxian:source-documents:retry',
   saveDocumentSession: 'fuxian:document-session:save',
   saveReaderPreferences: 'fuxian:reader-preferences:save',
+  settingsSectionRequested: 'fuxian:settings:section-requested',
   startPdfExport: 'fuxian:pdf-export:start',
   validatePlantUmlServer: 'fuxian:plantuml:validate-server',
 } as const;
+
+export type AppUpdatePhase =
+  | 'available'
+  | 'checking'
+  | 'downloaded'
+  | 'downloading'
+  | 'error'
+  | 'idle'
+  | 'installing'
+  | 'unsupported'
+  | 'up-to-date';
+
+export interface AppUpdateStatus {
+  availableVersion?: string | undefined;
+  bytesPerSecond?: number | undefined;
+  checkedAt?: string | undefined;
+  currentVersion: string;
+  message?: string | undefined;
+  percent?: number | undefined;
+  phase: AppUpdatePhase;
+  releaseDate?: string | undefined;
+  releaseName?: string | undefined;
+  releaseNotes?: string | undefined;
+  total?: number | undefined;
+  transferred?: number | undefined;
+}
+
+export type SettingsSectionId = 'about' | 'appearance' | 'document' | 'plantuml';
+
+export const isSettingsSectionId = (value: unknown): value is SettingsSectionId =>
+  value === 'about' || value === 'appearance' || value === 'document' || value === 'plantuml';
+
+export interface AppUpdateInstallPreparationResult {
+  message?: string | undefined;
+  requestId: string;
+  status: 'failed' | 'ready';
+}
 
 export const defaultPlantUmlServerUrl = 'https://www.plantuml.com/plantuml';
 
@@ -39,9 +85,6 @@ export type DocumentWidthMode = 'a4' | 'adaptive' | 'custom';
 
 export interface ReaderPreferences {
   appearance: AppearancePreference;
-  diagram: {
-    optimize: boolean;
-  };
   documentTypography: {
     bodyFamily: DocumentBodyFamily;
     bodySize: number;
@@ -63,9 +106,6 @@ export interface ReaderPreferences {
 
 export const createDefaultReaderPreferences = (): ReaderPreferences => ({
   appearance: 'system',
-  diagram: {
-    optimize: false,
-  },
   documentTypography: {
     bodyFamily: 'sans-serif',
     bodySize: 15,
@@ -120,7 +160,6 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   const candidate = value as {
     appearance?: unknown;
-    diagram?: { optimize?: unknown };
     documentTypography?: {
       bodyFamily?: unknown;
       bodySize?: unknown;
@@ -153,12 +192,6 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   return {
     appearance,
-    diagram: {
-      optimize:
-        typeof candidate.diagram?.optimize === 'boolean'
-          ? candidate.diagram.optimize
-          : defaults.diagram.optimize,
-    },
     documentTypography: {
       bodyFamily,
       bodySize: clampPreference(
@@ -337,20 +370,28 @@ export type PdfExportReadySignal =
   { exportId: string; status: 'ready' } | { exportId: string; message: string; status: 'failed' };
 
 export interface FuxianDesktopBridge {
+  cancelAppUpdateDownload(): Promise<AppUpdateStatus>;
   cancelPdfExport(exportId: string): Promise<void>;
   cancelPlantUmlRender(requestId: string): void;
+  checkForAppUpdates(): Promise<AppUpdateStatus>;
   configureOpenDocumentWatches(request: OpenDocumentWatchesRequest): Promise<void>;
   copyText(text: string): Promise<void>;
   getPdfExportPayload(exportId: string): Promise<PdfExportPayload>;
+  getAppUpdateStatus(): Promise<AppUpdateStatus>;
+  downloadAppUpdate(): Promise<AppUpdateStatus>;
+  installAppUpdate(): Promise<AppUpdateStatus>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
   loadReaderPreferences(): Promise<ReaderPreferences>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
+  onAppUpdateStatusChanged(listener: (status: AppUpdateStatus) => void): () => void;
   onPdfExportProgress(listener: (progress: PdfExportProgress) => void): () => void;
   onSourceDocumentOpenRequested(listener: (result: OpenSourceDocumentsResult) => void): () => void;
+  onPrepareAppUpdateInstall(listener: () => Promise<void>): () => void;
+  onSettingsSectionRequested(listener: (section: SettingsSectionId) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
-  openSettings(): Promise<void>;
+  openSettings(section?: SettingsSectionId): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
   renderPlantUml(request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult>;
   reportPdfExportProgress(progress: PdfExportRenderProgress): void;

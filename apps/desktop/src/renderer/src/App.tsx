@@ -81,6 +81,8 @@ import { PdfExportPanel } from '@/pdf-export-panel';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useShellLayout } from '@/use-shell-layout';
+import { useAppUpdateStatus } from '@/use-app-update-status';
+import { ArticleStructureMapDialog } from '@/article-structure-map-dialog';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
@@ -160,6 +162,7 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
 
 export function App(): React.JSX.Element {
   const { preferences, resolvedAppearance, updatePreferences } = useReaderPreferences();
+  const appUpdateStatus = useAppUpdateStatus();
   const shellLayout = useShellLayout();
   const [session, setSession] = useState(createDocumentSession);
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
@@ -168,6 +171,7 @@ export function App(): React.JSX.Element {
   const [showAllStartRecent, setShowAllStartRecent] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [contentOutlineSheetOpen, setContentOutlineSheetOpen] = useState(false);
+  const [articleStructureMapOpen, setArticleStructureMapOpen] = useState(false);
   const [documentSessionSheetOpen, setDocumentSessionSheetOpen] = useState(false);
   const [activeHeadingId, setActiveHeadingId] = useState<string>();
   const [findOpen, setFindOpen] = useState(false);
@@ -193,6 +197,7 @@ export function App(): React.JSX.Element {
   const frameControllers = useRef(new Map<string, FinishedDocumentController>());
   const findInput = useRef<HTMLInputElement>(null);
   const findReturnFocus = useRef<HTMLElement | undefined>(undefined);
+  const contentOutlineSheet = useRef<HTMLDivElement>(null);
   const contentOutlineTrigger = useRef<HTMLButtonElement>(null);
   const documentSessionTrigger = useRef<HTMLButtonElement>(null);
   const dragDepth = useRef(0);
@@ -244,6 +249,10 @@ export function App(): React.JSX.Element {
     setContentOutlineSheetOpen(false);
     setDocumentSessionSheetOpen(false);
   }, [shellLayout]);
+
+  useEffect(() => {
+    setArticleStructureMapOpen(false);
+  }, [session.activeDocumentPath]);
 
   const beginExternalRevision = useCallback((event: ExternalRevisionEvent): void => {
     const currentItem = sessionRef.current.openDocuments.find(
@@ -439,6 +448,21 @@ export function App(): React.JSX.Element {
     return () => window.removeEventListener('beforeunload', saveBeforeUnload);
   }, []);
 
+  useEffect(
+    () =>
+      window.fuxian.onPrepareAppUpdateInstall(async () => {
+        const activePath = sessionRef.current.activeDocumentPath;
+        const position = finishedDocumentController.current?.getReadingPosition();
+        const latestSession =
+          activePath && position
+            ? updateReadingPosition(sessionRef.current, activePath, position)
+            : sessionRef.current;
+        sessionRef.current = latestSession;
+        await window.fuxian.saveDocumentSession(createPersistedDocumentSession(latestSession));
+      }),
+    [],
+  );
+
   useEffect(() => {
     const controllers = frameControllers.current;
     const statusTimers = updatedStatusTimers.current;
@@ -462,12 +486,6 @@ export function App(): React.JSX.Element {
       controller.applyPlantUmlServer(preferences.plantUml.serverUrl);
     }
   }, [preferences.plantUml.serverUrl]);
-
-  useEffect(() => {
-    for (const controller of frameControllers.current.values()) {
-      controller.applyDiagramOptimization(preferences.diagram.optimize);
-    }
-  }, [preferences.diagram.optimize]);
 
   useEffect(() => {
     const position = diagramLayoutReadingPosition.current;
@@ -604,8 +622,6 @@ export function App(): React.JSX.Element {
     if (!frameDocument) return;
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
-      initialAppearance: resolvedAppearance,
-      initialDiagramOptimization: preferences.diagram.optimize,
       initialPlantUmlServerUrl: preferences.plantUml.serverUrl,
       initialReadingPosition: frame.readingPosition,
       onActiveHeadingChange: (id) => {
@@ -1134,6 +1150,12 @@ export function App(): React.JSX.Element {
   const documentFrames = visibleFrame
     ? [visibleFrame, ...pendingFrames.filter((frame) => frame.id !== visibleFrame.id)]
     : pendingFrames;
+  const updateAttention =
+    appUpdateStatus.phase === 'available' ||
+    appUpdateStatus.phase === 'downloaded' ||
+    appUpdateStatus.phase === 'downloading'
+      ? appUpdateStatus.phase
+      : undefined;
   const documentSessionSidebar = (
     <DocumentSessionSidebar
       activeDocumentPath={session.activeDocumentPath}
@@ -1152,7 +1174,15 @@ export function App(): React.JSX.Element {
       }}
       onLocate={(path) => void locateUnavailableDocument(path)}
       onOpen={() => void openSourceDocuments()}
-      onOpenSettings={() => void window.fuxian.openSettings()}
+      onOpenSettings={() =>
+        void window.fuxian.openSettings(
+          appUpdateStatus.phase === 'available' ||
+            appUpdateStatus.phase === 'downloaded' ||
+            appUpdateStatus.phase === 'downloading'
+            ? 'about'
+            : undefined,
+        )
+      }
       onRemoveUnavailable={(path) =>
         setSession((current) => removeUnavailableDocument(current, path))
       }
@@ -1163,6 +1193,7 @@ export function App(): React.JSX.Element {
       onRetry={(path) => void retryUnavailableDocument(path)}
       openDocuments={session.openDocuments}
       recentDocuments={session.recentDocuments}
+      {...(updateAttention ? { updateAttention } : {})}
     />
   );
 
@@ -1514,6 +1545,7 @@ export function App(): React.JSX.Element {
                   headings={activeDocument.headings}
                   key={activeDocument.document.path}
                   onNavigate={(id) => finishedDocumentController.current?.scrollToHeading(id)}
+                  onOpenStructureMap={() => setArticleStructureMapOpen(true)}
                 />
               ) : null}
             </div>
@@ -1524,6 +1556,14 @@ export function App(): React.JSX.Element {
               onClose={() => setFocusedDiagram(undefined)}
               onReturnFocus={(diagram) => restoreDiagramActionFocus(diagram, 'focus')}
             />
+            {articleStructureMapOpen ? (
+              <ArticleStructureMapDialog
+                documentName={activeDocument.document.name}
+                headings={activeDocument.headings}
+                onOpenChange={setArticleStructureMapOpen}
+                open
+              />
+            ) : null}
             {shellLayout !== 'wide' && activeDocument ? (
               <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
                 <SheetContent
@@ -1532,6 +1572,11 @@ export function App(): React.JSX.Element {
                     event.preventDefault();
                     contentOutlineTrigger.current?.focus();
                   }}
+                  onOpenAutoFocus={(event) => {
+                    event.preventDefault();
+                    contentOutlineSheet.current?.focus();
+                  }}
+                  ref={contentOutlineSheet}
                   showCloseButton={false}
                 >
                   <SheetTitle className="sr-only">内容目录</SheetTitle>
@@ -1545,6 +1590,10 @@ export function App(): React.JSX.Element {
                     onNavigate={(id) => {
                       finishedDocumentController.current?.scrollToHeading(id);
                       setContentOutlineSheetOpen(false);
+                    }}
+                    onOpenStructureMap={() => {
+                      setContentOutlineSheetOpen(false);
+                      setArticleStructureMapOpen(true);
                     }}
                   />
                 </SheetContent>

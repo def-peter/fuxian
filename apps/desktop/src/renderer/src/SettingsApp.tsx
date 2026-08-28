@@ -1,20 +1,23 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import {
   defaultPlantUmlServerUrl,
+  isSettingsSectionId,
   readerPreferenceLimits,
   type AppearancePreference,
   type DocumentBodyFamily,
   type ReaderPreferences,
+  type SettingsSectionId,
 } from '@fuxian/shared-types';
 import {
+  CircleArrowUp,
   CircleCheck,
-  CircleHelp,
+  Download,
   FileText,
-  Image,
   Info,
   Monitor,
   Moon,
   Network,
+  RefreshCw,
   RotateCcw,
   Sun,
   Type,
@@ -24,7 +27,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -32,18 +34,18 @@ import {
   FieldTitle,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Spinner } from '@/components/ui/spinner';
-import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
+import { FuxianMark } from '@/fuxian-mark';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
+import { useAppUpdateStatus } from '@/use-app-update-status';
 
-type SettingsSection = 'appearance' | 'diagram' | 'document' | 'plantuml';
 type PlantUmlValidationState =
   | { status: 'idle' }
   | { status: 'checking' }
@@ -76,14 +78,24 @@ const previewDocumentSource = createFinishedDocumentSource(previewHtml);
 
 const settingsSections: Array<{
   icon: typeof Sun;
-  id: SettingsSection;
+  id: SettingsSectionId;
   label: string;
 }> = [
   { icon: Sun, id: 'appearance', label: '外观' },
   { icon: FileText, id: 'document', label: '文档' },
-  { icon: Image, id: 'diagram', label: '图表' },
   { icon: Network, id: 'plantuml', label: 'PlantUML' },
+  { icon: Info, id: 'about', label: '关于与更新' },
 ];
+
+const initialSettingsSection = (): SettingsSectionId => {
+  const requested = new URLSearchParams(globalThis.location.search).get('section');
+  return isSettingsSectionId(requested) ? requested : 'appearance';
+};
+
+const formatBytes = (bytes: number | undefined): string => {
+  if (!bytes || bytes < 0) return '0 MB';
+  return `${(bytes / 1_048_576).toFixed(1)} MB`;
+};
 
 const appearanceOptions: Array<{
   icon: typeof Sun;
@@ -105,7 +117,8 @@ const updateDocumentTypography = (
 
 export function SettingsApp(): React.JSX.Element {
   const { preferences, ready, resolvedAppearance, updatePreferences } = useReaderPreferences();
-  const [section, setSection] = useState<SettingsSection>('appearance');
+  const appUpdateStatus = useAppUpdateStatus();
+  const [section, setSection] = useState<SettingsSectionId>(initialSettingsSection);
   const [plantUmlServerDraft, setPlantUmlServerDraft] = useState<string>();
   const [plantUmlValidation, setPlantUmlValidation] = useState<PlantUmlValidationState>({
     status: 'idle',
@@ -120,6 +133,8 @@ export function SettingsApp(): React.JSX.Element {
       applyDocumentTheme(frameDocument, documentTheme);
     }
   }, [documentTheme]);
+
+  useEffect(() => window.fuxian.onSettingsSectionRequested(setSection), []);
 
   const handlePreviewLoad = (): void => {
     const frameDocument = previewFrame.current?.contentDocument;
@@ -162,6 +177,22 @@ export function SettingsApp(): React.JSX.Element {
     }
   };
 
+  const checkForUpdates = (): void => {
+    void window.fuxian.checkForAppUpdates();
+  };
+
+  const downloadUpdate = (): void => {
+    void window.fuxian.downloadAppUpdate();
+  };
+
+  const cancelUpdateDownload = (): void => {
+    void window.fuxian.cancelAppUpdateDownload();
+  };
+
+  const installUpdate = (): void => {
+    void window.fuxian.installAppUpdate();
+  };
+
   return (
     <div className="grid h-full grid-rows-[52px_minmax(0,1fr)] bg-background">
       <header className="flex items-center border-b px-5">
@@ -189,6 +220,163 @@ export function SettingsApp(): React.JSX.Element {
         </nav>
 
         <main className="min-h-0 overflow-y-auto border-r px-5 py-6" aria-busy={!ready}>
+          {section === 'about' ? (
+            <section aria-labelledby="about-title">
+              <h2 className="text-base font-semibold" id="about-title">
+                关于与更新
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                查看当前版本，并在你准备好时下载和安装更新。
+              </p>
+              <Separator className="my-5" />
+
+              <div className="flex items-center gap-3">
+                <FuxianMark className="size-12" decorative={false} />
+                <div className="min-w-0">
+                  <p className="font-semibold">浮现</p>
+                  <p className="text-sm text-muted-foreground">
+                    版本 {appUpdateStatus.currentVersion || '--'}
+                  </p>
+                </div>
+              </div>
+
+              <Separator className="my-5" />
+              <div aria-live="polite" className="flex flex-col gap-4">
+                {appUpdateStatus.phase === 'idle' ? (
+                  <Button onClick={checkForUpdates} size="sm">
+                    <RefreshCw data-icon="inline-start" />
+                    检查更新
+                  </Button>
+                ) : null}
+
+                {appUpdateStatus.phase === 'checking' ? (
+                  <div
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                    role="status"
+                  >
+                    <Spinner />
+                    正在检查更新...
+                  </div>
+                ) : null}
+
+                {appUpdateStatus.phase === 'up-to-date' ? (
+                  <Alert>
+                    <CircleCheck aria-hidden="true" />
+                    <AlertTitle>当前已是最新版本</AlertTitle>
+                    <AlertDescription>
+                      <Button onClick={checkForUpdates} size="sm" variant="outline">
+                        <RefreshCw data-icon="inline-start" />
+                        重新检查
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {appUpdateStatus.phase === 'available' ? (
+                  <>
+                    <Alert>
+                      <CircleArrowUp aria-hidden="true" />
+                      <AlertTitle>新版本 {appUpdateStatus.availableVersion} 可用</AlertTitle>
+                      <AlertDescription>
+                        <p>当前版本 {appUpdateStatus.currentVersion}</p>
+                      </AlertDescription>
+                    </Alert>
+                    {appUpdateStatus.releaseNotes ? (
+                      <div>
+                        <h3 className="text-sm font-medium">更新内容</h3>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+                          {appUpdateStatus.releaseNotes}
+                        </p>
+                      </div>
+                    ) : null}
+                    {appUpdateStatus.message ? (
+                      <p className="text-sm text-muted-foreground">{appUpdateStatus.message}</p>
+                    ) : null}
+                    <Button onClick={downloadUpdate} size="sm">
+                      <Download data-icon="inline-start" />
+                      下载更新
+                    </Button>
+                  </>
+                ) : null}
+
+                {appUpdateStatus.phase === 'downloading' ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span>正在下载 {appUpdateStatus.availableVersion}</span>
+                      <output className="tabular-nums">
+                        {Math.round(appUpdateStatus.percent ?? 0)}%
+                      </output>
+                    </div>
+                    <Progress aria-label="更新下载进度" value={appUpdateStatus.percent ?? 0} />
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      {formatBytes(appUpdateStatus.transferred)} /{' '}
+                      {formatBytes(appUpdateStatus.total)}
+                    </p>
+                    <Button onClick={cancelUpdateDownload} size="sm" variant="outline">
+                      取消下载
+                    </Button>
+                  </>
+                ) : null}
+
+                {appUpdateStatus.phase === 'downloaded' ? (
+                  <>
+                    <Alert>
+                      <CircleCheck aria-hidden="true" />
+                      <AlertTitle>更新已准备好</AlertTitle>
+                      <AlertDescription>
+                        <p>重启浮现即可安装 {appUpdateStatus.availableVersion}。</p>
+                        {appUpdateStatus.message ? <p>{appUpdateStatus.message}</p> : null}
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={installUpdate} size="sm">
+                        <RefreshCw data-icon="inline-start" />
+                        重启并更新
+                      </Button>
+                      <Button onClick={() => window.close()} size="sm" variant="outline">
+                        稍后
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+
+                {appUpdateStatus.phase === 'installing' ? (
+                  <div
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                    role="status"
+                  >
+                    <Spinner />
+                    正在重启并安装更新...
+                  </div>
+                ) : null}
+
+                {appUpdateStatus.phase === 'error' ? (
+                  <Alert variant="destructive">
+                    <Info aria-hidden="true" />
+                    <AlertTitle>软件更新失败</AlertTitle>
+                    <AlertDescription>
+                      <p>{appUpdateStatus.message ?? '暂时无法完成更新。'}</p>
+                      <Button onClick={checkForUpdates} size="sm" variant="outline">
+                        <RefreshCw data-icon="inline-start" />
+                        重试
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {appUpdateStatus.phase === 'unsupported' ? (
+                  <Alert>
+                    <Info aria-hidden="true" />
+                    <AlertTitle>当前环境不检查更新</AlertTitle>
+                    <AlertDescription>
+                      正式安装的 Windows 和 macOS 版本支持软件更新。
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           {section === 'appearance' ? (
             <section aria-labelledby="appearance-title">
               <h2 className="text-base font-semibold" id="appearance-title">
@@ -305,54 +493,6 @@ export function SettingsApp(): React.JSX.Element {
             </section>
           ) : null}
 
-          {section === 'diagram' ? (
-            <section aria-labelledby="diagram-title">
-              <h2 className="text-base font-semibold" id="diagram-title">
-                图表
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                控制 Mermaid 与 PlantUML 的呈现方式。
-              </p>
-              <Separator className="my-5" />
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <div className="flex items-center gap-1">
-                    <FieldLabel htmlFor="optimize-diagrams">优化图表</FieldLabel>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            aria-label="优化图表说明"
-                            size="icon-xs"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <CircleHelp
-                              aria-hidden="true"
-                              className="size-4 text-muted-foreground"
-                            />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-72" side="right">
-                          统一无显式样式图表的字体、颜色、背景、线条和留白；不会修改源文档，也不会覆盖作者主题或
-                          skinparam。
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <FieldDescription>仅作用于没有显式主题或样式配置的图表。</FieldDescription>
-                </FieldContent>
-                <Switch
-                  checked={preferences.diagram.optimize}
-                  id="optimize-diagrams"
-                  onCheckedChange={(optimize) =>
-                    updatePreferences({ ...preferences, diagram: { optimize } })
-                  }
-                />
-              </Field>
-            </section>
-          ) : null}
-
           {section === 'plantuml' ? (
             <section aria-labelledby="plantuml-title">
               <h2 className="text-base font-semibold" id="plantuml-title">
@@ -447,24 +587,37 @@ export function SettingsApp(): React.JSX.Element {
           ) : null}
         </main>
 
-        <aside
-          className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-muted/20"
-          aria-label="实时预览"
-        >
-          <div className="flex items-center border-b px-4">
-            <span className="text-xs font-medium text-muted-foreground">完成文档预览</span>
-          </div>
-          <div className="min-h-0 p-3">
-            <iframe
-              className="block h-full w-full border bg-card"
-              onLoad={handlePreviewLoad}
-              ref={previewFrame}
-              sandbox="allow-same-origin"
-              srcDoc={previewDocumentSource}
-              title="完成文档预览"
-            />
-          </div>
-        </aside>
+        {section === 'about' ? (
+          <aside
+            aria-label="关于浮现"
+            className="flex min-h-0 flex-col items-center justify-center border-l bg-muted/20 px-8 text-center"
+          >
+            <FuxianMark className="size-24" decorative={false} />
+            <h2 className="mt-5 text-lg font-semibold">浮现</h2>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              专注于 Markdown 成品文档阅读与 PDF 交付。
+            </p>
+          </aside>
+        ) : (
+          <aside
+            className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-muted/20"
+            aria-label="实时预览"
+          >
+            <div className="flex items-center border-b px-4">
+              <span className="text-xs font-medium text-muted-foreground">完成文档预览</span>
+            </div>
+            <div className="min-h-0 p-3">
+              <iframe
+                className="block h-full w-full border bg-card"
+                onLoad={handlePreviewLoad}
+                ref={previewFrame}
+                sandbox="allow-same-origin"
+                srcDoc={previewDocumentSource}
+                title="完成文档预览"
+              />
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

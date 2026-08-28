@@ -1,7 +1,10 @@
 import {
   desktopIpcChannels,
+  isSettingsSectionId,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
+  type AppUpdateInstallPreparationResult,
+  type AppUpdateStatus,
   type ExternalRevisionEvent,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
@@ -19,7 +22,9 @@ import {
   type SourceDocumentData,
   type StartPdfExportRequest,
   type StartPdfExportResult,
+  type SettingsSectionId,
 } from '@fuxian/shared-types';
+import electronUpdater from 'electron-updater';
 import {
   app,
   BrowserWindow,
@@ -49,6 +54,10 @@ import {
 } from './session-persistence';
 import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator';
 import { extractSourceDocumentPaths } from './system-open';
+import { AppUpdateService } from './app-update-service';
+import { E2EAppUpdateAdapter, isE2EUpdateScenario } from './e2e-app-update-adapter';
+
+const { autoUpdater } = electronUpdater;
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const appIconPath = join(currentDirectory, '../../resources/icon.png');
@@ -57,6 +66,7 @@ const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
+let appUpdateService: AppUpdateService | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
@@ -367,11 +377,64 @@ const handleDocumentResourceRequest = async (request: Request): Promise<Response
   }
 };
 
+const broadcastAppUpdateStatus = (status: AppUpdateStatus): void => {
+  for (const browserWindow of BrowserWindow.getAllWindows()) {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.webContents.send(desktopIpcChannels.appUpdateStatusChanged, status);
+    }
+  }
+};
+
+const requestDocumentSessionFlush = async (): Promise<void> => {
+  if (pdfExportJobs.size > 0) {
+    throw new Error('PDF export is still running.');
+  }
+  const target = mainWindow;
+  if (!target || target.isDestroyed() || target.webContents.isDestroyed()) return;
+
+  const requestId = randomUUID();
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => finish(new Error('Document session flush timed out.')), 5_000);
+    const handleDestroyed = (): void => finish();
+    const handleResult = (
+      event: Electron.IpcMainEvent,
+      value: AppUpdateInstallPreparationResult,
+    ): void => {
+      if (
+        event.sender !== target.webContents ||
+        !value ||
+        value.requestId !== requestId ||
+        (value.status !== 'ready' && value.status !== 'failed')
+      ) {
+        return;
+      }
+      finish(value.status === 'ready' ? undefined : new Error('Document session flush failed.'));
+    };
+    const finish = (error?: Error): void => {
+      clearTimeout(timeout);
+      ipcMain.removeListener(desktopIpcChannels.appUpdateInstallPreparationFinished, handleResult);
+      target.webContents.removeListener('destroyed', handleDestroyed);
+      if (error) reject(error);
+      else resolve();
+    };
+
+    ipcMain.on(desktopIpcChannels.appUpdateInstallPreparationFinished, handleResult);
+    target.webContents.once('destroyed', handleDestroyed);
+    target.webContents.send(desktopIpcChannels.appUpdatePrepareInstall, requestId);
+  });
+};
+
 const registerDesktopHandlers = (
   sessionPersistence: SessionPersistence,
   preferencesPersistence: PreferencesPersistence,
+  updateService: AppUpdateService,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  ipcMain.handle(desktopIpcChannels.appUpdateGetStatus, () => updateService.getStatus());
+  ipcMain.handle(desktopIpcChannels.appUpdateCheck, () => updateService.checkForUpdates());
+  ipcMain.handle(desktopIpcChannels.appUpdateDownload, () => updateService.downloadUpdate());
+  ipcMain.handle(desktopIpcChannels.appUpdateCancelDownload, () => updateService.cancelDownload());
+  ipcMain.handle(desktopIpcChannels.appUpdateInstall, () => updateService.installUpdate());
   ipcMain.on(desktopIpcChannels.sourceDocumentOpenReceiverReady, (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner || owner !== mainWindow) return;
@@ -754,8 +817,8 @@ const registerDesktopHandlers = (
     },
   );
   ipcMain.handle(desktopIpcChannels.loadReaderPreferences, () => preferencesPersistence.load());
-  ipcMain.handle(desktopIpcChannels.openSettings, () => {
-    createSettingsWindow();
+  ipcMain.handle(desktopIpcChannels.openSettings, (_event, value: unknown) => {
+    createSettingsWindow(isSettingsSectionId(value) ? value : undefined);
   });
   ipcMain.handle(
     desktopIpcChannels.saveReaderPreferences,
@@ -930,8 +993,11 @@ const activateMainWindow = (): void => {
   revealInteractiveWindow(window, true);
 };
 
-const createSettingsWindow = (): BrowserWindow => {
+const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (section) {
+      settingsWindow.webContents.send(desktopIpcChannels.settingsSectionRequested, section);
+    }
     revealInteractiveWindow(settingsWindow, true);
     return settingsWindow;
   }
@@ -962,10 +1028,11 @@ const createSettingsWindow = (): BrowserWindow => {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     const url = new URL(process.env.ELECTRON_RENDERER_URL);
     url.searchParams.set('view', 'settings');
+    if (section) url.searchParams.set('section', section);
     void window.loadURL(url.toString());
   } else {
     void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
-      query: { view: 'settings' },
+      query: { ...(section ? { section } : {}), view: 'settings' },
     });
   }
   return window;
@@ -1061,6 +1128,14 @@ const createApplicationMenu = (): Menu => {
       label: '帮助',
       submenu: [
         {
+          click: () => {
+            createSettingsWindow('about');
+            void appUpdateService?.checkForUpdates();
+          },
+          label: '检查更新…',
+        },
+        { type: 'separator' },
+        {
           click: () => void openExternalUrl('https://github.com/def-peter/fuxian'),
           label: '项目主页',
         },
@@ -1129,12 +1204,33 @@ if (!hasSingleInstanceLock) {
       !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
         ? process.env.FUXIAN_E2E_PREFERENCES_FILE
         : join(app.getPath('userData'), 'reader-preferences.json');
+    const updateScenario = process.env.FUXIAN_E2E_UPDATE_SCENARIO;
+    const e2eUpdateAdapter =
+      isE2ERuntime && isE2EUpdateScenario(updateScenario)
+        ? new E2EAppUpdateAdapter(updateScenario, process.env.FUXIAN_E2E_UPDATE_INSTALL_MARKER)
+        : undefined;
+    appUpdateService = new AppUpdateService({
+      adapter: e2eUpdateAdapter ?? autoUpdater,
+      beforeInstall: requestDocumentSessionFlush,
+      broadcast: broadcastAppUpdateStatus,
+      currentVersion: app.getVersion(),
+      supported:
+        Boolean(e2eUpdateAdapter) ||
+        (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')),
+    });
+    appUpdateService.initialize();
     registerDesktopHandlers(
       new JsonFileSessionPersistence(sessionPath),
       new JsonFilePreferencesPersistence(preferencesPath),
+      appUpdateService,
     );
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
+    const updateCheckTimer = setTimeout(
+      () => void appUpdateService?.checkForUpdates(),
+      e2eUpdateAdapter ? 50 : 10_000,
+    );
+    updateCheckTimer.unref();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

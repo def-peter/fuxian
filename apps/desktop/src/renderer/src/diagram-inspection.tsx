@@ -225,7 +225,7 @@ export function DiagramFocusDialog({
             }
           }}
           onPointerDown={(event) => {
-            if ((event.target as Element).closest('text, tspan')) return;
+            if ((event.target as Element).closest('text, tspan, foreignObject')) return;
             drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
             event.currentTarget.setPointerCapture(event.pointerId);
           }}

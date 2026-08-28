@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git+https://github.com/def-peter/fuxian.git"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "def-peter",
   "type": "module",
   "main": "./apps/desktop/out/main/index.js",
@@ -24,9 +24,11 @@
     "dev": "pnpm --filter @fuxian/desktop dev",
     "build": "pnpm -r --if-present build",
     "package:dir": "pnpm build && electron-builder --dir --publish never",
-    "package:mac": "pnpm build && electron-builder --mac dmg --publish never",
+    "package:mac": "pnpm build && electron-builder --mac dmg zip --publish never",
     "package:win": "pnpm build && electron-builder --win nsis --publish never",
     "verify:package": "node scripts/verify-packaged-app.mjs release",
+    "verify:release-version": "node scripts/verify-release-version.mjs",
+    "verify:update-assets": "node scripts/verify-update-assets.mjs release-assets",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run --passWithNoTests",
@@ -51,6 +53,7 @@
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "yaml": "2.8.1"
   }
 }

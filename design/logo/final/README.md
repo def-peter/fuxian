@@ -22,22 +22,22 @@
 
 ## 文件
 
-| 文件                                             | 用途                                   |
-| ------------------------------------------------ | -------------------------------------- |
-| `fuxian-app-icon-generation-source.png`          | `1254px` 白底应用图标展示母版           |
-| `fuxian-app-icon-source.png`                     | 提取后的 `1024px` RGBA 应用图标母版    |
-| `app-icon/fuxian-app-icon-{size}.png`            | `16` 至 `1024px` 的应用 Logo 导出      |
-| `mark/fuxian-mark-generation-source.png`         | `1254px` 白底透明图形展示母版           |
-| `mark/fuxian-mark-source.png`                    | `1024px` 透明底图形母版                |
-| `mark/fuxian-mark-{size}.png`                    | `16` 至 `1024px` 的透明图形导出        |
-| `lockup/zh-CN/fuxian-lockup-zh-CN-source.png`    | 中文透明横版组合母版                   |
-| `lockup/zh-CN/fuxian-lockup-zh-CN-{height}h.png` | 中文横版按高度 `24` 至 `512px` 导出    |
-| `lockup/en-US/fuxian-lockup-en-US-source.png`    | 英文透明横版组合母版                   |
-| `lockup/en-US/fuxian-lockup-en-US-{height}h.png` | 英文横版按高度 `24` 至 `512px` 导出    |
-| `../alternatives/faceted-origami-v1/`            | 备选的彩色折面书页方案                 |
-| `../archive/modern-sans-lockup-v1/`              | 上一版现代无衬线中文横版               |
-| `../archive/zcool-xiaowei-lockup-v2/`            | 上一版 ZCOOL XiaoWei 中文横版          |
-| `../archive/dinglie-regular-lockup-v3/`          | 上一版紧间距、未增重的鼎猎宋刻体横版   |
-| `../archive/monochrome-book-jian-v1/`            | 上一版灰阶矢量 Logo，可用于历史回溯    |
+| 文件                                             | 用途                                 |
+| ------------------------------------------------ | ------------------------------------ |
+| `fuxian-app-icon-generation-source.png`          | `1254px` 白底应用图标展示母版        |
+| `fuxian-app-icon-source.png`                     | 提取后的 `1024px` RGBA 应用图标母版  |
+| `app-icon/fuxian-app-icon-{size}.png`            | `16` 至 `1024px` 的应用 Logo 导出    |
+| `mark/fuxian-mark-generation-source.png`         | `1254px` 白底透明图形展示母版        |
+| `mark/fuxian-mark-source.png`                    | `1024px` 透明底图形母版              |
+| `mark/fuxian-mark-{size}.png`                    | `16` 至 `1024px` 的透明图形导出      |
+| `lockup/zh-CN/fuxian-lockup-zh-CN-source.png`    | 中文透明横版组合母版                 |
+| `lockup/zh-CN/fuxian-lockup-zh-CN-{height}h.png` | 中文横版按高度 `24` 至 `512px` 导出  |
+| `lockup/en-US/fuxian-lockup-en-US-source.png`    | 英文透明横版组合母版                 |
+| `lockup/en-US/fuxian-lockup-en-US-{height}h.png` | 英文横版按高度 `24` 至 `512px` 导出  |
+| `../alternatives/faceted-origami-v1/`            | 备选的彩色折面书页方案               |
+| `../archive/modern-sans-lockup-v1/`              | 上一版现代无衬线中文横版             |
+| `../archive/zcool-xiaowei-lockup-v2/`            | 上一版 ZCOOL XiaoWei 中文横版        |
+| `../archive/dinglie-regular-lockup-v3/`          | 上一版紧间距、未增重的鼎猎宋刻体横版 |
+| `../archive/monochrome-book-jian-v1/`            | 上一版灰阶矢量 Logo，可用于历史回溯  |
 
 Electron 运行时图标位于 `apps/desktop/resources/icon.png`；打包图标位于 `build/icon.png`、`build/icon.icns` 和 `build/icon.ico`，均由 RGBA 母版导出。

@@ -41,7 +41,7 @@ export interface RenderCoordinatorOptions<Result> {
   adapter: RenderTaskAdapter<Result>;
   onSnapshot?(snapshot: RenderRevisionSnapshot): void;
   onTaskFailure?(task: RenderTask, status: 'failed' | 'timed-out', error: string): void;
-  onTaskSuccess(task: RenderTask, result: Result): void;
+  onTaskSuccess(task: RenderTask, result: Result, signal: AbortSignal): Promise<void> | void;
   scheduler?: RenderTaskScheduler;
   timeoutMilliseconds: number;
 }
@@ -189,13 +189,16 @@ export class RenderCoordinator<Result> {
       execution = Promise.reject(error);
     }
     void execution.then(
-      (result) => {
+      async (result) => {
         if (!this.isCurrent(revision, task, runToken)) return;
-        this.clearTaskTimer(task);
         try {
-          this.options.onTaskSuccess(task, result);
+          await this.options.onTaskSuccess(task, result, abortController.signal);
+          if (!this.isCurrent(revision, task, runToken)) return;
+          this.clearTaskTimer(task);
           task.status = 'succeeded';
         } catch (error) {
+          if (!this.isCurrent(revision, task, runToken)) return;
+          this.clearTaskTimer(task);
           task.status = 'failed';
           task.error = errorMessage(error);
           this.options.onTaskFailure?.(task, 'failed', task.error);

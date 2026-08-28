@@ -73,5 +73,9 @@ A Vega-Lite rendered visual block that expresses quantitative data as a chart fr
 _Avoid_: Diagram block, dashboard
 
 **Infographic block**:
-An AntV Infographic rendered visual block that combines narrative text, information structure, and graphic semantics using an official template. It preserves author styling and is not changed by diagram optimization.
+An AntV Infographic rendered visual block that combines narrative text, information structure, and graphic semantics using an official template. It preserves author styling.
 _Avoid_: Diagram block, visualization block, image
+
+**Article structure map**:
+An on-demand mind map derived from the active document's content outline. It appears in an application dialog and is never source-authored finished content or part of PDF export.
+_Avoid_: Mind-map block, diagram block, editor canvas, knowledge graph

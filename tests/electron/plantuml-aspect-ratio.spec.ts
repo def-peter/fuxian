@@ -14,7 +14,6 @@ type WidthMode = 'a4' | 'adaptive' | 'custom';
 
 const createPreferences = (serverUrl: string, mode: WidthMode) => ({
   appearance: 'light',
-  diagram: { optimize: false },
   documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
   documentWidth: { customWidth: 940, mode },
   plantUml: { serverUrl },

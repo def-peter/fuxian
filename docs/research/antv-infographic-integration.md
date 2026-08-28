@@ -8,7 +8,7 @@ Issue #24 已完成发布构建中的隔离渲染验证并进入正式实现。�
 
 AntV Infographic 的官方输入是 Mermaid-like `Infographic Syntax`，官方文档自身使用 ` ```infographic ` 代码块；运行时接收语法字符串并默认生成 SVG。因此 MVP 应只认规范 fence `infographic`，不接受 `antv-infographic`、`infographic-js` 等别名。[官方语法](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/site/src/content/learn/infographic-syntax.en.md#L5-L10) [语法入口](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/site/src/content/learn/infographic-syntax.en.md#L62-L88)
 
-它归入 Fuxian 的 **rendered visual block**，但既不是 Mermaid/PlantUML diagram block，也不是表达量化数据的 Vega-Lite visualization block。实现新增 **infographic block（信息图块）** 子类，共享 readiness、源码查看、复制、全屏、失败占位和 PDF 快照能力；“图表优化”不修改信息图作者样式。
+它归入 Fuxian 的 **rendered visual block**，但既不是 Mermaid/PlantUML diagram block，也不是表达量化数据的 Vega-Lite visualization block。实现新增 **infographic block（信息图块）** 子类，共享 readiness、源码查看、复制、全屏、失败占位和 PDF 快照能力，并保留信息图作者样式。
 
 ## 实现与验证结果
 

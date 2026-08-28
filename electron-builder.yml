@@ -36,9 +36,10 @@ mac:
   category: public.app-category.productivity
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
-  notarize: false
+  notarize: true
   target:
     - dmg
+    - zip
 npmRebuild: false
 publish:
   provider: github
