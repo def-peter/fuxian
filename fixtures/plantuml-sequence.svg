@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" data-diagram-type="SEQUENCE" style="width:251px;height:218px;background:#FFFFFF;" width="251px" height="218px" viewBox="0 0 251 218" zoomAndPan="magnify" preserveAspectRatio="none" contentStyleType="text/css">
+  <defs />
+  <g font-family="sans-serif" lengthAdjust="spacing">
+    <g>
+      <title>Alice</title>
+      <rect x="30.333" y="41.297" width="8" height="134.531" fill="#000" fill-opacity="0" />
+      <line x1="33.833" y1="41.297" x2="33.833" y2="175.828" style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5,5;" />
+    </g>
+    <g>
+      <title>Bob</title>
+      <rect x="216.916" y="41.297" width="8" height="134.531" fill="#000" fill-opacity="0" />
+      <line x1="220.416" y1="41.297" x2="220.416" y2="175.828" style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5,5;" />
+    </g>
+    <rect x="10" y="10" width="47.667" height="30.297" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;" rx="2.5" ry="2.5" />
+    <text x="17" y="29.995" fill="#000" font-size="14" textLength="33.667">Alice</text>
+    <rect x="199.888" y="10" width="41.057" height="30.297" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;" rx="2.5" ry="2.5" />
+    <text x="206.888" y="29.995" fill="#000" font-size="14" textLength="27.057">Bob</text>
+    <rect x="10" y="175.828" width="47.667" height="30.297" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;" rx="2.5" ry="2.5" />
+    <text x="17" y="195.823" fill="#000" font-size="14" textLength="33.667">Alice</text>
+    <rect x="199.888" y="175.828" width="41.057" height="30.297" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;" rx="2.5" ry="2.5" />
+    <text x="206.888" y="195.823" fill="#000" font-size="14" textLength="27.057">Bob</text>
+    <polygon points="208.416,66.43,218.416,70.43,208.416,74.43,212.416,70.43" fill="#181818" style="stroke:#181818;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:10;" />
+    <line x1="33.833" y1="70.43" x2="214.416" y2="70.43" style="stroke:#181818;stroke-width:1;" />
+    <text x="40.833" y="65.364" fill="#000" font-size="13" textLength="152.953">Authentication Request</text>
+    <polygon points="44.833,95.563,34.833,99.563,44.833,103.563,40.833,99.563" fill="#181818" style="stroke:#181818;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:10;" />
+    <line x1="38.833" y1="99.563" x2="219.416" y2="99.563" style="stroke:#181818;stroke-width:1;stroke-dasharray:2,2;" />
+    <text x="50.833" y="94.497" fill="#000" font-size="13" textLength="162.583">Authentication Response</text>
+    <polygon points="208.416,124.695,218.416,128.695,208.416,132.695,212.416,128.695" fill="#181818" style="stroke:#181818;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:10;" />
+    <line x1="33.833" y1="128.695" x2="214.416" y2="128.695" style="stroke:#181818;stroke-width:1;" />
+    <text x="40.833" y="123.629" fill="#000" font-size="13" textLength="105.6">Another request</text>
+    <polygon points="44.833,153.828,34.833,157.828,44.833,161.828,40.833,157.828" fill="#181818" style="stroke:#181818;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:10;" />
+    <line x1="38.833" y1="157.828" x2="219.416" y2="157.828" style="stroke:#181818;stroke-width:1;stroke-dasharray:2,2;" />
+    <text x="50.833" y="152.762" fill="#000" font-size="13" textLength="115.229">Another response</text>
+  </g>
+</svg>

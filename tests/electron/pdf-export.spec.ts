@@ -11,12 +11,14 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createCanvas } from '@napi-rs/canvas';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
+const representativePlantUmlSvgPath = resolve(repositoryRoot, 'fixtures/plantuml-sequence.svg');
 const servers: Server[] = [];
 
 const preferences = (plantUmlServerUrl: string) => ({
@@ -107,6 +109,35 @@ const inspectPdf = async (
   return { links, pages, text: text.join('\n') };
 };
 
+const countPdfPixels = async (
+  path: string,
+  matches: (red: number, green: number, blue: number, alpha: number) => boolean,
+): Promise<number> => {
+  const bytes = await readFile(path);
+  const loading = getDocument({ data: new Uint8Array(bytes) });
+  const document = await loading.promise;
+  let matchingPixels = 0;
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    const page = await document.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    const context = canvas.getContext('2d');
+    await page.render({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      canvasContext: context as unknown as CanvasRenderingContext2D,
+      viewport,
+    }).promise;
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (matches(pixels[index]!, pixels[index + 1]!, pixels[index + 2]!, pixels[index + 3]!)) {
+        matchingPixels += 1;
+      }
+    }
+  }
+  await loading.destroy();
+  return matchingPixels;
+};
+
 test.afterEach(async () => {
   await Promise.all(
     servers.splice(0).map(
@@ -128,6 +159,7 @@ test('exports complete finished-document content with stable pagination', async 
   const preferencesPath = join(directory, 'preferences.json');
   const sessionPath = join(directory, 'session.json');
   const outputPath = join(directory, 'export.pdf');
+  const representativePlantUmlSvg = await readFile(representativePlantUmlSvgPath, 'utf8');
   await writeFile(
     imagePath,
     Buffer.from(
@@ -167,9 +199,7 @@ test('exports complete finished-document content with stable pagination', async 
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const visibleResponse = await server.nextRequest();
-    visibleResponse.end(
-      '<svg xmlns="http://www.w3.org/2000/svg"><text x="4" y="14">Plant diagram</text></svg>',
-    );
+    visibleResponse.end(representativePlantUmlSvg);
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
     await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
@@ -184,8 +214,15 @@ test('exports complete finished-document content with stable pagination', async 
     const first = await inspectPdf(outputPath);
     expect(first.text).toContain('Deterministic export');
     expect(first.text).toContain('selectable-code');
-    expect(first.text).toContain('Plant diagram');
+    expect(first.text).toContain('Authentication Request');
     expect(first.links).toContain('https://openai.com/');
+    expect(
+      await countPdfPixels(
+        outputPath,
+        (red, green, blue, alpha) =>
+          alpha > 250 && red >= 215 && red <= 235 && green >= 215 && green <= 235 && blue >= 230,
+      ),
+    ).toBeGreaterThan(500);
 
     await window.getByRole('button', { name: '导出 PDF' }).click();
     await expect(window.getByText('正在准备文档')).toBeVisible();
@@ -209,6 +246,7 @@ test('exports every PlantUML diagram from a multi-diagram document', async () =>
   const sessionPath = join(directory, 'session.json');
   const outputPath = join(directory, 'multi-plantuml.pdf');
   const labels = ['Plant diagram one', 'Plant diagram two', 'Plant diagram three'];
+  const representativePlantUmlSvg = await readFile(representativePlantUmlSvgPath, 'utf8');
   await writeFile(
     sourcePath,
     [
@@ -233,7 +271,9 @@ test('exports every PlantUML diagram from a multi-diagram document', async () =>
     for (const label of labels) {
       const response = await server.nextRequest();
       response.end(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><text x="16" y="32">${label}</text></svg>`,
+        representativePlantUmlSvg
+          .replace(' textLength="152.953"', '')
+          .replace('Authentication Request', label),
       );
     }
   };

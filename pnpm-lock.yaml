@@ -14,6 +14,9 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.9.1(jiti@2.7.0)(supports-color@7.2.0))
+      '@napi-rs/canvas':
+        specifier: 1.0.8
+        version: 1.0.8
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
@@ -4791,7 +4794,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.0.8
       '@napi-rs/canvas-win32-arm64-msvc': 1.0.8
       '@napi-rs/canvas-win32-x64-msvc': 1.0.8
-    optional: true
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
