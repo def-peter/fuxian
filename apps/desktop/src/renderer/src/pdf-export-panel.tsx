@@ -42,7 +42,7 @@ export function PdfExportPanel({
         {running ? (
           <Spinner aria-hidden="true" />
         ) : progress.status === 'completed' ? (
-          <CheckCircle2 aria-hidden="true" className="size-4 text-primary" />
+          <CheckCircle2 aria-hidden="true" className="size-4 text-success" />
         ) : progress.status === 'failed' ? (
           <AlertCircle aria-hidden="true" className="size-4 text-destructive" />
         ) : (

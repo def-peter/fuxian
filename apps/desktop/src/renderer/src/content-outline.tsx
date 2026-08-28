@@ -60,7 +60,7 @@ export function ContentOutline({
     return (
       <li key={node.heading.id}>
         <div
-          className="group flex min-h-8 items-center border-l-2 border-transparent pr-2"
+          className="group flex min-h-8 items-center border-l-2 border-transparent pr-2 data-[active=true]:bg-selected"
           data-active={isActive || undefined}
           style={{ paddingLeft: `${10 + Math.min(node.heading.depth - 1, 4) * 14}px` }}
         >
@@ -83,7 +83,7 @@ export function ContentOutline({
           ) : null}
           <button
             aria-current={isActive ? 'location' : undefined}
-            className="min-w-0 flex-1 truncate py-1.5 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=location]:font-medium aria-[current=location]:text-primary"
+            className="min-w-0 flex-1 truncate py-1.5 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=location]:font-medium aria-[current=location]:text-selected-foreground"
             onClick={() => onNavigate(node.heading.id)}
             ref={isActive ? activeItem : undefined}
             title={node.heading.text}
@@ -101,7 +101,7 @@ export function ContentOutline({
 
   return (
     <aside
-      className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted/35"
+      className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
       aria-label="内容目录"
     >
       <header className="flex items-center border-b px-3">

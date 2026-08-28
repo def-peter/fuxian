@@ -19,6 +19,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -31,24 +35,28 @@
 
 :root {
   --radius: 0.25rem;
-  --background: oklch(0.965 0.004 245);
-  --foreground: oklch(0.23 0.012 245);
-  --card: oklch(0.995 0.002 245);
-  --card-foreground: oklch(0.23 0.012 245);
-  --popover: oklch(0.995 0.002 245);
-  --popover-foreground: oklch(0.23 0.012 245);
-  --primary: oklch(0.49 0.085 162);
-  --primary-foreground: oklch(0.985 0.006 160);
-  --secondary: oklch(0.925 0.008 245);
-  --secondary-foreground: oklch(0.3 0.015 245);
-  --muted: oklch(0.94 0.006 245);
-  --muted-foreground: oklch(0.5 0.018 245);
-  --accent: oklch(0.9 0.024 160);
-  --accent-foreground: oklch(0.33 0.052 160);
-  --destructive: oklch(0.56 0.19 30);
-  --border: oklch(0.86 0.009 245);
-  --input: oklch(0.82 0.012 245);
-  --ring: oklch(0.55 0.075 162);
+  --background: #e9edf0;
+  --foreground: #25292d;
+  --card: #ffffff;
+  --card-foreground: #25292d;
+  --popover: #ffffff;
+  --popover-foreground: #25292d;
+  --primary: #292d32;
+  --primary-foreground: #ffffff;
+  --secondary: #e0e5e9;
+  --secondary-foreground: #25292d;
+  --muted: #f2f5f7;
+  --muted-foreground: #626b74;
+  --accent: #e7ebee;
+  --accent-foreground: #25292d;
+  --destructive: #a8453d;
+  --selected: #e0e5e9;
+  --selected-foreground: #25292d;
+  --success: #59645f;
+  --warning: #6d767e;
+  --border: #d6dce1;
+  --input: #8b969f;
+  --ring: #5b6672;
 }
 
 .dark {
@@ -67,6 +75,10 @@
   --accent: oklch(0.31 0.03 162);
   --accent-foreground: oklch(0.9 0.02 162);
   --destructive: oklch(0.68 0.16 30);
+  --selected: oklch(0.31 0.012 245);
+  --selected-foreground: oklch(0.94 0.008 245);
+  --success: oklch(0.7 0.015 245);
+  --warning: oklch(0.72 0.015 245);
   --border: oklch(0.34 0.012 245);
   --input: oklch(0.4 0.014 245);
   --ring: oklch(0.67 0.075 162);

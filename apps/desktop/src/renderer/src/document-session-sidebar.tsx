@@ -65,7 +65,7 @@ function UnavailableDocumentItem({
   return (
     <div
       aria-label={`${document.name}，文档不可用。${document.message}`}
-      className="flex min-h-10 items-center border-l-2 border-destructive/60 px-1 pl-3"
+      className="flex min-h-10 items-center border-l-2 border-warning/60 px-1 pl-3"
       role="group"
       title={`${document.path}\n${document.message}`}
     >
@@ -77,7 +77,7 @@ function UnavailableDocumentItem({
             role="note"
             tabIndex={0}
           >
-            <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+            <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-warning" />
             <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </div>
         </TooltipTrigger>
@@ -131,7 +131,7 @@ function DocumentItem({
     <div
       className={cn(
         'group flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
-        active && 'border-primary bg-accent text-accent-foreground',
+        active && 'border-primary bg-selected text-selected-foreground',
       )}
     >
       <Tooltip>
@@ -215,7 +215,7 @@ export function DocumentSessionSidebar({
   return (
     <aside
       aria-label="文档会话"
-      className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted/35"
+      className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted"
     >
       <header className="flex min-w-0 items-center gap-1 border-b px-2">
         <FuxianLockup className="mr-auto h-7 w-auto" decorative={false} />

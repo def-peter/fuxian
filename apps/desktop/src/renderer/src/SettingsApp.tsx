@@ -172,7 +172,7 @@ export function SettingsApp(): React.JSX.Element {
       </header>
 
       <div className="grid min-h-0 grid-cols-[132px_292px_minmax(0,1fr)]">
-        <nav aria-label="设置分区" className="border-r bg-muted/30 p-2">
+        <nav aria-label="设置分区" className="border-r bg-muted p-2">
           {settingsSections.map(({ icon: Icon, id, label }) => (
             <Button
               aria-current={section === id ? 'page' : undefined}

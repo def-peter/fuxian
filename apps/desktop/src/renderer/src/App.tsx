@@ -1279,7 +1279,7 @@ export function App(): React.JSX.Element {
                     aria-live="polite"
                     className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
                   >
-                    <CheckCircle2 aria-hidden="true" className="size-3.5 text-primary" />
+                    <CheckCircle2 aria-hidden="true" className="size-3.5 text-success" />
                     已更新 · {externalRevisionStatus.time}
                   </span>
                 ) : null}

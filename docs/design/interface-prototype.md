@@ -126,7 +126,7 @@ The operating system owns window controls and the application menu. The content 
 - Document typography settings include a serif or sans-serif body preset, body size, and line height. Application-shell typography remains fixed.
 - Document typography and document width are global preferences without per-document overrides in the MVP.
 - The separate settings window includes a compact representative document sample. Appearance changes preview immediately and take effect without an Apply step.
-- The visual palette uses ink-black text, a cool-white document surface, mineral green for primary actions, and vermilion only for errors. Large tinted-green surfaces are avoided.
+- The default light application shell uses the Issue #31 **B: cool neutral** palette: near-black text and primary actions, a pure-white toolbar and framed document surface, `#F2F5F7` side regions, layered neutral hover and selected states, and restrained red only for destructive errors. Focus, success, warning, and external-revision states remain neutral rather than reintroducing a brand accent. The finished-document theme remains independently owned by `document-theme`.
 - Every open document is watched for external revisions. The active document renders immediately; inactive open documents render at low priority, cancel obsolete work, and retain only the latest revision task.
 - Switching to an inactive document whose latest render is incomplete shows its last successful version immediately with `正在更新...` until the latest version is ready.
 - Opening a closed document during external writes shows its cached successful version with `正在同步最新内容...` when available, or a stable loading skeleton otherwise. The first settled revision replaces that state atomically.
