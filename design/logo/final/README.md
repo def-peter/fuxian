@@ -6,7 +6,7 @@
 
 - 标志内部固定使用繁体「見」，不可替换为简体「见」。
 - 不改变书页与字形的相对比例、间距和连接关系。
-- 保留象牙白、珊瑚橙、青绿色和石墨黑的色系关系，不将主 Logo 改为低饱和或暗色版本。
+- 保留明亮暖象牙、鲜明珊瑚橙、饱和青绿色和深石墨色的色系关系，不将主 Logo 改为低饱和或暗色版本。
 - 保留书页与承载面上的均匀面性渐变；不要添加边缘高光、玻璃效果或重投影。
 - 最小常规界面尺寸为 `24px`；`16px` 仅用于 favicon 等受限场景。
 - 圆角承载面四周保留约 `4%` 的透明净空。
@@ -24,9 +24,10 @@
 
 | 文件                                             | 用途                                   |
 | ------------------------------------------------ | -------------------------------------- |
-| `fuxian-app-icon-generation-source.png`          | 原始 `1254px` 生成稿，保留白色展示画布 |
+| `fuxian-app-icon-generation-source.png`          | `1254px` 白底应用图标展示母版           |
 | `fuxian-app-icon-source.png`                     | 提取后的 `1024px` RGBA 应用图标母版    |
 | `app-icon/fuxian-app-icon-{size}.png`            | `16` 至 `1024px` 的应用 Logo 导出      |
+| `mark/fuxian-mark-generation-source.png`         | `1254px` 白底透明图形展示母版           |
 | `mark/fuxian-mark-source.png`                    | `1024px` 透明底图形母版                |
 | `mark/fuxian-mark-{size}.png`                    | `16` 至 `1024px` 的透明图形导出        |
 | `lockup/zh-CN/fuxian-lockup-zh-CN-source.png`    | 中文透明横版组合母版                   |
