@@ -6,12 +6,12 @@ import {
   type Page,
 } from '@playwright/test';
 import { createServer, type Server, type ServerResponse } from 'node:http';
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createDefaultReaderPreferences } from '../../packages/shared-types/src/index';
 
@@ -20,6 +20,7 @@ const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const representativePlantUmlSvgPath = resolve(repositoryRoot, 'fixtures/plantuml-sequence.svg');
+const plantUmlColorPaletteSvgPath = resolve(repositoryRoot, 'fixtures/plantuml-color-palette.svg');
 const servers: Server[] = [];
 
 const preferences = (plantUmlServerUrl: string) => ({
@@ -136,6 +137,68 @@ const countPdfPixels = async (
   return matchingPixels;
 };
 
+interface RgbColor {
+  blue: number;
+  green: number;
+  red: number;
+}
+
+const colorDistance = (left: RgbColor, right: RgbColor): number =>
+  Math.hypot(left.red - right.red, left.green - right.green, left.blue - right.blue);
+
+const closestFrequentColor = (
+  pixels: Uint8ClampedArray,
+  expected: RgbColor,
+  minimumPixelCount = 200,
+): { color: RgbColor; count: number } => {
+  const counts = new Map<string, number>();
+  for (let index = 0; index < pixels.length; index += 4) {
+    if (pixels[index + 3]! < 250) continue;
+    const key = `${pixels[index]!},${pixels[index + 1]!},${pixels[index + 2]!}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const [key, count] =
+    [...counts]
+      .filter((entry) => entry[1] >= minimumPixelCount)
+      .sort((left, right) => {
+        const toColor = ([value]: [string, number]): RgbColor => {
+          const [red, green, blue] = value.split(',').map(Number);
+          return { blue: blue!, green: green!, red: red! };
+        };
+        return colorDistance(toColor(left), expected) - colorDistance(toColor(right), expected);
+      })[0] ?? [];
+  if (!key || count === undefined)
+    throw new Error(`No frequent pixels found for ${JSON.stringify(expected)}.`);
+  const [red, green, blue] = key.split(',').map(Number);
+  return { color: { blue: blue!, green: green!, red: red! }, count };
+};
+
+const rasterizePng = async (png: Buffer): Promise<Uint8ClampedArray> => {
+  const image = await loadImage(png);
+  const canvas = createCanvas(image.width, image.height);
+  const context = canvas.getContext('2d');
+  context.drawImage(image, 0, 0);
+  return context.getImageData(0, 0, canvas.width, canvas.height).data;
+};
+
+const rasterizePdf = async (path: string): Promise<Uint8ClampedArray> => {
+  const bytes = await readFile(path);
+  const loading = getDocument({ data: new Uint8Array(bytes) });
+  const document = await loading.promise;
+  const page = await document.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+  const context = canvas.getContext('2d');
+  await page.render({
+    canvas: canvas as unknown as HTMLCanvasElement,
+    canvasContext: context as unknown as CanvasRenderingContext2D,
+    viewport,
+  }).promise;
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  await loading.destroy();
+  return pixels;
+};
+
 test.afterEach(async () => {
   await Promise.all(
     servers.splice(0).map(
@@ -147,6 +210,90 @@ test.afterEach(async () => {
     ),
   );
 });
+
+for (const optimize of [false, true]) {
+  test(`preserves PlantUML colors in PDF with optimization ${optimize ? 'enabled' : 'disabled'}`, async () => {
+    test.setTimeout(90_000);
+    const server = await startDeferredPlantUmlServer();
+    const pdfDirectory = resolve(repositoryRoot, 'tmp/pdfs');
+    await mkdir(pdfDirectory, { recursive: true });
+    const directory = await mkdtemp(join(pdfDirectory, 'plantuml-color-'));
+    const sourcePath = join(directory, 'plantuml-color.md');
+    const preferencesPath = join(directory, 'preferences.json');
+    const sessionPath = join(directory, 'session.json');
+    const outputPath = join(directory, 'plantuml-color.pdf');
+    const svg = await readFile(plantUmlColorPaletteSvgPath, 'utf8');
+    await writeFile(
+      sourcePath,
+      '# PlantUML color fidelity\n\n```plantuml\n@startuml\nAlice -> Bob\n@enduml\n```',
+    );
+    await writeFile(
+      preferencesPath,
+      JSON.stringify({ ...preferences(server.url), diagram: { optimize } }),
+    );
+    const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, outputPath);
+
+    try {
+      const window = await electronApp.firstWindow();
+      await window.getByRole('button', { name: '打开 Markdown' }).click();
+      const response = await server.nextRequest();
+      response.end(svg);
+      const visibleSvg = window
+        .frameLocator('iframe[title="Finished document"]')
+        .locator('[data-render-task-kind="plantuml"] .render-task-output > svg');
+      await expect(visibleSvg).toBeVisible({ timeout: 10_000 });
+      await window.waitForTimeout(200);
+      const screenPixels = await rasterizePng(await visibleSvg.screenshot());
+      const screenSvgMarkup = await visibleSvg.evaluate((element) => element.outerHTML);
+
+      await window.getByRole('button', { name: '导出 PDF' }).click();
+      const exportWindow = await findExportWindow(electronApp);
+      const exportSvg = exportWindow.locator(
+        '[data-render-task-kind="plantuml"] .render-task-output > svg',
+      );
+      await expect(exportSvg).toBeVisible();
+      expect(await exportSvg.evaluate((element) => element.outerHTML)).toBe(screenSvgMarkup);
+      await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+      expect(server.requestCount()).toBe(1);
+      const firstPdfPixels = await rasterizePdf(outputPath);
+
+      const expectedColors: RgbColor[] = [
+        { blue: 77, green: 43, red: 23 },
+        { blue: 204, green: 82, red: 0 },
+        { blue: 11, green: 53, red: 222 },
+        { blue: 255, green: 242, red: 233 },
+        { blue: 88, green: 56, red: 37 },
+        { blue: 48, green: 86, red: 255 },
+        { blue: 192, green: 84, red: 101 },
+        { blue: 90, green: 135, red: 0 },
+        { blue: 148, green: 177, red: 89 },
+      ];
+      for (const expected of expectedColors) {
+        const screen = closestFrequentColor(screenPixels, expected);
+        const pdf = closestFrequentColor(firstPdfPixels, expected);
+        expect.soft(screen.count).toBeGreaterThan(200);
+        expect.soft(colorDistance(screen.color, expected)).toBeLessThanOrEqual(35);
+        expect.soft(pdf.count).toBeGreaterThan(200);
+        expect.soft(colorDistance(pdf.color, expected)).toBeLessThanOrEqual(3);
+        expect.soft(colorDistance(pdf.color, screen.color)).toBeLessThanOrEqual(35);
+      }
+
+      await window.getByRole('button', { name: '导出 PDF' }).click();
+      await expect(window.getByText('正在准备文档')).toBeVisible();
+      await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+      expect(server.requestCount()).toBe(1);
+      const secondPdfPixels = await rasterizePdf(outputPath);
+      for (const expected of expectedColors) {
+        expect(closestFrequentColor(secondPdfPixels, expected).color).toEqual(
+          closestFrequentColor(firstPdfPixels, expected).color,
+        );
+      }
+    } finally {
+      await electronApp.close();
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+}
 
 test('exports complete finished-document content with stable pagination', async () => {
   test.setTimeout(90_000);

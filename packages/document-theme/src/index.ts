@@ -561,6 +561,10 @@ code {
   animation: render-task-fade-in 150ms ease-out;
 }
 
+:root[data-pdf-export] .render-task[data-render-state="succeeded"] > .render-task-output {
+  animation: none;
+}
+
 @keyframes render-task-fade-in {
   from {
     opacity: 0;
