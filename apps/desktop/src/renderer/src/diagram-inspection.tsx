@@ -235,7 +235,7 @@ export function DiagramFocusDialog({
           tabIndex={0}
         >
           <div
-            className="flex size-full items-center justify-center p-8 [&_svg]:max-h-full [&_svg]:max-w-full [&_svg_text]:select-text [&_svg_tspan]:select-text"
+            className="flex size-full items-center justify-center p-8 [&_svg]:h-auto [&_svg]:max-h-full [&_svg]:max-w-full [&_svg]:w-auto [&_svg]:object-contain [&_svg_text]:select-text [&_svg_tspan]:select-text"
             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
             dangerouslySetInnerHTML={{ __html: diagram?.svg ?? '' }}
           />

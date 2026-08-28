@@ -7,6 +7,7 @@ import {
   type ReaderPreferences,
 } from '@fuxian/shared-types';
 import {
+  CircleCheck,
   CircleHelp,
   FileText,
   Image,
@@ -388,21 +389,25 @@ export function SettingsApp(): React.JSX.Element {
                     {plantUmlValidation.status === 'error' ? (
                       <FieldError>{plantUmlValidation.message}</FieldError>
                     ) : null}
-                    {plantUmlValidation.status === 'saved' ? (
-                      <FieldDescription aria-live="polite">连接成功，地址已保存。</FieldDescription>
-                    ) : null}
                   </Field>
 
                   <Field orientation="horizontal">
                     <Button
+                      aria-live="polite"
                       disabled={plantUmlValidation.status === 'checking'}
                       size="sm"
                       type="submit"
                     >
                       {plantUmlValidation.status === 'checking' ? (
                         <Spinner data-icon="inline-start" />
+                      ) : plantUmlValidation.status === 'saved' ? (
+                        <CircleCheck aria-hidden="true" data-icon="inline-start" />
                       ) : null}
-                      {plantUmlValidation.status === 'checking' ? '正在验证' : '验证并保存'}
+                      {plantUmlValidation.status === 'checking'
+                        ? '正在验证'
+                        : plantUmlValidation.status === 'saved'
+                          ? '已验证并保存'
+                          : '验证并保存'}
                     </Button>
                     <Button
                       disabled={plantUmlValidation.status === 'checking'}
@@ -418,6 +423,16 @@ export function SettingsApp(): React.JSX.Element {
                       恢复默认
                     </Button>
                   </Field>
+                  {plantUmlValidation.status === 'saved' ? (
+                    <div
+                      aria-live="polite"
+                      className="flex items-center gap-1.5 text-sm text-primary"
+                      role="status"
+                    >
+                      <CircleCheck aria-hidden="true" className="size-4" />
+                      <span>连接验证成功，地址已保存。</span>
+                    </div>
+                  ) : null}
                 </FieldGroup>
               </form>
 

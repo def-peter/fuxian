@@ -113,6 +113,48 @@ const sanitizeDiagramSvg = (frameDocument: Document, source: string): SVGElement
   return svg;
 };
 
+const numericSvgLength = (value: string | null): number | undefined => {
+  if (!value) return undefined;
+  const match = /^\s*(\d+(?:\.\d+)?)\s*(?:px)?\s*$/u.exec(value);
+  const length = match?.[1] ? Number.parseFloat(match[1]) : Number.NaN;
+  return Number.isFinite(length) && length > 0 ? length : undefined;
+};
+
+const normalizePlantUmlSvgSize = (svg: SVGElement): void => {
+  svg.style.removeProperty('width');
+  svg.style.removeProperty('height');
+  if (!svg.getAttribute('style')?.trim()) svg.removeAttribute('style');
+
+  const viewBox = svg
+    .getAttribute('viewBox')
+    ?.trim()
+    .split(/[\s,]+/u)
+    .map(Number);
+  if (
+    viewBox?.length !== 4 ||
+    !Number.isFinite(viewBox[2]) ||
+    !Number.isFinite(viewBox[3]) ||
+    viewBox[2]! <= 0 ||
+    viewBox[3]! <= 0
+  ) {
+    return;
+  }
+
+  const ratio = viewBox[2]! / viewBox[3]!;
+  const width = numericSvgLength(svg.getAttribute('width'));
+  const height = numericSvgLength(svg.getAttribute('height'));
+  if (!width && !height) {
+    svg.setAttribute('width', `${viewBox[2]}`);
+    svg.setAttribute('height', `${viewBox[3]}`);
+  } else if (width && height && Math.abs(width / height - ratio) > 0.001) {
+    svg.setAttribute('height', `${width / ratio}`);
+  } else if (width && !height) {
+    svg.setAttribute('height', `${width / ratio}`);
+  } else if (!width && height) {
+    svg.setAttribute('width', `${height * ratio}`);
+  }
+};
+
 const conciseRenderError = (error: string): string => {
   const firstLine =
     error
@@ -270,7 +312,9 @@ export function bindFinishedDocument(
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
-      output.replaceChildren(sanitizeDiagramSvg(frameDocument, result.svg));
+      const svg = sanitizeDiagramSvg(frameDocument, result.svg);
+      if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
+      output.replaceChildren(svg);
     }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-error')?.setAttribute('hidden', '');

@@ -48,4 +48,25 @@ describe('document theme preferences', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).not.toMatch(/(?:^|\n)p\s*\{[^}]*animation:/);
   });
+
+  it('keeps compact diagram controls in their own row above the graphic', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toMatch(/\.diagram-action-toolbar\s*\{[^}]*justify-content: flex-end;/s);
+    expect(css).toMatch(/\.diagram-action-toolbar\s*\{[^}]*height: 22px;/s);
+    expect(css).toMatch(/\.diagram-action-button\s*\{[^}]*width: 22px;[^}]*height: 22px;/s);
+    expect(css).not.toMatch(/\.diagram-action-toolbar\s*\{[^}]*position: absolute;/s);
+    expect(css).not.toMatch(/var\(--document-(?:accent|surface|text)\)/);
+  });
+
+  it('constrains PlantUML diagrams without changing their aspect ratio', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toMatch(
+      /\.diagram-render-task\[data-render-task-kind="plantuml"\] svg\s*\{[^}]*width: auto;[^}]*height: auto;[^}]*max-height: calc\(100vh - 96px\);[^}]*object-fit: contain;/s,
+    );
+    expect(css).toMatch(
+      /@media print\s*\{[\s\S]*\.diagram-render-task\[data-render-task-kind="plantuml"\] svg\s*\{[^}]*max-height: none;/,
+    );
+  });
 });

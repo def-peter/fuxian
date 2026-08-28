@@ -289,7 +289,7 @@ test('reuses visible PlantUML diagrams without export-time requests', async () =
     for (const label of renderedLabels) {
       const response = await server.nextRequest();
       response.end(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><text x="16" y="32">${label}</text></svg>`,
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" style="width:640px;height:360px"><text x="16" y="32">${label}</text></svg>`,
       );
     }
     await expect(
@@ -299,6 +299,18 @@ test('reuses visible PlantUML diagrams without export-time requests', async () =
     ).toHaveCount(3);
 
     await window.getByRole('button', { name: '导出 PDF' }).click();
+    const exportWindow = await findExportWindow(electronApp);
+    const exportedDiagrams = exportWindow.locator(
+      '[data-render-task-kind="plantuml"] .render-task-output > svg',
+    );
+    await expect(exportedDiagrams).toHaveCount(3);
+    const exportedRatios = await exportedDiagrams.evaluateAll((svgs) =>
+      svgs.map((svg) => {
+        const box = svg.getBoundingClientRect();
+        return box.width / box.height;
+      }),
+    );
+    for (const ratio of exportedRatios) expect.soft(ratio).toBeCloseTo(4, 2);
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
     expect(server.requestCount()).toBe(3);
 

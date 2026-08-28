@@ -389,11 +389,11 @@ code {
 }
 
 .diagram-action-toolbar {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
   display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  height: 22px;
+  margin-bottom: 4px;
   gap: 4px;
   opacity: 0;
   transition: opacity 120ms ease-out;
@@ -409,25 +409,25 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid var(--document-border);
   border-radius: 3px;
   color: var(--document-muted);
-  background: var(--document-surface);
+  background: var(--document-raised);
   cursor: pointer;
 }
 
 .diagram-action-button:hover,
 .diagram-action-button:focus-visible {
-  color: var(--document-text);
-  border-color: var(--document-accent);
+  color: var(--document-heading);
+  border-color: var(--document-primary);
   outline: none;
 }
 
 .diagram-action-button:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--document-accent) 28%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--document-primary) 28%, transparent);
 }
 
 .diagram-action-button:disabled {
@@ -436,21 +436,21 @@ code {
 }
 
 .diagram-action-button svg {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
 }
 
 .diagram-action-button::after {
   position: absolute;
-  top: calc(100% + 6px);
   right: 0;
+  bottom: calc(100% + 6px);
   display: none;
   width: max-content;
   max-width: 160px;
   padding: 5px 7px;
   border-radius: 3px;
-  color: var(--document-surface);
-  background: var(--document-text);
+  color: var(--document-raised);
+  background: var(--document-heading);
   content: attr(data-tooltip);
   font-size: 12px;
   line-height: 1.2;
@@ -491,6 +491,13 @@ code {
   display: block;
   max-width: 100%;
   margin: 0 auto;
+}
+
+.diagram-render-task[data-render-task-kind="plantuml"] svg {
+  width: auto;
+  height: auto;
+  max-height: calc(100vh - 96px);
+  object-fit: contain;
 }
 
 .diagram-render-task svg text,
@@ -820,6 +827,10 @@ svg {
 
   .resource-retry-button {
     display: none;
+  }
+
+  .diagram-render-task[data-render-task-kind="plantuml"] svg {
+    max-height: none;
   }
 
   .render-task-retry-button {

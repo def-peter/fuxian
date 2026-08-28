@@ -60,9 +60,9 @@ export function ContentOutline({
     return (
       <li key={node.heading.id}>
         <div
-          className="group flex min-h-8 items-center border-l-2 border-transparent"
+          className="group flex min-h-8 items-center border-l-2 border-transparent pr-2"
           data-active={isActive || undefined}
-          style={{ paddingLeft: `${8 + Math.min(node.heading.depth - 1, 4) * 14}px` }}
+          style={{ paddingLeft: `${10 + Math.min(node.heading.depth - 1, 4) * 14}px` }}
         >
           {hasDeeperChildren ? (
             <Button
@@ -80,12 +80,10 @@ export function ContentOutline({
                 <ChevronRight aria-hidden="true" />
               )}
             </Button>
-          ) : (
-            <span aria-hidden="true" className="mr-0.5 size-6 shrink-0" />
-          )}
+          ) : null}
           <button
             aria-current={isActive ? 'location' : undefined}
-            className="min-w-0 flex-1 truncate py-1.5 pr-3 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=location]:font-medium aria-[current=location]:text-primary"
+            className="min-w-0 flex-1 truncate py-1.5 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=location]:font-medium aria-[current=location]:text-primary"
             onClick={() => onNavigate(node.heading.id)}
             ref={isActive ? activeItem : undefined}
             title={node.heading.text}

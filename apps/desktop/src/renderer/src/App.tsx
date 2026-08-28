@@ -1456,7 +1456,7 @@ export function App(): React.JSX.Element {
                 'grid min-h-0 grid-cols-[minmax(0,1fr)]',
                 sourceDiagram
                   ? shellLayout === 'wide' && 'grid-cols-[minmax(0,1fr)_360px]'
-                  : contentOutlineInline && 'grid-cols-[minmax(0,1fr)_232px]',
+                  : contentOutlineInline && 'grid-cols-[minmax(0,1fr)_216px]',
               )}
             >
               <main

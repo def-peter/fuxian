@@ -138,9 +138,23 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     const settingsWindow = await getSettingsWindow(electronApp);
     await settingsWindow.getByRole('button', { name: 'PlantUML' }).click();
     await expect(settingsWindow.getByText('PlantUML 源码会发送到上方配置的服务。')).toBeVisible();
-    await settingsWindow.getByLabel('Server 地址').fill(newServerUrl);
+    const serverInput = settingsWindow.getByLabel('Server 地址');
+    await serverInput.fill(newServerUrl);
     await settingsWindow.getByRole('button', { name: '验证并保存' }).click();
-    await expect(settingsWindow.getByText('连接成功，地址已保存。')).toBeVisible();
+    await expect(settingsWindow.getByRole('button', { name: '已验证并保存' })).toBeVisible();
+    await expect(settingsWindow.getByRole('status')).toHaveText('连接验证成功，地址已保存。');
+    await expect(settingsWindow.getByText('连接成功，地址已保存。')).toHaveCount(0);
+
+    await serverInput.fill('http://127.0.0.1:1/plantuml');
+    await expect(settingsWindow.getByRole('status')).toHaveCount(0);
+    await expect(settingsWindow.getByRole('button', { name: '验证并保存' })).toBeVisible();
+    await settingsWindow.getByRole('button', { name: '验证并保存' }).click();
+    await expect(settingsWindow.locator('[data-slot="field-error"]')).toBeVisible();
+    await expect(settingsWindow.getByRole('status')).toHaveCount(0);
+
+    await serverInput.fill(newServerUrl);
+    await settingsWindow.getByRole('button', { name: '验证并保存' }).click();
+    await expect(settingsWindow.getByRole('status')).toHaveText('连接验证成功，地址已保存。');
 
     const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
     const plantUmlTask = finishedDocument.locator('[data-render-task-kind="plantuml"]');
