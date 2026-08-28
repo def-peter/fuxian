@@ -219,7 +219,7 @@ export function DocumentSessionSidebar({
     >
       <header className="flex min-w-0 items-center gap-1 border-b px-2">
         <FuxianMark className="size-7" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现 Fuxian</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">浮现</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">

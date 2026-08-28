@@ -20,7 +20,17 @@ import {
   type StartPdfExportRequest,
   type StartPdfExportResult,
 } from '@fuxian/shared-types';
-import { app, BrowserWindow, clipboard, dialog, ipcMain, protocol, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  type MenuItemConstructorOptions,
+  protocol,
+  shell,
+} from 'electron';
 import { randomUUID } from 'node:crypto';
 import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
@@ -813,6 +823,7 @@ const createWindow = (): BrowserWindow => {
     minWidth: 720,
     minHeight: 480,
     show: false,
+    title: '浮现',
     webPreferences: {
       preload: join(currentDirectory, '../preload/index.cjs'),
       contextIsolation: true,
@@ -913,6 +924,130 @@ const createSettingsWindow = (): BrowserWindow => {
   return window;
 };
 
+const openSourceDocumentsFromMenu = (): void => {
+  void openSourceDocuments()
+    .then((result) => {
+      if (result.status === 'cancelled') return;
+      activateMainWindow();
+      if (sourceDocumentOpenReceiver && !sourceDocumentOpenReceiver.isDestroyed()) {
+        sourceDocumentOpenReceiver.send(desktopIpcChannels.sourceDocumentOpenRequested, result);
+      }
+    })
+    .catch(() => {
+      if (sourceDocumentOpenReceiver && !sourceDocumentOpenReceiver.isDestroyed()) {
+        sourceDocumentOpenReceiver.send(desktopIpcChannels.sourceDocumentOpenRequested, {
+          message: '应用暂时无法打开所选文档。',
+          status: 'error',
+        } satisfies OpenSourceDocumentsResult);
+      }
+    });
+};
+
+const createApplicationMenu = (): Menu => {
+  const fileMenu: MenuItemConstructorOptions = {
+    label: '文件',
+    submenu: [
+      {
+        accelerator: 'CmdOrCtrl+O',
+        click: openSourceDocumentsFromMenu,
+        label: '打开 Markdown…',
+      },
+      { type: 'separator' },
+      ...(process.platform === 'darwin'
+        ? [{ label: '关闭窗口', role: 'close' as const }]
+        : [
+            { click: () => createSettingsWindow(), label: '设置…' },
+            { type: 'separator' as const },
+            { label: '退出浮现', role: 'quit' as const },
+          ]),
+    ],
+  };
+  const template: MenuItemConstructorOptions[] = [
+    fileMenu,
+    {
+      label: '编辑',
+      submenu: [
+        { label: '撤销', role: 'undo' },
+        { label: '重做', role: 'redo' },
+        { type: 'separator' },
+        { label: '剪切', role: 'cut' },
+        { label: '复制', role: 'copy' },
+        { label: '粘贴', role: 'paste' },
+        { label: '粘贴并匹配样式', role: 'pasteAndMatchStyle' },
+        { label: '删除', role: 'delete' },
+        { label: '全选', role: 'selectAll' },
+      ],
+    },
+    {
+      label: '视图',
+      submenu: [
+        { label: '重新加载', role: 'reload' },
+        { label: '强制重新加载', role: 'forceReload' },
+        ...(!app.isPackaged
+          ? [
+              { type: 'separator' as const },
+              { label: '切换开发者工具', role: 'toggleDevTools' as const },
+            ]
+          : []),
+        { type: 'separator' },
+        { label: '实际大小', role: 'resetZoom' },
+        { label: '放大', role: 'zoomIn' },
+        { label: '缩小', role: 'zoomOut' },
+        { type: 'separator' },
+        { label: '切换全屏', role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: '窗口',
+      submenu: [
+        { label: '最小化', role: 'minimize' },
+        ...(process.platform === 'darwin'
+          ? [
+              { label: '缩放', role: 'zoom' as const },
+              { type: 'separator' as const },
+              { label: '前置全部窗口', role: 'front' as const },
+            ]
+          : [{ label: '关闭窗口', role: 'close' as const }]),
+      ],
+    },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          click: () => void openExternalUrl('https://github.com/def-peter/fuxian'),
+          label: '项目主页',
+        },
+        ...(process.platform === 'darwin'
+          ? []
+          : [{ type: 'separator' as const }, { label: '关于浮现', role: 'about' as const }]),
+      ],
+    },
+  ];
+
+  if (process.platform === 'darwin') {
+    template.unshift({
+      label: '浮现',
+      submenu: [
+        { label: '关于浮现', role: 'about' },
+        { type: 'separator' },
+        { accelerator: 'CmdOrCtrl+,', click: () => createSettingsWindow(), label: '设置…' },
+        { type: 'separator' },
+        { label: '服务', role: 'services' },
+        { type: 'separator' },
+        { label: '隐藏浮现', role: 'hide' },
+        { label: '隐藏其他窗口', role: 'hideOthers' },
+        { label: '全部显示', role: 'unhide' },
+        { type: 'separator' },
+        { label: '退出浮现', role: 'quit' },
+      ],
+    });
+  }
+
+  return Menu.buildFromTemplate(template);
+};
+
+app.setName('浮现');
+
 if (!app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE) {
   app.setPath('userData', `${process.env.FUXIAN_E2E_SESSION_FILE}.user-data`);
 }
@@ -934,7 +1069,6 @@ if (!hasSingleInstanceLock) {
   });
 
   void app.whenReady().then(() => {
-    app.setName('Fuxian');
     if (process.platform === 'darwin') {
       app.dock?.setIcon(appIconPath);
     }
@@ -951,6 +1085,7 @@ if (!hasSingleInstanceLock) {
       new JsonFileSessionPersistence(sessionPath),
       new JsonFilePreferencesPersistence(preferencesPath),
     );
+    Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
 
     app.on('activate', () => {

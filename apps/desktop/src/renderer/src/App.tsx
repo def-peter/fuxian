@@ -1572,7 +1572,7 @@ export function App(): React.JSX.Element {
               <section className="w-full max-w-xl" aria-labelledby="start-title">
                 <FuxianMark className="mb-6 size-20" />
                 <h1 id="start-title" className="text-3xl font-semibold text-foreground">
-                  浮现 Fuxian
+                  浮现
                 </h1>
                 <div className="mt-8 border-t pt-6">
                   <Button disabled={opening} onClick={() => void openSourceDocuments()} size="lg">

@@ -146,10 +146,10 @@ The operating system owns window controls and the application menu. The content 
 - The default Fuxian document theme resembles a modern technical publication rather than generic web documentation or an academic-paper template.
 - Heading hierarchy relies on type size, weight, spacing, and restrained rules. It does not add automatic numbering, colored title blocks, or decorative pills.
 - Code uses a dedicated surface, tables use fine horizontal rules, quotations use a side rule, and diagrams remain unframed unless interaction or failure requires a boundary.
-- The full `浮现 Fuxian` identity appears in the document-session header and start view. The finished-document region shows only the active document's identity and actions.
+- While Chinese is the only interface language, the document-session header, start view, window title, and system menus use `浮现` without the English name. A future English locale will display `Fuxian`. The finished-document region shows only the active document's identity and actions.
 - The application shell uses cool-gray side regions, a cool-white document surface, one-pixel separators, approximately four-pixel control radii, and shadows only for menus, drawers, dialogs, and other overlays.
 - Readable text appears immediately. Formulas and diagrams use a restrained approximately 150 ms fade when real rendering completes; ordinary paragraphs do not perform staged entrance animation.
-- The Fuxian identity combines an abstract mark based on content emerging through a boundary with the `浮现 Fuxian` wordmark. It avoids generic file, Markdown, and eye symbols.
+- The identity combines an abstract mark based on content emerging through a boundary with a locale-specific wordmark: `浮现` for Chinese and, once supported, `Fuxian` for English. It avoids generic file, Markdown, and eye symbols.
 - The primary Pencil review uses a `1440 x 900` wide state and an approximately `1024 x 768` narrow state.
 - The first revised design review covers the start view, main reading state, external revision, diagram source drawer, diagram full-screen view, PDF export, settings window, session recovery failure, and narrow-window behavior. Dark mode follows later.
 

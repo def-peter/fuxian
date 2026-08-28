@@ -1,5 +1,5 @@
 appId: com.defpeter.fuxian
-productName: 浮现 Fuxian
+productName: 浮现
 electronVersion: 44.0.0
 directories:
   buildResources: build
@@ -15,8 +15,8 @@ fileAssociations:
   - ext:
       - md
       - markdown
-    name: Markdown Document
-    description: Markdown source document
+    name: Markdown 文档
+    description: Markdown 源文档
     role: Viewer
 win:
   executableName: Fuxian

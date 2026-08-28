@@ -218,7 +218,7 @@ test('a reader can open a source document from the start view', async () => {
   try {
     const window = await electronApp.firstWindow();
 
-    await expect(window.getByRole('heading', { name: '浮现 Fuxian' })).toBeVisible();
+    await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');

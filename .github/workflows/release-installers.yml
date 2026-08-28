@@ -71,13 +71,13 @@ jobs:
             build-args: --mac dmg --x64
             artifact-name: fuxian-macos-x64
             artifact-path: release/*-mac-x64.dmg
-            packaged-executable: release/mac/浮现 Fuxian.app/Contents/MacOS/浮现 Fuxian
+            packaged-executable: release/mac/浮现.app/Contents/MacOS/浮现
           - label: macOS Apple Silicon (arm64)
             runner: macos-15
             build-args: --mac dmg --arm64
             artifact-name: fuxian-macos-arm64
             artifact-path: release/*-mac-arm64.dmg
-            packaged-executable: release/mac-arm64/浮现 Fuxian.app/Contents/MacOS/浮现 Fuxian
+            packaged-executable: release/mac-arm64/浮现.app/Contents/MacOS/浮现
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out source
@@ -140,7 +140,7 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
-          echo "title=浮现 Fuxian ${version}" >> "${GITHUB_OUTPUT}"
+          echo "title=浮现 ${version}" >> "${GITHUB_OUTPUT}"
 
       - name: Create GitHub Release
         shell: bash
