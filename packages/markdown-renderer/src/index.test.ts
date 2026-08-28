@@ -170,4 +170,20 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('!theme mars');
     expect(finishedDocument.html).toContain('skinparam handwritten true');
   });
+
+  it('creates Vega-Lite visualization tasks only for the canonical fence name', () => {
+    const specification = '{"data":{"values":[]},"mark":"bar"}';
+    const finishedDocument = renderMarkdown({
+      source: ['```vega-lite', specification, '```', '', '```vegalite', specification, '```'].join(
+        '\n',
+      ),
+    });
+
+    expect(finishedDocument.renderTasks).toEqual([
+      { id: 'render-task-1', kind: 'vega-lite', source: `${specification}\n` },
+    ]);
+    expect(finishedDocument.html).toContain('aria-label="Vega-Lite 数据图表"');
+    expect(finishedDocument.html).toContain('data-render-task-kind="vega-lite"');
+    expect(finishedDocument.html).toContain('language-vegalite');
+  });
 });

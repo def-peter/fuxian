@@ -20,6 +20,7 @@ import {
   type DocumentRenderResult,
   type DocumentRenderAdapter,
   type PlantUmlRenderer,
+  type VegaLiteRenderer,
 } from './document-render-adapter';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
 
@@ -37,24 +38,24 @@ export interface FinishedDocumentController {
   find(query: string): FindResult;
   findNext(): FindResult;
   findPrevious(): FindResult;
-  focusDiagramAction(id: string, action: 'focus' | 'source'): void;
-  getDiagramSnapshots(): DiagramSnapshot[];
+  focusRenderedVisualAction(id: string, action: 'focus' | 'source'): void;
+  getRenderedVisualSnapshots(): RenderedVisualSnapshot[];
   getReadingPosition(): ReadingPosition;
   getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
-  locateDiagram(id: string): boolean;
+  locateRenderedVisual(id: string): boolean;
   restoreReadingPosition(position: ReadingPosition): void;
   scrollToEnd(): ReadingPosition;
   scrollToHeading(id: string): void;
   whenRenderReady(): Promise<RenderRevisionSnapshot>;
 }
 
-export interface DiagramSnapshot {
+export interface RenderedVisualSnapshot {
   contextLabel: string;
   headingId?: string;
   headingText?: string;
   id: string;
-  kind: 'mermaid' | 'plantuml';
+  kind: 'mermaid' | 'plantuml' | 'vega-lite';
   ordinal: number;
   source: string;
   svg?: string;
@@ -68,12 +69,13 @@ interface BindFinishedDocumentOptions {
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
-  onFocusDiagram?(diagram: DiagramSnapshot): void;
-  onInspectDiagram?(diagram: DiagramSnapshot): void;
+  onFocusRenderedVisual?(visual: RenderedVisualSnapshot): void;
+  onInspectRenderedVisual?(visual: RenderedVisualSnapshot): void;
   onReadingPositionChange(position: ReadingPosition): void;
   onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
   renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
   renderPlantUml?: PlantUmlRenderer;
+  renderVegaLite?: VegaLiteRenderer;
   renderScheduler?: RenderTaskScheduler;
   renderTimeoutMilliseconds?: number;
   revisionId?: string;
@@ -82,7 +84,17 @@ interface BindFinishedDocumentOptions {
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 let finishedDocumentRevision = 0;
 
-const renderTaskKinds = new Set(['math-display', 'math-inline', 'mermaid', 'plantuml']);
+const renderTaskKinds = new Set([
+  'math-display',
+  'math-inline',
+  'mermaid',
+  'plantuml',
+  'vega-lite',
+]);
+const renderedVisualTaskKinds = new Set(['mermaid', 'plantuml', 'vega-lite']);
+const maximumRenderedVisualElements = 100_000;
+const renderedVisualLabel = (kind: string): string =>
+  kind === 'mermaid' ? 'Mermaid' : kind === 'plantuml' ? 'PlantUML' : 'Vega-Lite';
 
 const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
   Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
@@ -99,23 +111,40 @@ const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
 const sanitizeDiagramSvg = (frameDocument: Document, source: string): SVGElement => {
   const template = frameDocument.createElement('template');
   template.innerHTML = source;
-  const svg = template.content.querySelector('svg');
-  if (!svg) throw new TypeError('图表服务没有返回有效的 SVG。');
-  for (const element of svg.querySelectorAll('script, foreignObject, iframe, object, embed')) {
+  const svg = template.content.firstElementChild;
+  if (svg?.localName !== 'svg' || template.content.childElementCount !== 1) {
+    throw new TypeError('图表服务没有返回有效的 SVG。');
+  }
+  if (svg.querySelectorAll('*').length > maximumRenderedVisualElements) {
+    throw new TypeError('图表包含过多 SVG 元素。');
+  }
+  for (const element of svg.querySelectorAll(
+    'script, foreignObject, iframe, object, embed, image, audio, video, source',
+  )) {
     element.remove();
+  }
+  for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
+  for (const style of svg.querySelectorAll('style')) {
+    if (/@import\b|url\s*\(/iu.test(style.textContent ?? '')) style.remove();
   }
   for (const element of [svg, ...svg.querySelectorAll('*')]) {
     for (const attribute of [...element.attributes]) {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim();
+      const urlReferences = [...value.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/giu)];
       if (
-        attribute.name.toLowerCase().startsWith('on') ||
-        ((attribute.name === 'href' || attribute.name.endsWith(':href')) &&
-          !attribute.value.startsWith('#'))
+        name.startsWith('on') ||
+        name === 'src' ||
+        name === 'formaction' ||
+        name === 'xml:base' ||
+        ((name === 'href' || name.endsWith(':href')) && !value.startsWith('#')) ||
+        urlReferences.some((match) => !match[2]?.startsWith('#'))
       ) {
         element.removeAttribute(attribute.name);
       }
     }
   }
-  return svg;
+  return svg as SVGElement;
 };
 
 const numericSvgLength = (value: string | null): number | undefined => {
@@ -235,6 +264,7 @@ export function bindFinishedDocument(
             throw new TypeError('PlantUML 渲染服务不可用。');
           }),
         options.initialDiagramOptimization,
+        options.renderVegaLite,
       );
   const renderTaskList = collectRenderTasks(frameDocument);
   const renderTasks = new Map(renderTaskList.map((task) => [task.id, task]));
@@ -248,7 +278,7 @@ export function bindFinishedDocument(
     renderTaskElements.get(task.id);
   const diagramContexts = new Map(
     renderTaskList
-      .filter((task) => task.kind === 'mermaid' || task.kind === 'plantuml')
+      .filter((task) => renderedVisualTaskKinds.has(task.kind))
       .flatMap((task, index) => {
         const element = getRenderTaskElement(task);
         if (!element) return [];
@@ -270,8 +300,8 @@ export function bindFinishedDocument(
         ];
       }),
   );
-  const getDiagramSnapshot = (task: RenderTask): DiagramSnapshot | undefined => {
-    if (task.kind !== 'mermaid' && task.kind !== 'plantuml') return undefined;
+  const getRenderedVisualSnapshot = (task: RenderTask): RenderedVisualSnapshot | undefined => {
+    if (!renderedVisualTaskKinds.has(task.kind)) return undefined;
     const element = getRenderTaskElement(task);
     const context = diagramContexts.get(task.id);
     if (!element || !context) return undefined;
@@ -279,7 +309,7 @@ export function bindFinishedDocument(
     return {
       ...context,
       id: task.id,
-      kind: task.kind,
+      kind: task.kind as RenderedVisualSnapshot['kind'],
       source: task.source,
       ...(svg ? { svg } : {}),
     };
@@ -315,12 +345,12 @@ export function bindFinishedDocument(
   };
 
   for (const task of renderTaskList) {
-    if (task.kind !== 'mermaid' && task.kind !== 'plantuml') continue;
+    if (!renderedVisualTaskKinds.has(task.kind)) continue;
     const element = getRenderTaskElement(task);
     if (!element) continue;
-    const diagram = getDiagramSnapshot(task);
-    if (diagram) {
-      element.ariaLabel = `${task.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 图表 ${diagram.ordinal}，${diagram.headingText || '文档开头'}`;
+    const visual = getRenderedVisualSnapshot(task);
+    if (visual) {
+      element.ariaLabel = `${renderedVisualLabel(task.kind)} 图表 ${visual.ordinal}，${visual.headingText || '文档开头'}`;
       element.tabIndex = -1;
     }
     const toolbar = frameDocument.createElement('span');
@@ -555,12 +585,13 @@ export function bindFinishedDocument(
     if (diagramAction) {
       const id = diagramAction.closest<HTMLElement>('[data-render-task-id]')?.dataset.renderTaskId;
       const task = id ? renderTasks.get(id) : undefined;
-      if (!task || (task.kind !== 'mermaid' && task.kind !== 'plantuml')) return;
-      const diagram = getDiagramSnapshot(task);
-      if (!diagram) return;
-      if (diagramAction.dataset.diagramAction === 'source') options.onInspectDiagram?.(diagram);
-      if (diagramAction.dataset.diagramAction === 'focus' && diagram.svg)
-        options.onFocusDiagram?.(diagram);
+      if (!task || !renderedVisualTaskKinds.has(task.kind)) return;
+      const visual = getRenderedVisualSnapshot(task);
+      if (!visual) return;
+      if (diagramAction.dataset.diagramAction === 'source')
+        options.onInspectRenderedVisual?.(visual);
+      if (diagramAction.dataset.diagramAction === 'focus' && visual.svg)
+        options.onFocusRenderedVisual?.(visual);
       return;
     }
     const renderRetryButton = target?.closest<HTMLButtonElement>('[data-retry-render-task]');
@@ -696,20 +727,21 @@ export function bindFinishedDocument(
     find,
     findNext: () => activateFindRange(currentFindIndex + 1),
     findPrevious: () => activateFindRange(currentFindIndex - 1),
-    focusDiagramAction: (id, action) => {
+    focusRenderedVisualAction: (id, action) => {
       const task = renderTasks.get(id);
       if (!task) return;
       getRenderTaskElement(task)
         ?.querySelector<HTMLButtonElement>(`[data-diagram-action="${action}"]`)
         ?.focus();
     },
-    getDiagramSnapshots: () => renderTaskList.flatMap((task) => getDiagramSnapshot(task) ?? []),
+    getRenderedVisualSnapshots: () =>
+      renderTaskList.flatMap((task) => getRenderedVisualSnapshot(task) ?? []),
     getReadingPosition,
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
-    locateDiagram: (id) => {
+    locateRenderedVisual: (id) => {
       const task = renderTasks.get(id);
-      if (!task || (task.kind !== 'mermaid' && task.kind !== 'plantuml')) return false;
+      if (!task || !renderedVisualTaskKinds.has(task.kind)) return false;
       const element = getRenderTaskElement(task);
       if (!element) return false;
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });

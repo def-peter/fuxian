@@ -9,7 +9,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { copyDiagramContent, type CopyStatus } from '@/diagram-copy';
-import type { DiagramSnapshot } from '@/finished-document';
+import type { RenderedVisualSnapshot } from '@/finished-document';
+
+const diagramKindLabel = (kind: RenderedVisualSnapshot['kind']): string =>
+  kind === 'mermaid' ? 'Mermaid' : kind === 'plantuml' ? 'PlantUML' : 'Vega-Lite';
 
 interface CopyButtonProps {
   copyText(text: string): Promise<void>;
@@ -40,7 +43,7 @@ function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React
 
 interface DiagramSourceDrawerProps {
   copyText(text: string): Promise<void>;
-  diagram: DiagramSnapshot;
+  diagram: RenderedVisualSnapshot;
   onClose(): void;
   onLocate(): void;
 }
@@ -61,7 +64,7 @@ export function DiagramSourceDrawer({
           <Code2 aria-hidden="true" className="size-4 text-muted-foreground" />
           <div className="min-w-0">
             <h2 className="truncate text-xs font-semibold">
-              {diagram.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 源码
+              {diagramKindLabel(diagram.kind)} 源码
             </h2>
             <p className="truncate text-xs text-muted-foreground">{diagram.contextLabel}</p>
           </div>
@@ -72,7 +75,7 @@ export function DiagramSourceDrawer({
       </header>
       <div className="min-h-0 overflow-auto p-3">
         <pre
-          aria-label={`${diagram.kind === 'mermaid' ? 'Mermaid' : 'PlantUML'} 图表源码`}
+          aria-label={`${diagramKindLabel(diagram.kind)} 图表源码`}
           className="min-h-full whitespace-pre-wrap break-words rounded-sm border bg-background p-3 text-xs leading-5 outline-none selection:bg-primary selection:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring"
           tabIndex={0}
         >
@@ -98,9 +101,9 @@ export function DiagramSourceDrawer({
 
 interface DiagramFocusDialogProps {
   copyText(text: string): Promise<void>;
-  diagram: DiagramSnapshot | undefined;
+  diagram: RenderedVisualSnapshot | undefined;
   onClose(): void;
-  onReturnFocus(diagram: DiagramSnapshot): void;
+  onReturnFocus(diagram: RenderedVisualSnapshot): void;
 }
 
 const clampZoom = (value: number): number => Math.min(4, Math.max(0.25, value));
@@ -114,7 +117,7 @@ export function DiagramFocusDialog({
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
-  const lastDiagram = useRef<DiagramSnapshot | undefined>(diagram);
+  const lastDiagram = useRef<RenderedVisualSnapshot | undefined>(diagram);
   useEffect(() => {
     if (diagram) lastDiagram.current = diagram;
   }, [diagram]);

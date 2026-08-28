@@ -16,6 +16,7 @@
     "@fuxian/markdown-renderer": "workspace:*",
     "@fuxian/render-protocol": "workspace:*",
     "@fuxian/shared-types": "workspace:*",
+    "ajv": "8.18.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "katex": "^0.18.4",
@@ -25,7 +26,10 @@
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "vega": "6.4.0",
+    "vega-interpreter": "2.3.2",
+    "vega-lite": "6.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

@@ -6,6 +6,7 @@ import {
   createDesktopPlantUmlRenderer,
   optimizePlantUmlSource,
   type PlantUmlRenderer,
+  type VegaLiteRenderer,
 } from '@/document-render-adapter';
 import { bindFinishedDocument, type FinishedDocumentController } from '@/finished-document';
 import { waitForExportImages, waitForStableExportLayout } from '@/pdf-export-readiness';
@@ -15,14 +16,30 @@ const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
 
 const createExportPlantUmlRenderer = (payload: PdfExportPayload): PlantUmlRenderer => {
   const renderedDiagrams = new Map(
-    payload.renderedPlantUmlDiagrams.map(({ source, svg }) => [
-      optimizePlantUmlSource(source, payload.preferences.diagram.optimize),
-      svg,
-    ]),
+    payload.renderedVisuals
+      .filter((visual) => visual.kind === 'plantuml')
+      .map(({ source, svg }) => [
+        optimizePlantUmlSource(source, payload.preferences.diagram.optimize),
+        svg,
+      ]),
   );
   return async (source, serverUrl, signal) => {
     if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
     return renderedDiagrams.get(source) ?? renderPlantUml(source, serverUrl, signal);
+  };
+};
+
+const createExportVegaLiteRenderer = (payload: PdfExportPayload): VegaLiteRenderer => {
+  const renderedVisuals = new Map(
+    payload.renderedVisuals
+      .filter((visual) => visual.kind === 'vega-lite')
+      .map(({ source, svg }) => [source, svg]),
+  );
+  return async (source, signal) => {
+    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
+    const svg = renderedVisuals.get(source);
+    if (!svg) throw new TypeError('可视化快照不可用，无法保证 PDF 与屏幕内容一致。');
+    return svg;
   };
 };
 
@@ -83,6 +100,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
         });
       },
       renderPlantUml: createExportPlantUmlRenderer(payload),
+      renderVegaLite: createExportVegaLiteRenderer(payload),
       revisionId: `pdf-export:${exportId}`,
     });
     controller.current = bound;

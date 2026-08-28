@@ -71,7 +71,7 @@ import {
 import {
   bindFinishedDocument,
   createFinishedDocumentSource,
-  type DiagramSnapshot,
+  type RenderedVisualSnapshot,
   type FindResult,
   type FinishedDocumentController,
 } from '@/finished-document';
@@ -173,8 +173,8 @@ export function App(): React.JSX.Element {
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
   const [findResult, setFindResult] = useState<FindResult>(emptyFindResult);
-  const [sourceDiagram, setSourceDiagram] = useState<DiagramSnapshot>();
-  const [focusedDiagram, setFocusedDiagram] = useState<DiagramSnapshot>();
+  const [sourceDiagram, setSourceDiagram] = useState<RenderedVisualSnapshot>();
+  const [focusedDiagram, setFocusedDiagram] = useState<RenderedVisualSnapshot>();
   const [promotedRevisions, setPromotedRevisions] = useState(
     () => new Map<string, FinishedDocumentFrameRevision>(),
   );
@@ -543,18 +543,18 @@ export function App(): React.JSX.Element {
     setFocusedDiagram(undefined);
   };
 
-  const showDiagramSource = (diagram: DiagramSnapshot | undefined): void => {
+  const showDiagramSource = (diagram: RenderedVisualSnapshot | undefined): void => {
     diagramLayoutReadingPosition.current = finishedDocumentController.current?.getReadingPosition();
     setSourceDiagram(diagram);
   };
 
   const restoreDiagramActionFocus = (
-    diagram: DiagramSnapshot | undefined,
+    diagram: RenderedVisualSnapshot | undefined,
     action: 'focus' | 'source',
   ): void => {
     if (!diagram) return;
     window.requestAnimationFrame(() =>
-      finishedDocumentController.current?.focusDiagramAction(diagram.id, action),
+      finishedDocumentController.current?.focusRenderedVisualAction(diagram.id, action),
     );
   };
 
@@ -566,7 +566,7 @@ export function App(): React.JSX.Element {
 
   const locateSourceDiagram = (): void => {
     if (!sourceDiagram) return;
-    if (!finishedDocumentController.current?.locateDiagram(sourceDiagram.id)) {
+    if (!finishedDocumentController.current?.locateRenderedVisual(sourceDiagram.id)) {
       setSourceDiagram(undefined);
     }
   };
@@ -614,10 +614,10 @@ export function App(): React.JSX.Element {
       onFindRequest: () => {
         if (visibleFrameIdRef.current === frame.id) openFind();
       },
-      onFocusDiagram: (diagram) => {
+      onFocusRenderedVisual: (diagram) => {
         if (visibleFrameIdRef.current === frame.id) setFocusedDiagram(diagram);
       },
-      onInspectDiagram: (diagram) => {
+      onInspectRenderedVisual: (diagram) => {
         if (visibleFrameIdRef.current === frame.id) showDiagramSource(diagram);
       },
       onReadingPositionChange: (position) => {
@@ -997,12 +997,17 @@ export function App(): React.JSX.Element {
       const result = await window.fuxian.startPdfExport({
         path,
         preferences,
-        renderedPlantUmlDiagrams: (finishedDocumentController.current?.getDiagramSnapshots() ?? [])
+        renderedVisuals: (finishedDocumentController.current?.getRenderedVisualSnapshots() ?? [])
           .filter(
-            (diagram): diagram is DiagramSnapshot & { kind: 'plantuml'; svg: string } =>
-              diagram.kind === 'plantuml' && Boolean(diagram.svg),
+            (
+              diagram,
+            ): diagram is RenderedVisualSnapshot & {
+              kind: 'plantuml' | 'vega-lite';
+              svg: string;
+            } =>
+              (diagram.kind === 'plantuml' || diagram.kind === 'vega-lite') && Boolean(diagram.svg),
           )
-          .map(({ source, svg }) => ({ source, svg })),
+          .map(({ kind, source, svg }) => ({ kind, source, svg })),
         source: document.document.source,
       });
       if (result.status === 'started') {

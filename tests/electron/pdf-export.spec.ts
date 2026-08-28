@@ -335,6 +335,24 @@ test('exports complete finished-document content with stable pagination', async 
       'Alice -> Bob: Plant diagram',
       '@enduml',
       '```',
+      '',
+      '```vega-lite',
+      JSON.stringify({
+        data: {
+          values: [
+            { category: 'Vega Alpha', value: 12 },
+            { category: 'Vega Beta', value: 20 },
+          ],
+        },
+        encoding: {
+          x: { field: 'category', type: 'nominal' },
+          y: { field: 'value', type: 'quantitative' },
+        },
+        height: 120,
+        mark: { color: '#0052cc', type: 'bar' },
+        width: 260,
+      }),
+      '```',
     ].join('\n'),
   );
   await writeFile(preferencesPath, JSON.stringify(preferences(server.url)));
@@ -345,6 +363,11 @@ test('exports complete finished-document content with stable pagination', async 
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const visibleResponse = await server.nextRequest();
     visibleResponse.end(representativePlantUmlSvg);
+    const visibleVegaLite = window
+      .frameLocator('iframe[title="Finished document"]')
+      .locator('[data-render-task-kind="vega-lite"] .render-task-output svg');
+    await expect(visibleVegaLite).toBeVisible({ timeout: 15_000 });
+    const visibleVegaLiteSnapshot = await visibleVegaLite.evaluate((svg) => svg.outerHTML);
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
     await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
@@ -367,6 +390,11 @@ test('exports complete finished-document content with stable pagination', async 
     await expect(
       exportWindow.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 10_000 });
+    const exportedVegaLite = exportWindow.locator(
+      '[data-render-task-kind="vega-lite"] .render-task-output svg',
+    );
+    await expect(exportedVegaLite).toBeVisible({ timeout: 15_000 });
+    expect(await exportedVegaLite.evaluate((svg) => svg.outerHTML)).toBe(visibleVegaLiteSnapshot);
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
     expect(server.requestCount()).toBe(1);
 
@@ -374,6 +402,8 @@ test('exports complete finished-document content with stable pagination', async 
     expect(first.text).toContain('Deterministic export');
     expect(first.text).toContain('selectable-code');
     expect(first.text).toContain('Authentication Request');
+    expect(first.text).toContain('Vega Alpha');
+    expect(first.text).toContain('Vega Beta');
     expect(first.links).toContain('https://openai.com/');
     expect(
       await countPdfPixels(

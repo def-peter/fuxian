@@ -33,7 +33,8 @@ export interface FinishedDocument {
   resources: DocumentResource[];
 }
 
-export type DocumentRenderTaskKind = 'math-display' | 'math-inline' | 'mermaid' | 'plantuml';
+export type DocumentRenderTaskKind =
+  'math-display' | 'math-inline' | 'mermaid' | 'plantuml' | 'vega-lite';
 
 export interface DocumentRenderTask {
   id: string;
@@ -334,7 +335,10 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
       children: [
         {
           type: 'text',
-          value: kind === 'mermaid' || kind === 'plantuml' ? '无法呈现图表' : '无法呈现公式',
+          value:
+            kind === 'mermaid' || kind === 'plantuml' || kind === 'vega-lite'
+              ? '无法呈现图表'
+              : '无法呈现公式',
         },
       ],
     },
@@ -365,7 +369,7 @@ const createRenderError = (source: string, kind: DocumentRenderTaskKind): Elemen
 
 const createRenderTaskNode = (task: DocumentRenderTask): Element => {
   const inline = task.kind === 'math-inline';
-  const diagram = task.kind === 'mermaid' || task.kind === 'plantuml';
+  const diagram = task.kind === 'mermaid' || task.kind === 'plantuml' || task.kind === 'vega-lite';
   return {
     type: 'element',
     tagName: inline ? 'span' : diagram ? 'figure' : 'div',
@@ -375,7 +379,9 @@ const createRenderTaskNode = (task: DocumentRenderTask): Element => {
           ? 'Mermaid 图表'
           : task.kind === 'plantuml'
             ? 'PlantUML 图表'
-            : undefined,
+            : task.kind === 'vega-lite'
+              ? 'Vega-Lite 数据图表'
+              : undefined,
       className: [
         'render-task',
         diagram ? 'diagram-render-task' : 'math-render-task',
@@ -434,6 +440,8 @@ const createRenderTasks: Plugin<[DocumentRenderTask[]], Root> = (renderTasks) =>
       (classNames.includes('language-plantuml') || classNames.includes('language-puml'))
     ) {
       kind = 'plantuml';
+    } else if (node.tagName === 'pre' && classNames.includes('language-vega-lite')) {
+      kind = 'vega-lite';
     }
 
     if (!kind) return;

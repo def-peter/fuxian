@@ -60,6 +60,14 @@ _Avoid_: Directory, file directory, file tree
 The functional surface shown when no documents are open. It provides open and drop actions plus access to recent documents, without product-feature marketing.
 _Avoid_: Welcome page, landing page
 
-**Diagram block**:
-A Mermaid or PlantUML source block that appears as selectable diagram content within the finished document. Hover or keyboard focus reveals access to a source drawer and a focused full-screen view; its source and rendered SVG can be copied. Rendering failure remains explicit and inline.
+**Rendered visual block**:
+A source block that becomes selectable SVG content within the finished document. Diagram blocks and visualization blocks share source inspection, focused viewing, copying, readiness, and explicit inline failure behavior.
 _Avoid_: Image, attachment
+
+**Diagram block**:
+A Mermaid or PlantUML rendered visual block that expresses processes, structures, sequences, or relationships.
+_Avoid_: Visualization block, chart
+
+**Visualization block**:
+A Vega-Lite rendered visual block that expresses quantitative data as a chart from an author-provided specification.
+_Avoid_: Diagram block, dashboard
