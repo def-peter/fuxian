@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocumentThemeCss, getDocumentThemeVariables } from './index';
+import { createDocumentThemeCss, documentThemeCss, getDocumentThemeVariables } from './index';
 
 const preferences = {
   appearance: 'dark' as const,
@@ -11,6 +11,14 @@ const preferences = {
 };
 
 describe('document theme preferences', () => {
+  it('uses the product typography defaults before structured preferences load', () => {
+    expect(documentThemeCss).toContain(
+      '--document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;',
+    );
+    expect(documentThemeCss).toContain('--document-body-size: 15px;');
+    expect(documentThemeCss).toContain('--document-line-height: 1.85;');
+  });
+
   it('creates one document-level width and typography variable set', () => {
     expect(getDocumentThemeVariables(preferences)).toEqual({
       '--document-body-font':

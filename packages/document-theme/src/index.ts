@@ -60,8 +60,8 @@ export const documentThemeCss = `
   --document-error: #74372f;
   --document-error-border: #cbaea8;
   --document-error-background: #fbf7f6;
-  --document-body-font: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
-  --document-body-size: 17px;
+  --document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --document-body-size: 15px;
   --document-line-height: 1.85;
   --document-inline-padding: clamp(16px, 2vw, 24px);
   --document-width: 100%;

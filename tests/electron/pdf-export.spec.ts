@@ -13,6 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCanvas } from '@napi-rs/canvas';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { createDefaultReaderPreferences } from '../../packages/shared-types/src/index';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -22,12 +23,9 @@ const representativePlantUmlSvgPath = resolve(repositoryRoot, 'fixtures/plantuml
 const servers: Server[] = [];
 
 const preferences = (plantUmlServerUrl: string) => ({
-  appearance: 'light',
-  diagram: { optimize: false },
-  documentTypography: { bodyFamily: 'serif', bodySize: 17, lineHeight: 1.85 },
-  documentWidth: { customWidth: 860, mode: 'adaptive' },
+  ...createDefaultReaderPreferences(),
+  appearance: 'light' as const,
   plantUml: { serverUrl: plantUmlServerUrl },
-  version: 1,
 });
 
 const launchDesktop = (
@@ -203,6 +201,20 @@ test('exports complete finished-document content with stable pagination', async 
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
     await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
+    await expect
+      .poll(() =>
+        exportWindow
+          .locator('p')
+          .first()
+          .evaluate((paragraph) => {
+            const style = getComputedStyle(paragraph);
+            return { fontFamily: style.fontFamily, fontSize: style.fontSize };
+          }),
+      )
+      .toEqual({
+        fontFamily: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+        fontSize: '15px',
+      });
     await expect(exportWindow.locator('img[alt="Local pixel"]')).toHaveJSProperty('complete', true);
     await expect(exportWindow.locator('.math-render-task math')).toBeVisible({ timeout: 10_000 });
     await expect(

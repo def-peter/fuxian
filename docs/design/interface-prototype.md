@@ -122,7 +122,7 @@ The operating system owns window controls and the application menu. The content 
 - External revisions do not highlight changed paragraphs in the finished document.
 - The document-session sidebar places the collapsible `正在打开` section above the collapsible `最近打开` section in one scroll region.
 - Closing a document moves it to recent history without clearing its reading position. Reopening it returns it to the open-document set. Quitting Fuxian preserves the open-document set rather than closing it.
-- The default document theme uses a sans-serif UI and heading face, a serif Chinese body face, and a monospace code face.
+- The default document theme uses a sans-serif UI, heading, and 15px body face, plus a monospace code face. Readers may switch the finished document body to the serif preset without changing application-shell typography.
 - Document typography settings include a serif or sans-serif body preset, body size, and line height. Application-shell typography remains fixed.
 - Document typography and document width are global preferences without per-document overrides in the MVP.
 - The separate settings window includes a compact representative document sample. Appearance changes preview immediately and take effect without an Apply step.

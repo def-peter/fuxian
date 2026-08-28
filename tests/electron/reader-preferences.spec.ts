@@ -83,6 +83,16 @@ test('preferences synchronize live, persist at their limits, and restore after r
         .frameLocator('iframe[title="Finished document"]')
         .getByRole('heading', { name: 'A finished document' }),
     ).toBeVisible();
+    const defaultTypography = {
+      bodyFont: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+      bodySize: '15px',
+      computedBodyFont:
+        'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+      lineHeight: '1.85',
+    };
+    await expect
+      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .toMatchObject(defaultTypography);
     await readerWindow.getByRole('button', { name: '文档宽度' }).click();
     await readerWindow.getByRole('radio', { name: 'A4' }).click();
     await expect
@@ -94,6 +104,20 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await readerWindow.getByRole('button', { name: '设置' }).click();
     await expect.poll(() => electronApp.windows().length).toBe(2);
 
+    await settingsWindow.getByRole('button', { name: '文档', exact: true }).click();
+    await expect(settingsWindow.getByRole('radio', { name: '无衬线' })).toHaveAttribute(
+      'data-state',
+      'on',
+    );
+    await expect(settingsWindow.getByRole('slider', { name: '正文字号' })).toHaveAttribute(
+      'aria-valuenow',
+      '15',
+    );
+    await expect
+      .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
+      .toMatchObject(defaultTypography);
+
+    await settingsWindow.getByRole('button', { name: '外观', exact: true }).click();
     await settingsWindow.getByRole('radio', { name: '深色' }).click();
     await expect(settingsWindow.locator('html')).toHaveClass(/dark/);
     await expect(readerWindow.locator('html')).toHaveClass(/dark/);

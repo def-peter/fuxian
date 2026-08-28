@@ -67,8 +67,8 @@ export const createDefaultReaderPreferences = (): ReaderPreferences => ({
     optimize: false,
   },
   documentTypography: {
-    bodyFamily: 'serif',
-    bodySize: 17,
+    bodyFamily: 'sans-serif',
+    bodySize: 15,
     lineHeight: 1.85,
   },
   documentWidth: {

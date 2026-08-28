@@ -8,6 +8,14 @@ import {
 } from './index';
 
 describe('reader preferences', () => {
+  it('defaults finished documents to 15px sans-serif typography', () => {
+    expect(createDefaultReaderPreferences().documentTypography).toEqual({
+      bodyFamily: 'sans-serif',
+      bodySize: 15,
+      lineHeight: 1.85,
+    });
+  });
+
   it('uses stable defaults for missing or unsupported data', () => {
     expect(normalizeReaderPreferences(undefined)).toEqual(createDefaultReaderPreferences());
     expect(normalizeReaderPreferences({ version: 2 })).toEqual(createDefaultReaderPreferences());
@@ -62,6 +70,32 @@ describe('reader preferences', () => {
       shell: { contentOutlineExpanded: true, documentSessionExpanded: true },
       version: 1,
     });
+  });
+
+  it('preserves valid typography saved by existing users', () => {
+    expect(
+      normalizeReaderPreferences({
+        documentTypography: {
+          bodyFamily: 'serif',
+          bodySize: 17,
+          lineHeight: 1.7,
+        },
+        version: 1,
+      }).documentTypography,
+    ).toEqual({ bodyFamily: 'serif', bodySize: 17, lineHeight: 1.7 });
+  });
+
+  it('falls back invalid typography fields independently', () => {
+    expect(
+      normalizeReaderPreferences({
+        documentTypography: {
+          bodyFamily: 'display',
+          bodySize: Number.NaN,
+          lineHeight: 1.7,
+        },
+        version: 1,
+      }).documentTypography,
+    ).toEqual({ bodyFamily: 'sans-serif', bodySize: 15, lineHeight: 1.7 });
   });
 
   it('preserves independent shell-region preferences', () => {
