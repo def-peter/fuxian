@@ -49,6 +49,8 @@ export const documentThemeCss = `
   --document-border-strong: #bac9c3;
   --document-primary: #25684f;
   --document-primary-hover: #174e3a;
+  --document-link: #3f4b55;
+  --document-link-hover: #25292d;
   --document-selection: #c9dfd4;
   --document-selection-current: #f3d77d;
   --document-subtle: #f8faf9;
@@ -114,6 +116,8 @@ export const documentThemeCss = `
   --document-border-strong: #596762;
   --document-primary: #83bfa3;
   --document-primary-hover: #a2cfba;
+  --document-link: #c4cbd0;
+  --document-link-hover: #f1f4f3;
   --document-selection: #365f4e;
   --document-selection-current: #776520;
   --document-subtle: #1b2220;
@@ -238,15 +242,22 @@ li + li {
 }
 
 a {
-  color: var(--document-primary);
+  color: var(--document-link);
   text-decoration-color: var(--document-border-strong);
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
 }
 
-a:hover {
-  color: var(--document-primary-hover);
+a:hover,
+a:focus-visible {
+  color: var(--document-link-hover);
   text-decoration-color: currentColor;
+}
+
+a:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid color-mix(in srgb, var(--document-link) 55%, transparent);
+  outline-offset: 2px;
 }
 
 blockquote {

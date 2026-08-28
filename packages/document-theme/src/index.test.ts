@@ -19,6 +19,18 @@ describe('document theme preferences', () => {
     expect(documentThemeCss).toContain('--document-line-height: 1.85;');
   });
 
+  it('uses dedicated neutral colors for finished-document links', () => {
+    expect(documentThemeCss).toContain('--document-link: #3f4b55;');
+    expect(documentThemeCss).toContain('--document-link-hover: #25292d;');
+    expect(documentThemeCss).toMatch(/a\s*\{[^}]*color: var\(--document-link\);/s);
+    expect(documentThemeCss).toMatch(
+      /a:hover,\s*a:focus-visible\s*\{[^}]*color: var\(--document-link-hover\);/s,
+    );
+    expect(documentThemeCss).toMatch(
+      /a:focus-visible\s*\{[^}]*outline: 2px solid color-mix\(in srgb, var\(--document-link\) 55%, transparent\);/s,
+    );
+  });
+
   it('creates one document-level width and typography variable set', () => {
     expect(getDocumentThemeVariables(preferences)).toEqual({
       '--document-body-font':

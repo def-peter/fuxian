@@ -497,7 +497,13 @@ test('a finished-document link opens outside the isolated preview', async () => 
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
-    await finishedDocument.getByRole('link', { name: 'Fuxian website' }).click();
+    const link = finishedDocument.getByRole('link', { name: 'Fuxian website' });
+    await expect(link).toHaveCSS('color', 'rgb(63, 75, 85)');
+    await link.hover();
+    await expect(link).toHaveCSS('color', 'rgb(37, 41, 45)');
+    await link.focus();
+    await expect(link).toHaveCSS('outline-style', 'solid');
+    await link.click();
 
     await expect
       .poll(() =>
