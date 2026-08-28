@@ -38,6 +38,7 @@ export interface FinishedDocumentController {
   findNext(): FindResult;
   findPrevious(): FindResult;
   focusDiagramAction(id: string, action: 'focus' | 'source'): void;
+  getDiagramSnapshots(): DiagramSnapshot[];
   getReadingPosition(): ReadingPosition;
   getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
@@ -197,6 +198,11 @@ export function bindFinishedDocument(
   );
   const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
     renderTaskElements.get(task.id);
+  const getDiagramSnapshot = (task: RenderTask): DiagramSnapshot | undefined => {
+    if (task.kind !== 'mermaid' && task.kind !== 'plantuml') return undefined;
+    const svg = getRenderTaskElement(task)?.querySelector('.render-task-output svg')?.outerHTML;
+    return { id: task.id, kind: task.kind, source: task.source, ...(svg ? { svg } : {}) };
+  };
 
   const getViewportFollowState = (): { distanceFromEnd: number; hasSelection: boolean } => {
     const scrollHeight = Math.max(
@@ -452,15 +458,11 @@ export function bindFinishedDocument(
       const id = diagramAction.closest<HTMLElement>('[data-render-task-id]')?.dataset.renderTaskId;
       const task = id ? renderTasks.get(id) : undefined;
       if (!task || (task.kind !== 'mermaid' && task.kind !== 'plantuml')) return;
-      const svg = getRenderTaskElement(task)?.querySelector('.render-task-output svg')?.outerHTML;
-      const diagram: DiagramSnapshot = {
-        id: task.id,
-        kind: task.kind,
-        source: task.source,
-        ...(svg ? { svg } : {}),
-      };
+      const diagram = getDiagramSnapshot(task);
+      if (!diagram) return;
       if (diagramAction.dataset.diagramAction === 'source') options.onInspectDiagram?.(diagram);
-      if (diagramAction.dataset.diagramAction === 'focus' && svg) options.onFocusDiagram?.(diagram);
+      if (diagramAction.dataset.diagramAction === 'focus' && diagram.svg)
+        options.onFocusDiagram?.(diagram);
       return;
     }
     const renderRetryButton = target?.closest<HTMLButtonElement>('[data-retry-render-task]');
@@ -599,6 +601,7 @@ export function bindFinishedDocument(
         ?.querySelector<HTMLButtonElement>(`[data-diagram-action="${action}"]`)
         ?.focus();
     },
+    getDiagramSnapshots: () => renderTaskList.flatMap((task) => getDiagramSnapshot(task) ?? []),
     getReadingPosition,
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),

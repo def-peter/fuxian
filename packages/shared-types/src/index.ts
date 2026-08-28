@@ -294,6 +294,7 @@ export type LocateSourceDocumentResult =
 export interface StartPdfExportRequest {
   path: string;
   preferences: ReaderPreferences;
+  renderedPlantUmlDiagrams: PdfExportPlantUmlDiagram[];
   source: string;
 }
 
@@ -302,10 +303,16 @@ export type StartPdfExportResult =
   | { message: string; status: 'failed' }
   | { exportId: string; status: 'started' };
 
+export interface PdfExportPlantUmlDiagram {
+  source: string;
+  svg: string;
+}
+
 export interface PdfExportPayload {
   document: SourceDocumentData;
   exportId: string;
   preferences: ReaderPreferences;
+  renderedPlantUmlDiagrams: PdfExportPlantUmlDiagram[];
 }
 
 export type PdfExportProgress =

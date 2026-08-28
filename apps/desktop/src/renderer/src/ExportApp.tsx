@@ -2,12 +2,29 @@ import { documentThemeCss } from '@fuxian/document-theme';
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type { PdfExportPayload } from '@fuxian/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { createDesktopPlantUmlRenderer } from '@/document-render-adapter';
+import {
+  createDesktopPlantUmlRenderer,
+  optimizePlantUmlSource,
+  type PlantUmlRenderer,
+} from '@/document-render-adapter';
 import { bindFinishedDocument, type FinishedDocumentController } from '@/finished-document';
 import { waitForExportImages, waitForStableExportLayout } from '@/pdf-export-readiness';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
+
+const createExportPlantUmlRenderer = (payload: PdfExportPayload): PlantUmlRenderer => {
+  const renderedDiagrams = new Map(
+    payload.renderedPlantUmlDiagrams.map(({ source, svg }) => [
+      optimizePlantUmlSource(source, payload.preferences.diagram.optimize),
+      svg,
+    ]),
+  );
+  return async (source, serverUrl, signal) => {
+    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
+    return renderedDiagrams.get(source) ?? renderPlantUml(source, serverUrl, signal);
+  };
+};
 
 const resolveAppearance = (payload: PdfExportPayload): 'dark' | 'light' =>
   payload.preferences.appearance === 'system'
@@ -65,7 +82,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
           total: snapshot.readiness.total,
         });
       },
-      renderPlantUml,
+      renderPlantUml: createExportPlantUmlRenderer(payload),
       revisionId: `pdf-export:${exportId}`,
     });
     controller.current = bound;

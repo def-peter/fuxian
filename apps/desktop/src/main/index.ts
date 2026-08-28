@@ -449,6 +449,20 @@ const registerDesktopHandlers = (
         typeof request.path !== 'string' ||
         typeof request.source !== 'string' ||
         request.source.length > 10_000_000 ||
+        !Array.isArray(request.renderedPlantUmlDiagrams) ||
+        request.renderedPlantUmlDiagrams.length > 100 ||
+        request.renderedPlantUmlDiagrams.some(
+          (diagram) =>
+            !diagram ||
+            typeof diagram.source !== 'string' ||
+            diagram.source.length > 1_000_000 ||
+            typeof diagram.svg !== 'string' ||
+            diagram.svg.length > 5_000_000,
+        ) ||
+        request.renderedPlantUmlDiagrams.reduce(
+          (total, diagram) => total + diagram.source.length + diagram.svg.length,
+          0,
+        ) > 20_000_000 ||
         !knownDocumentPaths.has(request.path)
       ) {
         return { message: '当前文档不属于受信任的文档会话。', status: 'failed' };
@@ -476,6 +490,10 @@ const registerDesktopHandlers = (
           document: { ...result.document, source: request.source },
           exportId,
           preferences: normalizeReaderPreferences(request.preferences),
+          renderedPlantUmlDiagrams: request.renderedPlantUmlDiagrams.map(({ source, svg }) => ({
+            source,
+            svg,
+          })),
         },
         printing: false,
         temporaryPath: `${outputPath}.${exportId}.tmp`,

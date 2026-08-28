@@ -51,11 +51,14 @@ const launchDesktop = (
 
 const startDeferredPlantUmlServer = async (): Promise<{
   nextRequest(): Promise<ServerResponse>;
+  requestCount(): number;
   url: string;
 }> => {
+  let requestCount = 0;
   const responses: ServerResponse[] = [];
   const waiters: Array<(response: ServerResponse) => void> = [];
   const server = createServer((_request, response) => {
+    requestCount += 1;
     const waiter = waiters.shift();
     if (waiter) waiter(response);
     else responses.push(response);
@@ -69,6 +72,7 @@ const startDeferredPlantUmlServer = async (): Promise<{
       responses.length > 0
         ? Promise.resolve(responses.shift()!)
         : new Promise((resolveResponse) => waiters.push(resolveResponse)),
+    requestCount: () => requestCount,
     url: `http://127.0.0.1:${address.port}/plantuml`,
   };
 };
@@ -174,11 +178,8 @@ test('exports complete finished-document content with stable pagination', async 
     await expect(
       exportWindow.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 10_000 });
-    const response = await server.nextRequest();
-    response.end(
-      '<svg xmlns="http://www.w3.org/2000/svg"><text x="4" y="14">Plant diagram</text></svg>',
-    );
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    expect(server.requestCount()).toBe(1);
 
     const first = await inspectPdf(outputPath);
     expect(first.text).toContain('Deterministic export');
@@ -187,15 +188,122 @@ test('exports complete finished-document content with stable pagination', async 
     expect(first.links).toContain('https://openai.com/');
 
     await window.getByRole('button', { name: '导出 PDF' }).click();
-    await expect(window.getByText('正在渲染内容')).toBeVisible();
-    const secondResponse = await server.nextRequest();
-    secondResponse.end(
-      '<svg xmlns="http://www.w3.org/2000/svg"><text x="4" y="14">Plant diagram</text></svg>',
-    );
+    await expect(window.getByText('正在准备文档')).toBeVisible();
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    expect(server.requestCount()).toBe(1);
     const second = await inspectPdf(outputPath);
     expect(second.pages).toBe(first.pages);
     expect(second.text.replace(/\s+/gu, ' ')).toBe(first.text.replace(/\s+/gu, ' '));
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('exports every PlantUML diagram from a multi-diagram document', async () => {
+  test.setTimeout(90_000);
+  const server = await startDeferredPlantUmlServer();
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-pdf-multi-plantuml-'));
+  const sourcePath = join(directory, 'multi-plantuml.md');
+  const preferencesPath = join(directory, 'preferences.json');
+  const sessionPath = join(directory, 'session.json');
+  const outputPath = join(directory, 'multi-plantuml.pdf');
+  const labels = ['Plant diagram one', 'Plant diagram two', 'Plant diagram three'];
+  await writeFile(
+    sourcePath,
+    [
+      '# Multiple PlantUML diagrams',
+      '',
+      ...labels.flatMap((label, index) => [
+        `## Diagram ${index + 1}`,
+        '',
+        '```plantuml',
+        '@startuml',
+        `Alice -> Bob: ${label}`,
+        '@enduml',
+        '```',
+        '',
+      ]),
+    ].join('\n'),
+  );
+  await writeFile(preferencesPath, JSON.stringify(preferences(server.url)));
+  const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, outputPath);
+
+  const answerPlantUmlRequests = async (): Promise<void> => {
+    for (const label of labels) {
+      const response = await server.nextRequest();
+      response.end(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><text x="16" y="32">${label}</text></svg>`,
+      );
+    }
+  };
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await answerPlantUmlRequests();
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    expect(server.requestCount()).toBe(3);
+
+    const result = await inspectPdf(outputPath);
+    for (const label of labels) expect(result.text).toContain(label);
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('reuses visible PlantUML diagrams without export-time requests', async () => {
+  test.setTimeout(90_000);
+  const server = await startDeferredPlantUmlServer();
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-pdf-plantuml-reuse-'));
+  const sourcePath = join(directory, 'plantuml-reuse.md');
+  const preferencesPath = join(directory, 'preferences.json');
+  const sessionPath = join(directory, 'session.json');
+  const outputPath = join(directory, 'plantuml-reuse.pdf');
+  const renderedLabels = ['Rendered plant one', 'Rendered plant two', 'Rendered plant three'];
+  await writeFile(
+    sourcePath,
+    [
+      '# Reuse visible diagrams',
+      '',
+      ...renderedLabels.flatMap((_label, index) => [
+        `## Source diagram ${index + 1}`,
+        '',
+        '```plantuml',
+        '@startuml',
+        `A${index} -> B${index}`,
+        '@enduml',
+        '```',
+        '',
+      ]),
+    ].join('\n'),
+  );
+  await writeFile(preferencesPath, JSON.stringify(preferences(server.url)));
+  const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, outputPath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    for (const label of renderedLabels) {
+      const response = await server.nextRequest();
+      response.end(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><text x="16" y="32">${label}</text></svg>`,
+      );
+    }
+    await expect(
+      window
+        .frameLocator('iframe[title="Finished document"]')
+        .locator('[data-render-task-kind="plantuml"] .render-task-output svg'),
+    ).toHaveCount(3);
+
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    expect(server.requestCount()).toBe(3);
+
+    const result = await inspectPdf(outputPath);
+    for (const label of renderedLabels) expect(result.text).toContain(label);
   } finally {
     await electronApp.close();
     await rm(directory, { force: true, recursive: true });

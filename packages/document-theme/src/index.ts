@@ -121,7 +121,7 @@ body {
   width: min(100%, var(--document-width));
   min-width: 0;
   margin: 0 auto;
-  padding: 72px 72px 120px;
+  padding: 72px clamp(40px, 5vw, 64px) 120px;
 }
 
 h1,

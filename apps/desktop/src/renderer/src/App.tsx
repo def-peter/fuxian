@@ -977,6 +977,12 @@ export function App(): React.JSX.Element {
       const result = await window.fuxian.startPdfExport({
         path,
         preferences,
+        renderedPlantUmlDiagrams: (finishedDocumentController.current?.getDiagramSnapshots() ?? [])
+          .filter(
+            (diagram): diagram is DiagramSnapshot & { kind: 'plantuml'; svg: string } =>
+              diagram.kind === 'plantuml' && Boolean(diagram.svg),
+          )
+          .map(({ source, svg }) => ({ source, svg })),
         source: document.document.source,
       });
       if (result.status === 'started') {
@@ -1229,42 +1235,8 @@ export function App(): React.JSX.Element {
               )}
               data-reader-toolbar=""
             >
-              <div className="flex min-w-0 items-center gap-1.5">
-                <Button
-                  aria-label={
-                    contentOutlineInline
-                      ? '折叠内容目录'
-                      : shellLayout === 'wide'
-                        ? '展开内容目录'
-                        : '打开内容目录'
-                  }
-                  onClick={() => {
-                    if (contentOutlineInline) {
-                      updateShellPreferences({ contentOutlineExpanded: false });
-                    } else if (shellLayout === 'wide') {
-                      updateShellPreferences({ contentOutlineExpanded: true });
-                    } else {
-                      setContentOutlineSheetOpen(true);
-                    }
-                  }}
-                  ref={contentOutlineTrigger}
-                  size="icon-sm"
-                  title={
-                    contentOutlineInline
-                      ? '折叠内容目录'
-                      : shellLayout === 'wide'
-                        ? '展开内容目录'
-                        : '打开内容目录'
-                  }
-                  variant="ghost"
-                >
-                  {contentOutlineInline ? (
-                    <PanelRightClose aria-hidden="true" />
-                  ) : (
-                    <PanelRightOpen aria-hidden="true" />
-                  )}
-                </Button>
-                <FileText aria-hidden="true" className="ml-1 size-4 text-muted-foreground" />
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
                 <span
                   aria-label={`${activeDocument.document.name}，${activeDocument.document.path}`}
                   className="truncate text-sm font-semibold"
@@ -1429,6 +1401,40 @@ export function App(): React.JSX.Element {
                 >
                   <FolderOpen aria-hidden="true" />
                   <span className="max-[1199px]:sr-only">打开其他文档</span>
+                </Button>
+                <Button
+                  aria-label={
+                    contentOutlineInline
+                      ? '折叠内容目录'
+                      : shellLayout === 'wide'
+                        ? '展开内容目录'
+                        : '打开内容目录'
+                  }
+                  onClick={() => {
+                    if (contentOutlineInline) {
+                      updateShellPreferences({ contentOutlineExpanded: false });
+                    } else if (shellLayout === 'wide') {
+                      updateShellPreferences({ contentOutlineExpanded: true });
+                    } else {
+                      setContentOutlineSheetOpen(true);
+                    }
+                  }}
+                  ref={contentOutlineTrigger}
+                  size="icon-sm"
+                  title={
+                    contentOutlineInline
+                      ? '折叠内容目录'
+                      : shellLayout === 'wide'
+                        ? '展开内容目录'
+                        : '打开内容目录'
+                  }
+                  variant="ghost"
+                >
+                  {contentOutlineInline ? (
+                    <PanelRightClose aria-hidden="true" />
+                  ) : (
+                    <PanelRightOpen aria-hidden="true" />
+                  )}
                 </Button>
               </div>
             </header>

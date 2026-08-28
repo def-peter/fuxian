@@ -78,7 +78,7 @@ function UnavailableDocumentItem({
             tabIndex={0}
           >
             <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
-            <span className="truncate">{document.name}</span>
+            <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </div>
         </TooltipTrigger>
         <TooltipContent className="max-w-96" side="right" sideOffset={6}>
@@ -130,7 +130,7 @@ function DocumentItem({
   return (
     <div
       className={cn(
-        'group flex min-h-9 items-center border-l-2 border-transparent pr-1',
+        'group flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
         active && 'border-primary bg-accent text-accent-foreground',
       )}
     >
@@ -139,7 +139,7 @@ function DocumentItem({
           <button
             aria-label={`${document.name}${loading ? '，正在更新' : ''}`}
             aria-current={active ? 'page' : undefined}
-            className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={onActivate}
             type="button"
           >
@@ -148,7 +148,7 @@ function DocumentItem({
             ) : (
               <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
             )}
-            <span className="truncate">{document.name}</span>
+            <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-96 break-all" side="right" sideOffset={6}>
@@ -258,8 +258,8 @@ export function DocumentSessionSidebar({
         </Tooltip>
       </header>
 
-      <ScrollArea className="min-h-0">
-        <div className="flex flex-col gap-2 py-2">
+      <ScrollArea className="min-h-0 min-w-0 overflow-hidden">
+        <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden py-2">
           <SessionSection count={openDocuments.length} title="正在打开">
             {openDocuments.map((document) =>
               document.status !== 'unavailable' ? (

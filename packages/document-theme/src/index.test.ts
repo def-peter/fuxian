@@ -33,6 +33,7 @@ describe('document theme preferences', () => {
   it('keeps all content constrained by the finished-document width', () => {
     const css = createDocumentThemeCss(preferences);
     expect(css).toContain('width: min(100%, var(--document-width))');
+    expect(css).toContain('padding: 72px clamp(40px, 5vw, 64px) 120px');
     expect(css).toContain('--document-width: 1050px');
     expect(css).toContain(':root[data-appearance="dark"]');
   });
