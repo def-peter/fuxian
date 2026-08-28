@@ -43,4 +43,4 @@ Release packaging and the manually dispatched installer workflow are documented 
 
 ## License
 
-Fuxian is available under the [MIT License](LICENSE). Bundled third-party software remains subject to the licenses listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Fuxian is available under the [MIT License](LICENSE).

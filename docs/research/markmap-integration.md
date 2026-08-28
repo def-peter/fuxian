@@ -103,7 +103,7 @@ PDF 不得序列化用户偶然留下的折叠、缩放或平移状态。每个 
 
 npm 快照中，`markmap-lib@0.18.12` tarball/unpacked 为 181,381 / 741,061 bytes，`markmap-view@0.18.12` 为 22,865 / 86,454 bytes，`markmap-common@0.18.9` 为 7,219 / 33,693 bytes。`markmap-lib/no-plugins` 发布入口自身约 3.8 KiB，但包依赖仍声明 Markdown-it、KaTeX、highlight.js、Prism、YAML、HTML parser 与 `markmap-view`；实际安装包和 lazy chunk 增量必须以 Fuxian production build/asar 为准。[markmap-lib package](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/packages/markmap-lib/package.json#L18-L83) [markmap-view package](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/packages/markmap-view/package.json#L31-L53)
 
-Markmap packages 为 MIT；`markmap-view` 依赖 D3，并把 `d3-flextree` 用于布局。发布时要更新并验证 `THIRD_PARTY_NOTICES.md`，特别检查被上游构建产物包含、但只列在其 devDependencies 的 `d3-flextree`。[Markmap MIT License](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/LICENSE) [layout import](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/packages/markmap-view/src/view.ts#L1-L23)
+Markmap packages 为 MIT；`markmap-view` 依赖 D3，并把 `d3-flextree` 用于布局，均与 Fuxian 的开源协议兼容。[Markmap MIT License](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/LICENSE) [layout import](https://github.com/markmap/markmap/blob/99fc93e6efd4a1df01260232d818fb57955d71df/packages/markmap-view/src/view.ts#L1-L23)
 
 ## First-release acceptance boundary
 

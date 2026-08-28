@@ -37,10 +37,6 @@ export const verifyPackagedApp = async (outputDirectory) => {
   }
 
   for (const archive of archives) {
-    const noticesPath = join(archive, '..', 'THIRD_PARTY_NOTICES.md');
-    if (!files.includes(resolve(noticesPath))) {
-      errors.push(`${relative(root, archive)} is missing THIRD_PARTY_NOTICES.md`);
-    }
     const entries = listPackage(archive);
     if (entries.some((path) => path.startsWith('/node_modules/electron/'))) {
       errors.push(`${relative(root, archive)} contains the Electron development dependency`);

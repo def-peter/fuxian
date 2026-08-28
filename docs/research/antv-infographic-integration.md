@@ -76,7 +76,7 @@ MVP 应拒绝 `icon`、`illus`、remote/search/custom/data URI 和自定义字�
 
 npm registry 快照：`0.2.20` tarball 约 1.775 MB，unpacked 8,225,193 bytes / 1,732 files；官方 UMD minified 文件本地测得 877,959 bytes，gzip 约 288,714 bytes。官方仓库的 size-limit 仍写 500 KB，因此最终判断必须以 Fuxian 的 Vite lazy chunk、asar 和安装包增量为准。[npm registry metadata](https://registry.npmjs.org/@antv/infographic/0.2.20) [官方 size-limit](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/package.json#L158-L167)
 
-主包为 MIT；发布流程仍应把它及全部传递依赖加入现有 `THIRD_PARTY_NOTICES.md` 生成与校验。[License](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/LICENSE)
+主包为 MIT，与 Fuxian 的开源协议兼容。[License](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/LICENSE)
 
 ## 首版边界
 

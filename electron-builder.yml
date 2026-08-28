@@ -11,9 +11,6 @@ files:
   - '!node_modules/electron{,/**/*}'
 asarUnpack:
   - apps/desktop/resources/**
-extraResources:
-  - from: THIRD_PARTY_NOTICES.md
-    to: THIRD_PARTY_NOTICES.md
 fileAssociations:
   - ext:
       - md
