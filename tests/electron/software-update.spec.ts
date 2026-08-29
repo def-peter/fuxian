@@ -17,6 +17,14 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/showcase.md');
 
+const readJsonIfAvailable = async <Value>(path: string): Promise<Value | undefined> => {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as Value;
+  } catch {
+    return undefined;
+  }
+};
+
 const findSettingsWindow = async (electronApp: ElectronApplication): Promise<Page> => {
   await expect.poll(() => electronApp.windows().length).toBe(2);
   const settingsWindow = electronApp
@@ -63,18 +71,14 @@ test('downloads an available update and flushes the reading session before insta
       .toBeLessThan(40);
     await expect
       .poll(async () => {
-        try {
-          const session = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
-            openDocuments: Array<{
-              path: string;
-              readingPosition: { relativeProgress: number };
-            }>;
-          };
-          return session.openDocuments.find(({ path }) => path === sourceDocumentPath)
-            ?.readingPosition.relativeProgress;
-        } catch {
-          return undefined;
-        }
+        const session = await readJsonIfAvailable<{
+          openDocuments: Array<{
+            path: string;
+            readingPosition: { relativeProgress: number };
+          }>;
+        }>(sessionFilePath);
+        return session?.openDocuments.find(({ path }) => path === sourceDocumentPath)
+          ?.readingPosition.relativeProgress;
       })
       .toBeGreaterThan(0);
 
@@ -94,14 +98,16 @@ test('downloads an available update and flushes the reading session before insta
     await settingsWindow.getByRole('button', { name: '重启并更新' }).click();
 
     await expect
-      .poll(async () => JSON.parse(await readFile(installMarkerPath, 'utf8')))
-      .toEqual({ installedVersion: '0.2.0' });
+      .poll(() => readJsonIfAvailable(installMarkerPath))
+      .toEqual({
+        installedVersion: '0.2.0',
+      });
     await expect
       .poll(async () => {
-        const session = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+        const session = await readJsonIfAvailable<{
           openDocuments: Array<{ path: string; readingPosition: { relativeProgress: number } }>;
-        };
-        return session.openDocuments.find(({ path }) => path === sourceDocumentPath)
+        }>(sessionFilePath);
+        return session?.openDocuments.find(({ path }) => path === sourceDocumentPath)
           ?.readingPosition.relativeProgress;
       })
       .toBeGreaterThan(0);
@@ -136,9 +142,7 @@ test('opens the matching GitHub Release for a manual macOS-style update', async 
     await expect(settingsWindow.getByText('新版本 0.2.0 可用')).toBeVisible();
     await settingsWindow.getByRole('button', { name: '前往 GitHub Release' }).click();
 
-    await expect
-      .poll(async () => JSON.parse(await readFile(releaseMarkerPath, 'utf8')))
-      .toEqual({ version: '0.2.0' });
+    await expect.poll(() => readJsonIfAvailable(releaseMarkerPath)).toEqual({ version: '0.2.0' });
     await expect(settingsWindow.getByRole('button', { name: '下载更新' })).toHaveCount(0);
   } finally {
     await electronApp.close();
