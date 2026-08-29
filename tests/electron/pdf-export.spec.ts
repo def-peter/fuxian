@@ -389,7 +389,15 @@ test('exports complete finished-document content with stable pagination', async 
       '[data-render-task-kind="vega-lite"] .render-task-output svg',
     );
     await expect(exportedVegaLite).toBeVisible({ timeout: 15_000 });
-    expect(await exportedVegaLite.evaluate((svg) => svg.outerHTML)).toBe(visibleVegaLiteSnapshot);
+    expect(
+      await exportedVegaLite.evaluate((svg) => {
+        const clone = svg.cloneNode(true) as SVGElement;
+        for (const element of [clone, ...clone.querySelectorAll('*')]) {
+          element.removeAttribute('data-ref');
+        }
+        return clone.outerHTML;
+      }),
+    ).toBe(visibleVegaLiteSnapshot);
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
     expect(server.requestCount()).toBe(1);
 

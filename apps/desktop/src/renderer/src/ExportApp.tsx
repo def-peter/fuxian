@@ -1,58 +1,14 @@
 import { documentThemeCss } from '@fuxian/document-theme';
-import { renderMarkdown } from '@fuxian/markdown-renderer';
 import type { PdfExportPayload } from '@fuxian/shared-types';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  createDesktopPlantUmlRenderer,
-  type InfographicRenderer,
-  type PlantUmlRenderer,
-  type VegaLiteRenderer,
-} from '@/document-render-adapter';
-import { bindFinishedDocument, type FinishedDocumentController } from '@/finished-document';
-import { waitForExportImages, waitForStableExportLayout } from '@/pdf-export-readiness';
-import { toDocumentThemePreferences } from '@/reader-preferences-theme';
-
-const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
-
-const createExportPlantUmlRenderer = (payload: PdfExportPayload): PlantUmlRenderer => {
-  const renderedDiagrams = new Map(
-    payload.renderedVisuals
-      .filter((visual) => visual.kind === 'plantuml')
-      .map(({ source, svg }) => [source, svg]),
-  );
-  return async (source, serverUrl, signal) => {
-    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
-    return renderedDiagrams.get(source) ?? renderPlantUml(source, serverUrl, signal);
-  };
-};
-
-const createExportVegaLiteRenderer = (payload: PdfExportPayload): VegaLiteRenderer => {
-  const renderedVisuals = new Map(
-    payload.renderedVisuals
-      .filter((visual) => visual.kind === 'vega-lite')
-      .map(({ source, svg }) => [source, svg]),
-  );
-  return async (source, signal) => {
-    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
-    const svg = renderedVisuals.get(source);
-    if (!svg) throw new TypeError('可视化快照不可用，无法保证 PDF 与屏幕内容一致。');
-    return svg;
-  };
-};
-
-const createExportInfographicRenderer = (payload: PdfExportPayload): InfographicRenderer => {
-  const renderedVisuals = new Map(
-    payload.renderedVisuals
-      .filter((visual) => visual.kind === 'infographic')
-      .map(({ source, svg }) => [source, svg]),
-  );
-  return async (source, signal) => {
-    if (signal.aborted) throw new DOMException('渲染任务已取消。', 'AbortError');
-    const svg = renderedVisuals.get(source);
-    if (!svg) throw new TypeError('信息图快照不可用，无法保证 PDF 与屏幕内容一致。');
-    return svg;
-  };
-};
+  applyPaperTheme,
+  paginateFinishedDocument,
+  paperPagedMediaCss,
+  paperRuntimeCss,
+  type PaginatedDocument,
+} from './paper-pagination';
+import { toDocumentThemePreferences } from './reader-preferences-theme';
 
 const resolveAppearance = (payload: PdfExportPayload): 'dark' | 'light' =>
   payload.preferences.appearance === 'system'
@@ -61,88 +17,71 @@ const resolveAppearance = (payload: PdfExportPayload): 'dark' | 'light' =>
       : 'light'
     : payload.preferences.appearance;
 
-export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element | null {
-  const [payload, setPayload] = useState<PdfExportPayload>();
-  const [html, setHtml] = useState<string>();
-  const controller = useRef<FinishedDocumentController | undefined>(undefined);
+export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element {
+  const viewport = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    let disposed = false;
+    let pagination: PaginatedDocument | undefined;
+    const abortController = new AbortController();
     document.documentElement.dataset.pdfExport = 'true';
-    void window.fuxian
-      .getPdfExportPayload(exportId)
-      .then((nextPayload) => {
-        const rendered = renderMarkdown({
-          resourceBaseUrl: nextPayload.document.resourceBaseUrl,
-          source: nextPayload.document.source,
-        });
-        setPayload(nextPayload);
-        setHtml(rendered.html);
-      })
-      .catch((error: unknown) => {
-        window.fuxian.signalPdfExportReady({
-          exportId,
-          message: error instanceof Error ? error.message : '无法准备 PDF 文档。',
-          status: 'failed',
-        });
-      });
-    return () => {
-      delete document.documentElement.dataset.pdfExport;
-    };
-  }, [exportId]);
-
-  useEffect(() => {
-    if (!payload || html === undefined) return;
-    const appearance = resolveAppearance(payload);
-    const bound = bindFinishedDocument(document, {
-      copyText: window.fuxian.copyText,
-      initialPlantUmlServerUrl: payload.preferences.plantUml.serverUrl,
-      initialReadingPosition: { headingOffset: 0, relativeProgress: 0 },
-      onActiveHeadingChange: () => undefined,
-      onFindRequest: () => undefined,
-      onReadingPositionChange: () => undefined,
-      onRenderSnapshot: (snapshot) => {
-        const completed = snapshot.readiness.total - snapshot.readiness.pending;
-        window.fuxian.reportPdfExportProgress({
-          completed,
-          exportId,
-          total: snapshot.readiness.total,
-        });
-      },
-      renderPlantUml: createExportPlantUmlRenderer(payload),
-      renderVegaLite: createExportVegaLiteRenderer(payload),
-      renderInfographic: createExportInfographicRenderer(payload),
-      revisionId: `pdf-export:${exportId}`,
-    });
-    controller.current = bound;
-    bound.applyTheme(toDocumentThemePreferences(payload.preferences, appearance));
 
     void (async () => {
       try {
-        await Promise.all([bound.whenRenderReady(), waitForExportImages(document)]);
+        const payload = await window.fuxian.getPdfExportPayload(exportId);
+        if (disposed) return;
+        applyPaperTheme(
+          document,
+          toDocumentThemePreferences(payload.preferences, resolveAppearance(payload)),
+        );
+        window.fuxian.reportPdfExportProgress({ completed: 0, exportId, total: 1 });
+        pagination = await paginateFinishedDocument({
+          document,
+          html: payload.finishedDocumentHtml,
+          signal: abortController.signal,
+        });
+        if (disposed) return;
+        viewport.current?.replaceChildren(pagination.element);
         await document.fonts.ready;
-        await waitForStableExportLayout(window);
+        await new Promise<void>((resolve) =>
+          globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(() => resolve())),
+        );
         document.documentElement.dataset.exportReady = 'true';
-        window.fuxian.signalPdfExportReady({ exportId, status: 'ready' });
-      } catch (error) {
+        document.documentElement.dataset.paperPageCount = `${pagination.pageCount}`;
+        window.fuxian.reportPdfExportProgress({ completed: 1, exportId, total: 1 });
         window.fuxian.signalPdfExportReady({
           exportId,
-          message: error instanceof Error ? error.message : 'PDF 页面准备失败。',
+          pageCount: pagination.pageCount,
+          status: 'ready',
+        });
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        window.fuxian.signalPdfExportReady({
+          exportId,
+          message: error instanceof Error ? error.message : '无法准备 PDF 文档。',
           status: 'failed',
         });
       }
     })();
 
     return () => {
-      bound.destroy();
-      if (controller.current === bound) controller.current = undefined;
+      disposed = true;
+      abortController.abort();
+      pagination?.cleanup();
+      delete document.documentElement.dataset.exportReady;
+      delete document.documentElement.dataset.pdfExport;
+      delete document.documentElement.dataset.paperPageCount;
     };
-  }, [exportId, html, payload]);
+  }, [exportId]);
 
-  if (html === undefined) return null;
   return (
     <>
-      <style>{documentThemeCss}</style>
-      <main className="finished-document" dangerouslySetInnerHTML={{ __html: html }} />
+      <style data-pagedjs-ignore="true" media="screen">
+        {documentThemeCss}
+      </style>
+      <style data-pagedjs-ignore="true">{paperPagedMediaCss}</style>
+      <style data-pagedjs-ignore="true">{paperRuntimeCss}</style>
+      <main aria-label="PDF 分页文档" className="paper-preview-viewport" ref={viewport} />
     </>
   );
 }

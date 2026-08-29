@@ -43,6 +43,7 @@ export interface FinishedDocumentController {
   getReadingPosition(): ReadingPosition;
   getViewportFollowState(): { distanceFromEnd: number; hasSelection: boolean };
   getRenderSnapshot(): RenderRevisionSnapshot;
+  getStaticSnapshotHtml(): string;
   locateRenderedVisual(id: string): boolean;
   restoreReadingPosition(position: ReadingPosition): void;
   scrollToEnd(): ReadingPosition;
@@ -79,6 +80,7 @@ interface BindFinishedDocumentOptions {
   renderScheduler?: RenderTaskScheduler;
   renderTimeoutMilliseconds?: number;
   revisionId?: string;
+  staticSnapshot?: boolean;
 }
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
@@ -154,17 +156,20 @@ const sanitizeInfographicText = (svg: Element): void => {
   }
 };
 
-const collectRenderTasks = (frameDocument: Document): RenderTask[] =>
-  Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
-    (element) => {
-      const id = element.dataset.renderTaskId;
-      const kind = element.dataset.renderTaskKind;
-      const source = element.querySelector<HTMLElement>('.render-task-source')?.textContent;
-      return id && kind && source !== undefined && renderTaskKinds.has(kind)
-        ? [{ id, kind, source }]
-        : [];
-    },
-  );
+const collectRenderTasks = (frameDocument: Document): RenderTask[] => {
+  const tasks = new Map<string, RenderTask>();
+  for (const element of frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')) {
+    const id = element.dataset.renderTaskId;
+    const kind = element.dataset.renderTaskKind;
+    const source =
+      element.querySelector<HTMLElement>('.render-task-source')?.textContent ??
+      element.dataset.staticRenderTaskSource;
+    if (id && kind && source !== undefined && renderTaskKinds.has(kind) && !tasks.has(id)) {
+      tasks.set(id, { id, kind, source });
+    }
+  }
+  return [...tasks.values()];
+};
 
 export const sanitizeRenderedVisualSvg = (
   frameDocument: Document,
@@ -307,38 +312,63 @@ export function bindFinishedDocument(
     throw new TypeError('The finished document must have an active window.');
   }
 
+  const intersectsPagedContent = (element: Element): boolean => {
+    if (!options.staticSnapshot) return true;
+    const pageContent = element.closest('.pagedjs_page_content');
+    if (!pageContent) return false;
+    const bounds = element.getBoundingClientRect();
+    const pageBounds = pageContent.getBoundingClientRect();
+    return (
+      bounds.width > 0 &&
+      bounds.height > 0 &&
+      bounds.right > pageBounds.left &&
+      bounds.left < pageBounds.right &&
+      bounds.bottom > pageBounds.top &&
+      bounds.top < pageBounds.bottom
+    );
+  };
   const headingElements = Array.from(
     frameDocument.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'),
-  ).filter((heading) => !heading.matches('.sr-only') && !heading.closest('[hidden]'));
+  ).filter(
+    (heading) =>
+      !heading.matches('.sr-only') &&
+      !heading.closest('[hidden]') &&
+      intersectsPagedContent(heading),
+  );
   const findRanges: Range[] = [];
   let currentFindIndex = -1;
   let scrollAnimationFrame = 0;
   let scrollIdleTimer = 0;
   let restoreAnimationFrame = 0;
   let restoringReadingPosition = true;
-  const documentRenderAdapter: DocumentRenderAdapter | undefined = options.renderAdapter
-    ? undefined
-    : createDocumentRenderAdapter(
-        options.initialPlantUmlServerUrl ?? defaultPlantUmlServerUrl,
-        options.renderPlantUml ??
-          (async () => {
-            throw new TypeError('PlantUML 渲染服务不可用。');
-          }),
-        options.renderVegaLite,
-        options.renderInfographic,
-      );
-  const renderTaskList = collectRenderTasks(frameDocument);
-  const renderTasks = new Map(renderTaskList.map((task) => [task.id, task]));
-  const renderTaskElements = new Map(
-    Array.from(frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')).flatMap(
-      (element) =>
-        element.dataset.renderTaskId ? [[element.dataset.renderTaskId, element] as const] : [],
-    ),
-  );
+  const allRenderTasks = collectRenderTasks(frameDocument);
+  const documentRenderAdapter: DocumentRenderAdapter | undefined =
+    options.staticSnapshot || options.renderAdapter
+      ? undefined
+      : createDocumentRenderAdapter(
+          options.initialPlantUmlServerUrl ?? defaultPlantUmlServerUrl,
+          options.renderPlantUml ??
+            (async () => {
+              throw new TypeError('PlantUML 渲染服务不可用。');
+            }),
+          options.renderVegaLite,
+          options.renderInfographic,
+        );
+  const renderTaskList = options.staticSnapshot ? [] : allRenderTasks;
+  const renderTasks = new Map(allRenderTasks.map((task) => [task.id, task]));
+  const renderTaskElements = new Map<string, HTMLElement>();
+  for (const element of frameDocument.querySelectorAll<HTMLElement>('[data-render-task-id]')) {
+    const id = element.dataset.renderTaskId;
+    if (!id) continue;
+    const current = renderTaskElements.get(id);
+    if (!current || element.querySelector('.render-task-output svg')) {
+      renderTaskElements.set(id, element);
+    }
+  }
   const getRenderTaskElement = (task: RenderTask): HTMLElement | undefined =>
     renderTaskElements.get(task.id);
   const diagramContexts = new Map(
-    renderTaskList
+    allRenderTasks
       .filter((task) => renderedVisualTaskKinds.has(task.kind))
       .flatMap((task, index) => {
         const element = getRenderTaskElement(task);
@@ -405,7 +435,7 @@ export function bindFinishedDocument(
     return button;
   };
 
-  for (const task of renderTaskList) {
+  for (const task of allRenderTasks) {
     if (!renderedVisualTaskKinds.has(task.kind)) continue;
     const element = getRenderTaskElement(task);
     if (!element) continue;
@@ -481,7 +511,14 @@ export function bindFinishedDocument(
   };
 
   const renderCoordinator = new RenderCoordinator<DocumentRenderResult>({
-    adapter: options.renderAdapter ?? documentRenderAdapter!,
+    adapter:
+      options.renderAdapter ??
+      documentRenderAdapter ??
+      ({
+        render: async () => {
+          throw new TypeError('静态文档快照不执行渲染任务。');
+        },
+      } satisfies RenderTaskAdapter<DocumentRenderResult>),
     onSnapshot: (snapshot) => {
       frameDocument.documentElement.dataset.renderReadiness = snapshot.readiness.complete
         ? 'ready'
@@ -616,8 +653,11 @@ export function bindFinishedDocument(
     }
 
     const normalizedQuery = query.toLocaleLowerCase();
+    const findRoot = options.staticSnapshot
+      ? frameDocument.querySelector('.paper-preview-pages')
+      : frameDocument.querySelector('.finished-document');
     const walker = frameDocument.createTreeWalker(
-      frameDocument.querySelector('.finished-document') ?? frameDocument.body,
+      findRoot ?? frameDocument.body,
       NodeFilter.SHOW_TEXT,
     );
 
@@ -791,10 +831,21 @@ export function bindFinishedDocument(
         ?.focus();
     },
     getRenderedVisualSnapshots: () =>
-      renderTaskList.flatMap((task) => getRenderedVisualSnapshot(task) ?? []),
+      allRenderTasks.flatMap((task) => getRenderedVisualSnapshot(task) ?? []),
     getReadingPosition,
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
+    getStaticSnapshotHtml: () => {
+      const source = frameDocument.querySelector<HTMLElement>('.finished-document');
+      if (!source) throw new TypeError('完成文档快照不可用。');
+      const clone = source.cloneNode(true) as HTMLElement;
+      for (const control of clone.querySelectorAll(
+        '.diagram-action-toolbar, .code-toolbar, .resource-retry-button, .render-task-retry-button',
+      )) {
+        control.remove();
+      }
+      return clone.innerHTML;
+    },
     locateRenderedVisual: (id) => {
       const task = renderTasks.get(id);
       if (!task || !renderedVisualTaskKinds.has(task.kind)) return false;
@@ -819,7 +870,9 @@ export function bindFinishedDocument(
       return position;
     },
     scrollToHeading: (id: string) => {
-      frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const heading = headingElements.find((candidate) => candidate.id === id);
+      heading?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (heading) onActiveHeadingChange(id);
     },
     whenRenderReady: () => renderRevision.whenReady(),
     whenRenderTaskKindsReady: (taskKinds) => renderRevision.whenTaskKindsReady(taskKinds),

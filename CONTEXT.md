@@ -48,6 +48,10 @@ _Avoid_: Preview, rendered page
 The global width preference applied consistently to every finished document. It may be adaptive, constrained to A4 proportions, or set by the user, but individual documents and content blocks do not choose independent widths.
 _Avoid_: Diagram width, content card width
 
+**Paper preview mode**:
+A transient reading view that fragments the active finished document into explicit A4 page boxes using the same printable layout rules as PDF export. It has real page height, margins, gaps, and page count; it is distinct from the continuous document width named A4.
+_Avoid_: A4 document width, PDF viewer, print dialog
+
 **Document typography**:
 The global configurable typography of finished documents: serif or sans-serif body preset, body size, and line height. Application-shell typography remains fixed and separate.
 _Avoid_: UI font, custom CSS

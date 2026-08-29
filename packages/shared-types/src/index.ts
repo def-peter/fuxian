@@ -329,6 +329,8 @@ export type LocateSourceDocumentResult =
   | { message: string; status: 'unavailable' };
 
 export interface StartPdfExportRequest {
+  expectedPageCount?: number;
+  finishedDocumentHtml: string;
   path: string;
   preferences: ReaderPreferences;
   renderedVisuals: PdfExportRenderedVisual[];
@@ -348,7 +350,9 @@ export interface PdfExportRenderedVisual {
 
 export interface PdfExportPayload {
   document: SourceDocumentData;
+  expectedPageCount?: number;
   exportId: string;
+  finishedDocumentHtml: string;
   preferences: ReaderPreferences;
   renderedVisuals: PdfExportRenderedVisual[];
 }
@@ -371,7 +375,8 @@ export interface PdfExportRenderProgress {
 }
 
 export type PdfExportReadySignal =
-  { exportId: string; status: 'ready' } | { exportId: string; message: string; status: 'failed' };
+  | { exportId: string; pageCount: number; status: 'ready' }
+  | { exportId: string; message: string; status: 'failed' };
 
 export interface FuxianDesktopBridge {
   cancelAppUpdateDownload(): Promise<AppUpdateStatus>;

@@ -1,8 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
-import { ExportApp } from './ExportApp';
-import { SettingsApp } from './SettingsApp';
 import './styles.css';
 
 const root = document.getElementById('root');
@@ -13,13 +10,34 @@ if (!root) {
 
 const parameters = new URLSearchParams(globalThis.location.search);
 const exportId = parameters.get('exportId');
-const isSettingsView = parameters.get('view') === 'settings';
-const isPdfExportView = parameters.get('view') === 'pdf-export' && Boolean(exportId);
+const view = parameters.get('view');
 
-createRoot(root).render(
-  isPdfExportView && exportId ? (
-    <ExportApp exportId={exportId} />
-  ) : (
-    <StrictMode>{isSettingsView ? <SettingsApp /> : <App />}</StrictMode>
-  ),
-);
+const renderView = async (): Promise<void> => {
+  if (view === 'paper-preview') {
+    const { PaperPreviewApp } = await import('./PaperPreviewApp');
+    createRoot(root).render(<PaperPreviewApp />);
+    return;
+  }
+  if (view === 'pdf-export' && exportId) {
+    const { ExportApp } = await import('./ExportApp');
+    createRoot(root).render(<ExportApp exportId={exportId} />);
+    return;
+  }
+  if (view === 'settings') {
+    const { SettingsApp } = await import('./SettingsApp');
+    createRoot(root).render(
+      <StrictMode>
+        <SettingsApp />
+      </StrictMode>,
+    );
+    return;
+  }
+  const { App } = await import('./App');
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+};
+
+void renderView();

@@ -97,11 +97,13 @@ The operating system owns window controls and the application menu. The content 
 
 ## Confirmed Prototype Decisions
 
-- Reading uses a continuous document surface; paper geometry appears only in print or export preview.
+- Reading starts on a continuous document surface. The toolbar provides a compact `连续 / 纸张` mode switch; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
 - The content outline is open by default, can be collapsed, and remembers the user's choice.
 - The first review demonstrates one distinctive Fuxian document theme rather than a theme gallery.
 - Content appears progressively as real render tasks settle; diagrams and formulas must not delay readable text.
 - Document width controls the entire white finished-document surface, not an inner prose column. Adaptive mode fills the available reading region with small inner gutters so wide diagrams retain space; A4 and custom modes center a white surface at the selected width. Prose, tables, code, formulas, and diagrams share the resulting inner width without independent breakout. Adaptive width is the initial default; the toolbar switches between adaptive, A4, and custom modes, with a drag control for custom width. The user's later choice is remembered.
+- Paper preview is independent of document width. Its first version uses A4 portrait (`210 × 297 mm`) with `18 mm` block and `16 mm` inline margins. Pages stack vertically on the reading-region background with restrained gaps; fit-width is the initial scale and actual-size is available. Scaling never changes pagination. Page shadows, gaps, controls, and loading states never enter PDF output.
+- Paper pagination begins only after fonts, images, formulas, and rendered visual blocks settle. A newer external revision or typography change supersedes older pagination; the previous successful pages remain visible until their replacement is complete. Long Markdown tables are divided into bounded row groups with repeated headers before pagination. An individually over-height row becomes a labelled, content-preserving pageable fallback instead of hanging, clipping, or deleting content.
 - Mermaid and PlantUML diagram blocks and Vega-Lite visualization blocks remain selectable SVG content. Hover or keyboard focus exposes source and full-screen controls without replacing the rendered visual in place.
 - The content-outline header provides an article-structure-map action. It derives a temporary interactive mind map from the active document's existing title hierarchy and opens it in a focused dialog with folding, pan, zoom, and fit controls. It is not a Markdown fence, finished-document block, or PDF content.
 - Diagram source opens in a side drawer while the rendered diagram remains visible. Full-screen opens a focused layer with zoom, pan, fit-to-window, and return actions.
@@ -140,7 +142,7 @@ The operating system owns window controls and the application menu. The content 
 - The document-session Settings action changes to a restrained update indicator while an update is available, downloading, or ready, so the state remains discoverable without a modal interruption.
 - With no open documents, the central start view shows the Fuxian identity, open/drop actions, and recent documents without feature marketing. The document-session sidebar may collapse in this state to avoid duplicating recent documents.
 - The start view initially shows five recent documents in a compact list with a `查看全部` action for the remaining history.
-- The finished-document header shows filename and external-revision status on the left, with document-width, find, PDF export, and overflow actions on the right.
+- The finished-document header shows filename and external-revision status on the left, with continuous/paper mode, context-appropriate width or paper-scale controls, find, PDF export, and overflow actions on the right.
 - The content outline shows headings H1-H3 by default. Deeper headings remain collapsed under their parents, and the active heading is kept visible automatically.
 - `Ctrl/Cmd + F` expands an in-header find control with match count, previous, next, and close actions.
 - File selection supports multiple Markdown documents. Dropping multiple documents adds all of them to the session, and attempting to open an already-open document activates its existing document item.

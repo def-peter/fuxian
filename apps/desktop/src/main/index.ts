@@ -43,6 +43,7 @@ import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
+import { isPaperPreviewFrameUrl } from './frame-navigation-policy';
 import {
   JsonFilePreferencesPersistence,
   type PreferencesPersistence,
@@ -568,6 +569,12 @@ const registerDesktopHandlers = (
         typeof request.path !== 'string' ||
         typeof request.source !== 'string' ||
         request.source.length > 10_000_000 ||
+        typeof request.finishedDocumentHtml !== 'string' ||
+        request.finishedDocumentHtml.length > 30_000_000 ||
+        (request.expectedPageCount !== undefined &&
+          (!Number.isInteger(request.expectedPageCount) ||
+            request.expectedPageCount < 1 ||
+            request.expectedPageCount > 10_000)) ||
         !Array.isArray(request.renderedVisuals) ||
         request.renderedVisuals.length > 100 ||
         request.renderedVisuals.some(
@@ -610,7 +617,11 @@ const registerDesktopHandlers = (
         outputPath,
         payload: {
           document: { ...result.document, source: request.source },
+          ...(request.expectedPageCount === undefined
+            ? {}
+            : { expectedPageCount: request.expectedPageCount }),
           exportId,
+          finishedDocumentHtml: request.finishedDocumentHtml,
           preferences: normalizeReaderPreferences(request.preferences),
           renderedVisuals: request.renderedVisuals.map(({ kind, source, svg }) => ({
             kind,
@@ -709,7 +720,24 @@ const registerDesktopHandlers = (
       );
       return;
     }
-    if (signal?.status !== 'ready') return;
+    const pageCount = signal?.status === 'ready' ? signal.pageCount : undefined;
+    if (
+      signal?.status !== 'ready' ||
+      !Number.isInteger(pageCount) ||
+      pageCount === undefined ||
+      pageCount < 1
+    )
+      return;
+    if (
+      job.payload.expectedPageCount !== undefined &&
+      job.payload.expectedPageCount !== pageCount
+    ) {
+      failPdfExportJob(
+        job,
+        `纸张预览为 ${job.payload.expectedPageCount} 页，但 PDF 分页为 ${pageCount} 页。`,
+      );
+      return;
+    }
     job.printing = true;
     if (job.timeout) clearTimeout(job.timeout);
     job.timeout = setTimeout(() => failPdfExportJob(job, '写入 PDF 超时。'), 30_000);
@@ -731,6 +759,7 @@ const registerDesktopHandlers = (
         const pdf = await job.exportWindow.webContents.printToPDF({
           generateDocumentOutline: true,
           generateTaggedPDF: true,
+          margins: { bottom: 0, left: 0, right: 0, top: 0 },
           pageSize: 'A4',
           preferCSSPageSize: true,
           printBackground: true,
@@ -971,6 +1000,9 @@ const createWindow = (): BrowserWindow => {
 
   window.webContents.on('will-frame-navigate', (event) => {
     if (event.isMainFrame && event.url === window.webContents.getURL()) {
+      return;
+    }
+    if (!event.isMainFrame && isPaperPreviewFrameUrl(event.url, window.webContents.getURL())) {
       return;
     }
 

@@ -22,6 +22,8 @@ import {
   PanelRightOpen,
   Search,
   RefreshCw,
+  Scan,
+  StretchHorizontal,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -38,6 +40,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ContentOutline } from '@/content-outline';
 import {
   activateDocument,
@@ -78,6 +81,8 @@ import {
 import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 import { PdfExportPanel } from '@/pdf-export-panel';
+import { PaperPreviewFrame } from '@/paper-preview-frame';
+import type { PaperPreviewSnapshot, PaperScaleMode } from '@/paper-preview-protocol';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useShellLayout } from '@/use-shell-layout';
@@ -190,6 +195,12 @@ export function App(): React.JSX.Element {
   );
   const [pdfExportProgress, setPdfExportProgress] = useState<PdfExportProgress>();
   const [pdfExportStarting, setPdfExportStarting] = useState(false);
+  const [viewMode, setViewMode] = useState<'continuous' | 'paper'>('continuous');
+  const [paperScaleMode, setPaperScaleMode] = useState<PaperScaleMode>('fit-width');
+  const [paperSnapshot, setPaperSnapshot] = useState<PaperPreviewSnapshot>();
+  const [paperPageCount, setPaperPageCount] = useState<number>();
+  const [paperReadyRevisionId, setPaperReadyRevisionId] = useState<string>();
+  const [paperPreviewFailure, setPaperPreviewFailure] = useState<string>();
   const pendingSystemOpenResults = useRef<OpenSourceDocumentsResult[]>([]);
   const restorationStatusRef = useRef(restorationStatus);
   const acceptOpenResultRef = useRef<(result: OpenSourceDocumentsResult) => void>(() => undefined);
@@ -208,6 +219,9 @@ export function App(): React.JSX.Element {
   const visibleFrameIdRef = useRef<string | undefined>(undefined);
   const updatedStatusTimers = useRef(new Map<string, number>());
   const pdfExportDismissTimer = useRef<number | undefined>(undefined);
+  const paperPreviewController = useRef<FinishedDocumentController | undefined>(undefined);
+  const paperSnapshotRequest = useRef(0);
+  const viewModeRef = useRef(viewMode);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
@@ -231,12 +245,20 @@ export function App(): React.JSX.Element {
     ? promotedRevisions.get(activeDocument.document.path)
     : undefined;
   const visibleFrame = promotedRevision ?? sessionFrame;
+  const visibleFrameId = visibleFrame?.id;
   const externalRevisionStatus = session.activeDocumentPath
     ? (externalRevisionStatuses.get(session.activeDocumentPath) ?? { state: 'idle' as const })
     : { state: 'idle' as const };
   const documentSessionInline =
     shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
   const contentOutlineInline = shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
+  const getReadingController = useCallback(
+    (): FinishedDocumentController | undefined =>
+      viewModeRef.current === 'paper'
+        ? (paperPreviewController.current ?? finishedDocumentController.current)
+        : finishedDocumentController.current,
+    [],
+  );
 
   const updateShellPreferences = useCallback(
     (patch: Partial<typeof preferences.shell>): void => {
@@ -254,82 +276,88 @@ export function App(): React.JSX.Element {
     setArticleStructureMapOpen(false);
   }, [session.activeDocumentPath]);
 
-  const beginExternalRevision = useCallback((event: ExternalRevisionEvent): void => {
-    const currentItem = sessionRef.current.openDocuments.find(
-      (item) =>
-        item.status !== 'unavailable' &&
-        (item.status === 'available' ? item.document.path : item.path) === event.path,
-    );
-    if (!currentItem) return;
-    const statusTimer = updatedStatusTimers.current.get(event.path);
-    if (statusTimer) window.clearTimeout(statusTimer);
-    updatedStatusTimers.current.delete(event.path);
-    setExternalRevisionStatuses((current) =>
-      new Map(current).set(event.path, { state: 'updating' }),
-    );
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
 
-    if (event.result.status === 'unavailable') {
-      const message = event.result.message;
-      pendingRevisionRefs.current.delete(event.path);
-      setPendingRevisions((current) => {
-        const next = new Map(current);
-        next.delete(event.path);
-        return next;
-      });
-      setExternalRevisionStatuses((current) =>
-        new Map(current).set(event.path, { detail: message, state: 'failed' }),
+  const beginExternalRevision = useCallback(
+    (event: ExternalRevisionEvent): void => {
+      const currentItem = sessionRef.current.openDocuments.find(
+        (item) =>
+          item.status !== 'unavailable' &&
+          (item.status === 'available' ? item.document.path : item.path) === event.path,
       );
-      if (currentItem.status === 'loading') {
-        setSession((current) => {
-          const next = failLoadingDocument(current, event.path, message);
-          sessionRef.current = next;
+      if (!currentItem) return;
+      const statusTimer = updatedStatusTimers.current.get(event.path);
+      if (statusTimer) window.clearTimeout(statusTimer);
+      updatedStatusTimers.current.delete(event.path);
+      setExternalRevisionStatuses((current) =>
+        new Map(current).set(event.path, { state: 'updating' }),
+      );
+
+      if (event.result.status === 'unavailable') {
+        const message = event.result.message;
+        pendingRevisionRefs.current.delete(event.path);
+        setPendingRevisions((current) => {
+          const next = new Map(current);
+          next.delete(event.path);
           return next;
         });
+        setExternalRevisionStatuses((current) =>
+          new Map(current).set(event.path, { detail: message, state: 'failed' }),
+        );
+        if (currentItem.status === 'loading') {
+          setSession((current) => {
+            const next = failLoadingDocument(current, event.path, message);
+            sessionRef.current = next;
+            return next;
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    try {
-      const document = finishSourceDocument(event.result.document);
-      const active = sessionRef.current.activeDocumentPath === event.path;
-      const readingPosition =
-        active && currentItem.status === 'available'
-          ? (finishedDocumentController.current?.getReadingPosition() ??
-            currentItem.readingPosition)
-          : currentItem.readingPosition;
-      const appended =
-        currentItem.status === 'available' &&
-        isAppendedRevision(currentItem.document.source, document.document.source);
-      const follow = active
-        ? finishedDocumentController.current
-          ? shouldFollowAppendedContent(finishedDocumentController.current.getViewportFollowState())
-          : readingPosition.relativeProgress >= 0.95
-        : readingPosition.relativeProgress >= 0.95;
-      const frame: FinishedDocumentFrameRevision = {
-        document,
-        followBehavior: appended ? (follow ? 'auto' : 'notify') : 'preserve',
-        id: `external:${event.path}:${++externalFrameRevision}`,
-        readingPosition,
-        sessionPath: event.path,
-        staging: true,
-      };
-      pendingRevisionRefs.current.set(event.path, frame);
-      setPendingRevisions((current) => new Map(current).set(event.path, frame));
-    } catch (error) {
-      pendingRevisionRefs.current.delete(event.path);
-      setPendingRevisions((current) => {
-        const next = new Map(current);
-        next.delete(event.path);
-        return next;
-      });
-      setExternalRevisionStatuses((current) =>
-        new Map(current).set(event.path, {
-          detail: error instanceof Error ? error.message : '新版本 Markdown 无法解析。',
-          state: 'failed',
-        }),
-      );
-    }
-  }, []);
+      try {
+        const document = finishSourceDocument(event.result.document);
+        const active = sessionRef.current.activeDocumentPath === event.path;
+        const readingPosition =
+          active && currentItem.status === 'available'
+            ? (getReadingController()?.getReadingPosition() ?? currentItem.readingPosition)
+            : currentItem.readingPosition;
+        const appended =
+          currentItem.status === 'available' &&
+          isAppendedRevision(currentItem.document.source, document.document.source);
+        const follow = active
+          ? getReadingController()
+            ? shouldFollowAppendedContent(getReadingController()!.getViewportFollowState())
+            : readingPosition.relativeProgress >= 0.95
+          : readingPosition.relativeProgress >= 0.95;
+        const frame: FinishedDocumentFrameRevision = {
+          document,
+          followBehavior: appended ? (follow ? 'auto' : 'notify') : 'preserve',
+          id: `external:${event.path}:${++externalFrameRevision}`,
+          readingPosition,
+          sessionPath: event.path,
+          staging: true,
+        };
+        pendingRevisionRefs.current.set(event.path, frame);
+        setPendingRevisions((current) => new Map(current).set(event.path, frame));
+      } catch (error) {
+        pendingRevisionRefs.current.delete(event.path);
+        setPendingRevisions((current) => {
+          const next = new Map(current);
+          next.delete(event.path);
+          return next;
+        });
+        setExternalRevisionStatuses((current) =>
+          new Map(current).set(event.path, {
+            detail: error instanceof Error ? error.message : '新版本 Markdown 无法解析。',
+            state: 'failed',
+          }),
+        );
+      }
+    },
+    [getReadingController],
+  );
 
   useEffect(() => {
     sessionRef.current = session;
@@ -452,7 +480,7 @@ export function App(): React.JSX.Element {
     () =>
       window.fuxian.onPrepareAppUpdateInstall(async () => {
         const activePath = sessionRef.current.activeDocumentPath;
-        const position = finishedDocumentController.current?.getReadingPosition();
+        const position = getReadingController()?.getReadingPosition();
         const latestSession =
           activePath && position
             ? updateReadingPosition(sessionRef.current, activePath, position)
@@ -460,7 +488,7 @@ export function App(): React.JSX.Element {
         sessionRef.current = latestSession;
         await window.fuxian.saveDocumentSession(createPersistedDocumentSession(latestSession));
       }),
-    [],
+    [getReadingController],
   );
 
   useEffect(() => {
@@ -488,24 +516,55 @@ export function App(): React.JSX.Element {
   }, [preferences.plantUml.serverUrl]);
 
   useEffect(() => {
+    if (viewMode !== 'paper' || !visibleFrameId) return;
+    const request = ++paperSnapshotRequest.current;
+    const controller = finishedDocumentController.current;
+    if (!controller) return;
+    setPaperPreviewFailure(undefined);
+    void controller
+      .whenRenderReady()
+      .then(() => {
+        if (paperSnapshotRequest.current !== request || viewModeRef.current !== 'paper') return;
+        const theme = toDocumentThemePreferences(preferences, resolvedAppearance);
+        const revisionId = `${visibleFrameId}:${theme.appearance}:${theme.bodyFamily}:${theme.bodySize}:${theme.lineHeight}`;
+        setPaperSnapshot({
+          html: controller.getStaticSnapshotHtml(),
+          initialReadingPosition: getReadingController()?.getReadingPosition() ?? {
+            headingOffset: 0,
+            relativeProgress: 0,
+          },
+          preferences: theme,
+          revisionId,
+        });
+      })
+      .catch((error: unknown) => {
+        if (paperSnapshotRequest.current !== request) return;
+        setPaperPreviewFailure(error instanceof Error ? error.message : '无法准备纸张预览。');
+      });
+    return () => {
+      if (paperSnapshotRequest.current === request) paperSnapshotRequest.current += 1;
+    };
+  }, [getReadingController, preferences, resolvedAppearance, viewMode, visibleFrameId]);
+
+  useEffect(() => {
     const position = diagramLayoutReadingPosition.current;
     if (!position) return;
     const frame = window.requestAnimationFrame(() => {
-      finishedDocumentController.current?.restoreReadingPosition(position);
+      getReadingController()?.restoreReadingPosition(position);
       diagramLayoutReadingPosition.current = undefined;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [sourceDiagram]);
+  }, [getReadingController, sourceDiagram]);
 
   useEffect(() => {
-    const controller = finishedDocumentController.current;
+    const controller = getReadingController();
     setFindResult(
       findOpen ? (controller?.find(findQuery) ?? emptyFindResult()) : emptyFindResult(),
     );
     if (!findOpen) {
       controller?.clearFind();
     }
-  }, [findOpen, findQuery]);
+  }, [findOpen, findQuery, getReadingController, viewMode]);
 
   const openFind = useCallback((): void => {
     const activeElement = document.activeElement;
@@ -517,7 +576,7 @@ export function App(): React.JSX.Element {
 
   const closeFind = useCallback((): void => {
     const returnFocus = findReturnFocus.current;
-    finishedDocumentController.current?.clearFind();
+    getReadingController()?.clearFind();
     setFindOpen(false);
     findReturnFocus.current = undefined;
     setFindQuery('');
@@ -525,7 +584,7 @@ export function App(): React.JSX.Element {
     window.requestAnimationFrame(() => {
       returnFocus?.focus();
     });
-  }, []);
+  }, [getReadingController]);
 
   useEffect(() => {
     if (findOpen) {
@@ -551,6 +610,8 @@ export function App(): React.JSX.Element {
 
   const resetActiveDocumentControls = (): void => {
     finishedDocumentController.current = undefined;
+    paperPreviewController.current = undefined;
+    paperSnapshotRequest.current += 1;
     visibleFrameIdRef.current = undefined;
     setActiveHeadingId(undefined);
     setFindOpen(false);
@@ -559,10 +620,14 @@ export function App(): React.JSX.Element {
     setFindResult(emptyFindResult());
     setSourceDiagram(undefined);
     setFocusedDiagram(undefined);
+    setPaperSnapshot(undefined);
+    setPaperPageCount(undefined);
+    setPaperReadyRevisionId(undefined);
+    setPaperPreviewFailure(undefined);
   };
 
   const showDiagramSource = (diagram: RenderedVisualSnapshot | undefined): void => {
-    diagramLayoutReadingPosition.current = finishedDocumentController.current?.getReadingPosition();
+    diagramLayoutReadingPosition.current = getReadingController()?.getReadingPosition();
     setSourceDiagram(diagram);
   };
 
@@ -572,7 +637,7 @@ export function App(): React.JSX.Element {
   ): void => {
     if (!diagram) return;
     window.requestAnimationFrame(() =>
-      finishedDocumentController.current?.focusRenderedVisualAction(diagram.id, action),
+      getReadingController()?.focusRenderedVisualAction(diagram.id, action),
     );
   };
 
@@ -584,7 +649,7 @@ export function App(): React.JSX.Element {
 
   const locateSourceDiagram = (): void => {
     if (!sourceDiagram) return;
-    if (!finishedDocumentController.current?.locateRenderedVisual(sourceDiagram.id)) {
+    if (!getReadingController()?.locateRenderedVisual(sourceDiagram.id)) {
       setSourceDiagram(undefined);
     }
   };
@@ -782,7 +847,7 @@ export function App(): React.JSX.Element {
     const switchingDocument = finishedDocuments[0]?.document.path !== session.activeDocumentPath;
     const currentPath = switchingDocument ? session.activeDocumentPath : undefined;
     const currentPosition = switchingDocument
-      ? finishedDocumentController.current?.getReadingPosition()
+      ? getReadingController()?.getReadingPosition()
       : undefined;
     if (switchingDocument) {
       resetActiveDocumentControls();
@@ -849,7 +914,7 @@ export function App(): React.JSX.Element {
   const activateOpenDocument = (path: string): void => {
     if (path !== session.activeDocumentPath) {
       const currentPath = session.activeDocumentPath;
-      const position = finishedDocumentController.current?.getReadingPosition();
+      const position = getReadingController()?.getReadingPosition();
       resetActiveDocumentControls();
       setSession((current) => {
         const next = activateDocument(
@@ -870,7 +935,7 @@ export function App(): React.JSX.Element {
     if (closingDocument) recentDocumentCache.current.set(path, closingDocument);
     const position =
       path === session.activeDocumentPath
-        ? finishedDocumentController.current?.getReadingPosition()
+        ? getReadingController()?.getReadingPosition()
         : undefined;
     if (path === session.activeDocumentPath) {
       resetActiveDocumentControls();
@@ -907,7 +972,7 @@ export function App(): React.JSX.Element {
 
   const reopenDocument = async (path: string): Promise<void> => {
     const currentPath = sessionRef.current.activeDocumentPath;
-    const currentPosition = finishedDocumentController.current?.getReadingPosition();
+    const currentPosition = getReadingController()?.getReadingPosition();
     resetActiveDocumentControls();
     setBlockingError(undefined);
     setExternalRevisionStatuses((current) => new Map(current).set(path, { state: 'updating' }));
@@ -1002,6 +1067,19 @@ export function App(): React.JSX.Element {
     }
   };
 
+  const changeViewMode = (nextMode: 'continuous' | 'paper'): void => {
+    if (nextMode === viewModeRef.current) return;
+    const position = getReadingController()?.getReadingPosition();
+    viewModeRef.current = nextMode;
+    setViewMode(nextMode);
+    setPaperPreviewFailure(undefined);
+    if (nextMode === 'continuous' && position) {
+      window.requestAnimationFrame(() => {
+        finishedDocumentController.current?.restoreReadingPosition(position);
+      });
+    }
+  };
+
   const startPdfExport = async (): Promise<void> => {
     const path = sessionRef.current.activeDocumentPath;
     const document = sessionRef.current.openDocuments.find(
@@ -1018,8 +1096,12 @@ export function App(): React.JSX.Element {
       return;
     setPdfExportStarting(true);
     try {
-      await controller.whenRenderTaskKindsReady(['infographic', 'vega-lite']);
+      await controller.whenRenderReady();
       const result = await window.fuxian.startPdfExport({
+        ...(paperPageCount && paperReadyRevisionId === paperSnapshot?.revisionId
+          ? { expectedPageCount: paperPageCount }
+          : {}),
+        finishedDocumentHtml: controller.getStaticSnapshotHtml(),
         path,
         preferences,
         renderedVisuals: controller
@@ -1076,7 +1158,7 @@ export function App(): React.JSX.Element {
 
   const showNewContent = (): void => {
     const path = sessionRef.current.activeDocumentPath;
-    const controller = finishedDocumentController.current;
+    const controller = getReadingController();
     if (!path || !controller) return;
     const position = controller.scrollToEnd();
     setSession((current) => {
@@ -1092,11 +1174,11 @@ export function App(): React.JSX.Element {
   };
 
   const showNextFindResult = (): void => {
-    setFindResult(finishedDocumentController.current?.findNext() ?? emptyFindResult());
+    setFindResult(getReadingController()?.findNext() ?? emptyFindResult());
   };
 
   const showPreviousFindResult = (): void => {
-    setFindResult(finishedDocumentController.current?.findPrevious() ?? emptyFindResult());
+    setFindResult(getReadingController()?.findPrevious() ?? emptyFindResult());
   };
 
   const handleFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -1378,10 +1460,66 @@ export function App(): React.JSX.Element {
               </div>
 
               <div className="ml-4 flex shrink-0 items-center gap-1">
-                <DocumentWidthPopover
-                  onChange={(documentWidth) => updatePreferences({ ...preferences, documentWidth })}
-                  value={preferences.documentWidth}
-                />
+                <ToggleGroup
+                  aria-label="文档显示模式"
+                  onValueChange={(value) => {
+                    if (value === 'continuous' || value === 'paper') changeViewMode(value);
+                  }}
+                  size="sm"
+                  type="single"
+                  value={viewMode}
+                  variant="outline"
+                >
+                  <ToggleGroupItem aria-label="连续阅读" value="continuous">
+                    连续
+                  </ToggleGroupItem>
+                  <ToggleGroupItem aria-label="纸张预览" value="paper">
+                    纸张
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {viewMode === 'continuous' ? (
+                  <DocumentWidthPopover
+                    onChange={(documentWidth) =>
+                      updatePreferences({ ...preferences, documentWidth })
+                    }
+                    value={preferences.documentWidth}
+                  />
+                ) : (
+                  <>
+                    <ToggleGroup
+                      aria-label="纸张缩放"
+                      onValueChange={(value) => {
+                        if (value === 'fit-width' || value === 'actual') setPaperScaleMode(value);
+                      }}
+                      size="sm"
+                      type="single"
+                      value={paperScaleMode}
+                      variant="outline"
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <ToggleGroupItem aria-label="适合宽度" value="fit-width">
+                            <StretchHorizontal aria-hidden="true" />
+                          </ToggleGroupItem>
+                        </TooltipTrigger>
+                        <TooltipContent>适合宽度</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <ToggleGroupItem aria-label="实际大小" value="actual">
+                            <Scan aria-hidden="true" />
+                          </ToggleGroupItem>
+                        </TooltipTrigger>
+                        <TooltipContent>实际大小</TooltipContent>
+                      </Tooltip>
+                    </ToggleGroup>
+                    {paperPageCount ? (
+                      <span className="px-1 text-xs tabular-nums text-muted-foreground">
+                        {paperPageCount} 页
+                      </span>
+                    ) : null}
+                  </>
+                )}
                 <Button
                   aria-label="导出 PDF"
                   disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
@@ -1530,9 +1668,53 @@ export function App(): React.JSX.Element {
                     key={frame.id}
                     onLoad={handleFinishedDocumentLoad}
                     onRemove={handleFinishedDocumentFrameRemove}
-                    visible={frame.id === visibleFrame.id}
+                    visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
                   />
                 ))}
+                {paperSnapshot && paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
+                  <PaperPreviewFrame
+                    className={cn(
+                      'col-start-1 row-start-1 z-10',
+                      viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
+                      draggingFiles && 'pointer-events-none',
+                    )}
+                    key={activeDocument.document.path}
+                    onActiveHeadingChange={setActiveHeadingId}
+                    onControllerChange={(controller) => {
+                      paperPreviewController.current = controller;
+                      if (controller && viewModeRef.current === 'paper' && findOpen) {
+                        setFindResult(controller.find(findQuery));
+                      }
+                    }}
+                    onFailure={setPaperPreviewFailure}
+                    onFindRequest={openFind}
+                    onFindResult={setFindResult}
+                    onFocusRenderedVisual={setFocusedDiagram}
+                    onInspectRenderedVisual={showDiagramSource}
+                    onReady={(pageCount, revisionId) => {
+                      if (revisionId !== paperSnapshot.revisionId) return;
+                      setPaperPageCount(pageCount);
+                      setPaperReadyRevisionId(revisionId);
+                      setPaperPreviewFailure(undefined);
+                    }}
+                    onReadingPositionChange={(position) => {
+                      if (viewModeRef.current !== 'paper') return;
+                      setSession((current) =>
+                        updateReadingPosition(current, activeDocument.document.path, position),
+                      );
+                    }}
+                    scaleMode={paperScaleMode}
+                    snapshot={paperSnapshot}
+                  />
+                ) : null}
+                {viewMode === 'paper' && paperPreviewFailure ? (
+                  <div
+                    aria-live="polite"
+                    className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
+                  >
+                    正在保留上一版纸张预览。{paperPreviewFailure}
+                  </div>
+                ) : null}
                 {pdfExportProgress ? (
                   <PdfExportPanel
                     key={pdfExportProgress.exportId}
@@ -1554,7 +1736,7 @@ export function App(): React.JSX.Element {
                   activeHeadingId={activeHeadingId}
                   headings={activeDocument.headings}
                   key={activeDocument.document.path}
-                  onNavigate={(id) => finishedDocumentController.current?.scrollToHeading(id)}
+                  onNavigate={(id) => getReadingController()?.scrollToHeading(id)}
                   onOpenStructureMap={() => setArticleStructureMapOpen(true)}
                 />
               ) : null}
@@ -1598,7 +1780,7 @@ export function App(): React.JSX.Element {
                     headings={activeDocument.headings}
                     key={`sheet:${activeDocument.document.path}`}
                     onNavigate={(id) => {
-                      finishedDocumentController.current?.scrollToHeading(id);
+                      getReadingController()?.scrollToHeading(id);
                       setContentOutlineSheetOpen(false);
                     }}
                     onOpenStructureMap={() => {
