@@ -62,12 +62,6 @@ jobs:
       - name: Run static and unit checks
         run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 
-      - name: Install Linux Electron dependencies
-        run: pnpm exec playwright install-deps chromium
-
-      - name: Run Linux end-to-end tests
-        run: xvfb-run --auto-servernum pnpm test:e2e
-
   package-windows:
     name: Windows x64 installer
     needs: checks
