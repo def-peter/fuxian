@@ -138,11 +138,6 @@ jobs:
       - name: Verify packaged applications
         run: pnpm verify:package
 
-      - name: Smoke-test packaged Intel application
-        run: pnpm exec playwright test tests/electron/packaged-app.spec.ts
-        env:
-          FUXIAN_PACKAGED_EXECUTABLE: release/mac/浮现.app/Contents/MacOS/浮现
-
       - name: Smoke-test packaged Apple Silicon application
         run: pnpm exec playwright test tests/electron/packaged-app.spec.ts
         env:

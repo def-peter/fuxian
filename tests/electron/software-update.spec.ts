@@ -49,14 +49,34 @@ test('downloads an available update and flushes the reading session before insta
     const readerWindow = await electronApp.firstWindow();
     await readerWindow.setViewportSize({ height: 900, width: 1_440 });
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
+    await readerWindow
+      .getByRole('complementary', { name: '内容目录' })
+      .getByRole('button', { name: '本地资源' })
+      .click();
     const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
-    await finishedDocument.locator('html').evaluate(() => {
-      window.scrollTo(0, document.documentElement.scrollHeight);
-    });
     await expect
-      .poll(() => finishedDocument.locator('html').evaluate(() => window.scrollY))
+      .poll(() =>
+        finishedDocument
+          .getByRole('heading', { name: '本地资源' })
+          .evaluate((heading) => Math.round(heading.getBoundingClientRect().top)),
+      )
+      .toBeLessThan(40);
+    await expect
+      .poll(async () => {
+        try {
+          const session = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+            openDocuments: Array<{
+              path: string;
+              readingPosition: { relativeProgress: number };
+            }>;
+          };
+          return session.openDocuments.find(({ path }) => path === sourceDocumentPath)
+            ?.readingPosition.relativeProgress;
+        } catch {
+          return undefined;
+        }
+      })
       .toBeGreaterThan(0);
-    await readerWindow.waitForTimeout(200);
 
     const settingsButton = readerWindow.getByRole('button', { name: '设置，有可用更新' });
     await expect(settingsButton).toBeVisible();
