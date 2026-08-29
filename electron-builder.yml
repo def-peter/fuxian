@@ -32,8 +32,9 @@ mac:
   artifactName: fuxian-${version}-mac-${arch}.${ext}
   category: public.app-category.productivity
   icon: build/icon.icns
+  identity: null
   entitlementsInherit: build/entitlements.mac.plist
-  notarize: true
+  notarize: false
   target:
     - dmg
     - zip

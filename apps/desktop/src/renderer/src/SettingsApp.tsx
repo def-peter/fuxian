@@ -12,6 +12,7 @@ import {
   CircleArrowUp,
   CircleCheck,
   Download,
+  ExternalLink,
   FileText,
   Info,
   Monitor,
@@ -193,6 +194,10 @@ export function SettingsApp(): React.JSX.Element {
     void window.fuxian.installAppUpdate();
   };
 
+  const openUpdateRelease = (): void => {
+    void window.fuxian.openAppUpdateRelease();
+  };
+
   return (
     <div className="grid h-full grid-rows-[52px_minmax(0,1fr)] bg-background">
       <header className="flex items-center border-b px-5">
@@ -226,7 +231,9 @@ export function SettingsApp(): React.JSX.Element {
                 关于与更新
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                查看当前版本，并在你准备好时下载和安装更新。
+                {appUpdateStatus.delivery === 'release-page'
+                  ? '查看当前版本，有新版本时前往 GitHub Release 下载。'
+                  : '查看当前版本，并在你准备好时下载和安装更新。'}
               </p>
               <Separator className="my-5" />
 
@@ -292,10 +299,17 @@ export function SettingsApp(): React.JSX.Element {
                     {appUpdateStatus.message ? (
                       <p className="text-sm text-muted-foreground">{appUpdateStatus.message}</p>
                     ) : null}
-                    <Button onClick={downloadUpdate} size="sm">
-                      <Download data-icon="inline-start" />
-                      下载更新
-                    </Button>
+                    {appUpdateStatus.delivery === 'release-page' ? (
+                      <Button onClick={openUpdateRelease} size="sm">
+                        <ExternalLink data-icon="inline-start" />
+                        前往 GitHub Release
+                      </Button>
+                    ) : (
+                      <Button onClick={downloadUpdate} size="sm">
+                        <Download data-icon="inline-start" />
+                        下载更新
+                      </Button>
+                    )}
                   </>
                 ) : null}
 

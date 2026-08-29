@@ -25,19 +25,25 @@ const updateInfo = (version = '0.2.0'): UpdateInfo => ({
   version,
 });
 
-const createService = (supported = true) => {
+const createService = (
+  supported = true,
+  delivery: 'automatic-install' | 'release-page' = 'automatic-install',
+) => {
   const adapter = new FakeUpdateAdapter();
   const broadcast = vi.fn();
   const beforeInstall = vi.fn(async () => undefined);
+  const openReleasePage = vi.fn(async () => undefined);
   const service = new AppUpdateService({
     adapter,
     beforeInstall,
     broadcast,
     currentVersion: '0.1.0',
+    delivery,
+    openReleasePage,
     supported,
   });
   service.initialize();
-  return { adapter, beforeInstall, broadcast, service };
+  return { adapter, beforeInstall, broadcast, openReleasePage, service };
 };
 
 describe('AppUpdateService', () => {
@@ -132,6 +138,28 @@ describe('AppUpdateService', () => {
     await expect(service.checkForUpdates()).resolves.toMatchObject({ phase: 'downloaded' });
 
     expect(adapter.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('opens the matching release page instead of downloading on macOS-style delivery', async () => {
+    const { adapter, openReleasePage, service } = createService(true, 'release-page');
+    adapter.emit('update-available', updateInfo());
+
+    await expect(service.downloadUpdate()).resolves.toMatchObject({ phase: 'available' });
+    await expect(service.openReleasePage()).resolves.toMatchObject({ phase: 'available' });
+
+    expect(adapter.downloadUpdate).not.toHaveBeenCalled();
+    expect(openReleasePage).toHaveBeenCalledWith('0.2.0');
+  });
+
+  it('keeps the manual update action available when the release page cannot open', async () => {
+    const { adapter, openReleasePage, service } = createService(true, 'release-page');
+    adapter.emit('update-available', updateInfo());
+    openReleasePage.mockRejectedValueOnce(new Error('browser unavailable'));
+
+    await expect(service.openReleasePage()).resolves.toMatchObject({
+      message: '无法打开 GitHub Release，请稍后重试。',
+      phase: 'available',
+    });
   });
 
   it('returns to the downloaded state when the installer cannot start', async () => {

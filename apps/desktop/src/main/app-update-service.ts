@@ -1,6 +1,6 @@
 import { CancellationToken } from 'builder-util-runtime';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
-import type { AppUpdatePhase, AppUpdateStatus } from '@fuxian/shared-types';
+import type { AppUpdateDelivery, AppUpdatePhase, AppUpdateStatus } from '@fuxian/shared-types';
 
 export interface AppUpdateAdapter {
   allowDowngrade: boolean;
@@ -27,6 +27,8 @@ interface AppUpdateServiceOptions {
   beforeInstall(): Promise<void>;
   broadcast(status: AppUpdateStatus): void;
   currentVersion: string;
+  delivery: AppUpdateDelivery;
+  openReleasePage(version: string): Promise<void>;
   supported: boolean;
 }
 
@@ -63,6 +65,7 @@ export class AppUpdateService {
   constructor(private readonly options: AppUpdateServiceOptions) {
     this.status = {
       currentVersion: options.currentVersion,
+      delivery: options.delivery,
       message: options.supported ? undefined : '当前环境不支持软件更新。',
       phase: options.supported ? 'idle' : 'unsupported',
     };
@@ -150,6 +153,9 @@ export class AppUpdateService {
   }
 
   downloadUpdate(): Promise<AppUpdateStatus> {
+    if (this.options.delivery !== 'automatic-install') {
+      return Promise.resolve(this.getStatus());
+    }
     if (this.downloadPromise) return this.downloadPromise;
     if (this.status.phase !== 'available') {
       return Promise.resolve(this.getStatus());
@@ -184,12 +190,14 @@ export class AppUpdateService {
   }
 
   cancelDownload(): AppUpdateStatus {
+    if (this.options.delivery !== 'automatic-install') return this.getStatus();
     this.downloadToken?.cancel();
     if (this.status.phase === 'downloading') this.finishCancellation();
     return this.getStatus();
   }
 
   async installUpdate(): Promise<AppUpdateStatus> {
+    if (this.options.delivery !== 'automatic-install') return this.getStatus();
     if (this.status.phase !== 'downloaded') return this.getStatus();
     try {
       await this.options.beforeInstall();
@@ -204,6 +212,21 @@ export class AppUpdateService {
     } catch (error) {
       console.error('[app-update] install failed', error);
       this.update({ message: updateFailureMessage('install'), phase: 'downloaded' });
+    }
+    return this.getStatus();
+  }
+
+  async openReleasePage(): Promise<AppUpdateStatus> {
+    const version = this.status.availableVersion;
+    if (this.options.delivery !== 'release-page' || this.status.phase !== 'available' || !version) {
+      return this.getStatus();
+    }
+    try {
+      await this.options.openReleasePage(version);
+      this.update({ message: undefined });
+    } catch (error) {
+      console.error('[app-update] opening release page failed', error);
+      this.update({ message: '无法打开 GitHub Release，请稍后重试。' });
     }
     return this.getStatus();
   }

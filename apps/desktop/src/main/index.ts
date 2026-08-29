@@ -3,6 +3,7 @@ import {
   isSettingsSectionId,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
+  type AppUpdateDelivery,
   type AppUpdateInstallPreparationResult,
   type AppUpdateStatus,
   type ExternalRevisionEvent,
@@ -435,6 +436,7 @@ const registerDesktopHandlers = (
   ipcMain.handle(desktopIpcChannels.appUpdateDownload, () => updateService.downloadUpdate());
   ipcMain.handle(desktopIpcChannels.appUpdateCancelDownload, () => updateService.cancelDownload());
   ipcMain.handle(desktopIpcChannels.appUpdateInstall, () => updateService.installUpdate());
+  ipcMain.handle(desktopIpcChannels.appUpdateOpenRelease, () => updateService.openReleasePage());
   ipcMain.on(desktopIpcChannels.sourceDocumentOpenReceiverReady, (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner || owner !== mainWindow) return;
@@ -1209,11 +1211,29 @@ if (!hasSingleInstanceLock) {
       isE2ERuntime && isE2EUpdateScenario(updateScenario)
         ? new E2EAppUpdateAdapter(updateScenario, process.env.FUXIAN_E2E_UPDATE_INSTALL_MARKER)
         : undefined;
+    const updateDelivery: AppUpdateDelivery = e2eUpdateAdapter
+      ? process.env.FUXIAN_E2E_UPDATE_DELIVERY === 'release-page'
+        ? 'release-page'
+        : 'automatic-install'
+      : process.platform === 'darwin'
+        ? 'release-page'
+        : 'automatic-install';
     appUpdateService = new AppUpdateService({
       adapter: e2eUpdateAdapter ?? autoUpdater,
       beforeInstall: requestDocumentSessionFlush,
       broadcast: broadcastAppUpdateStatus,
       currentVersion: app.getVersion(),
+      delivery: updateDelivery,
+      openReleasePage: async (version) => {
+        const markerPath = process.env.FUXIAN_E2E_UPDATE_RELEASE_MARKER;
+        if (e2eUpdateAdapter && markerPath) {
+          await writeFile(markerPath, JSON.stringify({ version }), 'utf8');
+          return;
+        }
+        await openExternalUrl(
+          `https://github.com/def-peter/fuxian/releases/tag/v${encodeURIComponent(version)}`,
+        );
+      },
       supported:
         Boolean(e2eUpdateAdapter) ||
         (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')),

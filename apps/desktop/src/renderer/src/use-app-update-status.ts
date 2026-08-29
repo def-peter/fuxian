@@ -1,7 +1,11 @@
 import type { AppUpdateStatus } from '@fuxian/shared-types';
 import { useEffect, useState } from 'react';
 
-const initialStatus: AppUpdateStatus = { currentVersion: '', phase: 'idle' };
+const initialStatus: AppUpdateStatus = {
+  currentVersion: '',
+  delivery: 'automatic-install',
+  phase: 'idle',
+};
 
 export const useAppUpdateStatus = (): AppUpdateStatus => {
   const [status, setStatus] = useState<AppUpdateStatus>(initialStatus);

@@ -152,6 +152,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     const paths = files.map((file) => webUtils.getPathForFile(file));
     return ipcRenderer.invoke(desktopIpcChannels.openDroppedSourceDocuments, paths);
   },
+  openAppUpdateRelease: async (): Promise<AppUpdateStatus> =>
+    ipcRenderer.invoke(desktopIpcChannels.appUpdateOpenRelease),
   openSettings: async (section?: SettingsSectionId): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.openSettings, section),
   openSourceDocuments: async (): Promise<OpenSourceDocumentsResult> =>

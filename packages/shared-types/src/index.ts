@@ -4,6 +4,7 @@ export const desktopIpcChannels = {
   appUpdateDownload: 'fuxian:app-update:download',
   appUpdateGetStatus: 'fuxian:app-update:get-status',
   appUpdateInstall: 'fuxian:app-update:install',
+  appUpdateOpenRelease: 'fuxian:app-update:open-release',
   appUpdateInstallPreparationFinished: 'fuxian:app-update:install-preparation-finished',
   appUpdatePrepareInstall: 'fuxian:app-update:prepare-install',
   appUpdateStatusChanged: 'fuxian:app-update:status-changed',
@@ -45,11 +46,14 @@ export type AppUpdatePhase =
   | 'unsupported'
   | 'up-to-date';
 
+export type AppUpdateDelivery = 'automatic-install' | 'release-page';
+
 export interface AppUpdateStatus {
   availableVersion?: string | undefined;
   bytesPerSecond?: number | undefined;
   checkedAt?: string | undefined;
   currentVersion: string;
+  delivery: AppUpdateDelivery;
   message?: string | undefined;
   percent?: number | undefined;
   phase: AppUpdatePhase;
@@ -391,6 +395,7 @@ export interface FuxianDesktopBridge {
   onPrepareAppUpdateInstall(listener: () => Promise<void>): () => void;
   onSettingsSectionRequested(listener: (section: SettingsSectionId) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
+  openAppUpdateRelease(): Promise<AppUpdateStatus>;
   openSettings(section?: SettingsSectionId): Promise<void>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
   renderPlantUml(request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult>;
