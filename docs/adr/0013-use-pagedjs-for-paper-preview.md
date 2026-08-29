@@ -8,7 +8,7 @@ Accepted
 
 Fuxian uses pinned MIT-licensed Paged.js to turn a settled finished-document revision into explicit A4 page DOM. Paper preview runs in a dedicated trusted renderer realm because Paged.js depends on its realm-global `window` and `document`; it is not added to `markdown-renderer`, `document-theme`, or the untrusted continuous preview iframe.
 
-The application starts in continuous mode. Paper mode is transient, uses A4 portrait with `18 mm` block and `16 mm` inline margins, and supports fit-width and actual-size display without changing pagination. Existing A4 document width remains a continuous-layout preference.
+The application starts in continuous mode. Paper mode is transient and always uses A4 portrait with `18 mm` block and `16 mm` inline margins. It automatically fits those fixed pages to the available reading width; this screen-only scaling does not change pagination. Existing A4 document width remains a continuous-layout preference.
 
 Pagination waits for fonts, images, formulas, and diagram snapshots. Results are revision-scoped: obsolete work is discarded and the last successful pages remain visible while a replacement is prepared. Before Paged.js runs, long Markdown tables are split into bounded row groups with repeated headers. A row that cannot fit the page area is converted to a labelled, content-preserving block fallback. Diagrams and images scale proportionally within the printable area; UI controls are overlays and excluded from print layout.
 

@@ -75,29 +75,14 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
     expect(screenPageCount).toBeGreaterThan(2);
     const fitScale = await paper.locator('html').evaluate((element) => ({
       innerWidth,
-      mode: element.dataset.paperScale,
       value: Number.parseFloat(getComputedStyle(element).getPropertyValue('--paper-preview-scale')),
     }));
-    expect(fitScale.mode).toBe('fit-width');
     expect(fitScale.value).toBeCloseTo(
       Math.min(1.5, Math.max(320, fitScale.innerWidth - 40) / ((210 / 25.4) * 96)),
       5,
     );
-    await window.getByRole('radio', { name: '实际大小' }).click();
-    await expect
-      .poll(() =>
-        paper
-          .locator('html')
-          .evaluate((element) =>
-            getComputedStyle(element).getPropertyValue('--paper-preview-scale'),
-          ),
-      )
-      .toBe('1');
-    expect(await pages.count()).toBe(screenPageCount);
-    await window.getByRole('radio', { name: '适合宽度' }).click();
-    await expect
-      .poll(() => paper.locator('html').evaluate((element) => element.dataset.paperScale))
-      .toBe('fit-width');
+    await expect(window.getByRole('radio', { name: '实际大小' })).toHaveCount(0);
+    await expect(window.getByRole('radio', { name: '适合宽度' })).toHaveCount(0);
     expect(await pages.count()).toBe(screenPageCount);
     expect(
       await pages.locator('table').evaluateAll((tables) =>

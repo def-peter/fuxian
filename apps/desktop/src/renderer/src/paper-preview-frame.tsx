@@ -12,7 +12,6 @@ import {
   type PaperPreviewHostMessage,
   type PaperPreviewHostPayload,
   type PaperPreviewSnapshot,
-  type PaperScaleMode,
 } from './paper-preview-protocol';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
@@ -41,7 +40,6 @@ interface PaperPreviewFrameProps {
   onInspectRenderedVisual(visual: RenderedVisualSnapshot): void;
   onReady(pageCount: number, revisionId: string): void;
   onReadingPositionChange(position: ReadingPosition): void;
-  scaleMode: PaperScaleMode;
   snapshot: PaperPreviewSnapshot;
 }
 
@@ -56,12 +54,10 @@ export function PaperPreviewFrame({
   onInspectRenderedVisual,
   onReady,
   onReadingPositionChange,
-  scaleMode,
   snapshot,
 }: PaperPreviewFrameProps): React.JSX.Element {
   const iframe = useRef<HTMLIFrameElement>(null);
   const snapshotRef = useRef(snapshot);
-  const scaleModeRef = useRef(scaleMode);
   const positionRef = useRef(snapshot.initialReadingPosition);
   const followStateRef = useRef({ distanceFromEnd: 0, hasSelection: false });
   const findResultRef = useRef(emptyFindResult());
@@ -176,11 +172,6 @@ export function PaperPreviewFrame({
   }, [post, snapshot]);
 
   useEffect(() => {
-    scaleModeRef.current = scaleMode;
-    post({ scaleMode, type: 'scale' });
-  }, [post, scaleMode]);
-
-  useEffect(() => {
     const handleMessage = (event: MessageEvent<unknown>): void => {
       if (
         event.source !== iframe.current?.contentWindow ||
@@ -190,7 +181,6 @@ export function PaperPreviewFrame({
       const message = event.data;
       const callbacks = callbacksRef.current;
       if (message.type === 'mounted') {
-        post({ scaleMode: scaleModeRef.current, type: 'scale' });
         post({ snapshot: snapshotRef.current, type: 'render' });
       } else if (message.type === 'copy-text') {
         void window.fuxian.copyText(message.text);

@@ -22,8 +22,6 @@ import {
   PanelRightOpen,
   Search,
   RefreshCw,
-  Scan,
-  StretchHorizontal,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -82,7 +80,7 @@ import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 import { PdfExportPanel } from '@/pdf-export-panel';
 import { PaperPreviewFrame } from '@/paper-preview-frame';
-import type { PaperPreviewSnapshot, PaperScaleMode } from '@/paper-preview-protocol';
+import type { PaperPreviewSnapshot } from '@/paper-preview-protocol';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useShellLayout } from '@/use-shell-layout';
@@ -196,7 +194,6 @@ export function App(): React.JSX.Element {
   const [pdfExportProgress, setPdfExportProgress] = useState<PdfExportProgress>();
   const [pdfExportStarting, setPdfExportStarting] = useState(false);
   const [viewMode, setViewMode] = useState<'continuous' | 'paper'>('continuous');
-  const [paperScaleMode, setPaperScaleMode] = useState<PaperScaleMode>('fit-width');
   const [paperSnapshot, setPaperSnapshot] = useState<PaperPreviewSnapshot>();
   const [paperPageCount, setPaperPageCount] = useState<number>();
   const [paperReadyRevisionId, setPaperReadyRevisionId] = useState<string>();
@@ -1484,42 +1481,11 @@ export function App(): React.JSX.Element {
                     }
                     value={preferences.documentWidth}
                   />
-                ) : (
-                  <>
-                    <ToggleGroup
-                      aria-label="纸张缩放"
-                      onValueChange={(value) => {
-                        if (value === 'fit-width' || value === 'actual') setPaperScaleMode(value);
-                      }}
-                      size="sm"
-                      type="single"
-                      value={paperScaleMode}
-                      variant="outline"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <ToggleGroupItem aria-label="适合宽度" value="fit-width">
-                            <StretchHorizontal aria-hidden="true" />
-                          </ToggleGroupItem>
-                        </TooltipTrigger>
-                        <TooltipContent>适合宽度</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <ToggleGroupItem aria-label="实际大小" value="actual">
-                            <Scan aria-hidden="true" />
-                          </ToggleGroupItem>
-                        </TooltipTrigger>
-                        <TooltipContent>实际大小</TooltipContent>
-                      </Tooltip>
-                    </ToggleGroup>
-                    {paperPageCount ? (
-                      <span className="px-1 text-xs tabular-nums text-muted-foreground">
-                        {paperPageCount} 页
-                      </span>
-                    ) : null}
-                  </>
-                )}
+                ) : paperPageCount ? (
+                  <span className="px-1 text-xs tabular-nums text-muted-foreground">
+                    {paperPageCount} 页
+                  </span>
+                ) : null}
                 <Button
                   aria-label="导出 PDF"
                   disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
@@ -1703,7 +1669,6 @@ export function App(): React.JSX.Element {
                         updateReadingPosition(current, activeDocument.document.path, position),
                       );
                     }}
-                    scaleMode={paperScaleMode}
                     snapshot={paperSnapshot}
                   />
                 ) : null}

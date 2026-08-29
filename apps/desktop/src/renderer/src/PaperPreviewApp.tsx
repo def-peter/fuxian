@@ -15,7 +15,6 @@ import {
   type PaperPreviewFramePayload,
   type PaperPreviewHostMessage,
   type PaperPreviewSnapshot,
-  type PaperScaleMode,
 } from './paper-preview-protocol';
 
 const channelId = new URLSearchParams(globalThis.location.search).get('channelId') ?? '';
@@ -27,11 +26,10 @@ const postToHost = (message: PaperPreviewFramePayload): void => {
   );
 };
 
-const setScale = (mode: PaperScaleMode): void => {
+const fitPaperToViewport = (): void => {
   const availableWidth = Math.max(320, globalThis.innerWidth - 40);
-  const scale = mode === 'actual' ? 1 : Math.min(1.5, availableWidth / paperPageWidthPixels);
+  const scale = Math.min(1.5, availableWidth / paperPageWidthPixels);
   document.documentElement.style.setProperty('--paper-preview-scale', `${scale}`);
-  document.documentElement.dataset.paperScale = mode;
 };
 
 export function PaperPreviewApp(): React.JSX.Element {
@@ -46,11 +44,8 @@ export function PaperPreviewApp(): React.JSX.Element {
 
   useEffect(() => {
     document.documentElement.dataset.paperPreview = 'true';
-    setScale('fit-width');
-    const handleResize = (): void => {
-      const mode = document.documentElement.dataset.paperScale;
-      setScale(mode === 'actual' ? 'actual' : 'fit-width');
-    };
+    fitPaperToViewport();
+    const handleResize = (): void => fitPaperToViewport();
     globalThis.addEventListener('resize', handleResize, { passive: true });
     return () => {
       delete document.documentElement.dataset.paperPreview;
@@ -169,10 +164,6 @@ export function PaperPreviewApp(): React.JSX.Element {
         latestSnapshot.current = message.snapshot;
         activeAbortController.current?.abort();
         void processLatest();
-        return;
-      }
-      if (message.type === 'scale') {
-        setScale(message.scaleMode);
         return;
       }
       const controller = currentController.current;

@@ -2,8 +2,6 @@ import type { DocumentThemePreferences } from '@fuxian/document-theme';
 import type { ReadingPosition } from '@fuxian/shared-types';
 import type { FindResult, RenderedVisualSnapshot } from './finished-document';
 
-export type PaperScaleMode = 'actual' | 'fit-width';
-
 export interface PaperPreviewSnapshot {
   html: string;
   initialReadingPosition: ReadingPosition;
@@ -23,7 +21,6 @@ export type PaperPreviewHostPayload =
   | { command: 'focus-visual-action'; id: string; action: 'focus' | 'source'; type: 'command' }
   | { command: 'locate-visual' | 'scroll-to-heading'; id: string; type: 'command' }
   | { command: 'restore-reading-position'; position: ReadingPosition; type: 'command' }
-  | { scaleMode: PaperScaleMode; type: 'scale' }
   | { snapshot: PaperPreviewSnapshot; type: 'render' };
 
 export type PaperPreviewHostMessage = PaperPreviewMessageBase & PaperPreviewHostPayload;
