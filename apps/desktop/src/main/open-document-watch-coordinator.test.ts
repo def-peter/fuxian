@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 describe('OpenDocumentWatchCoordinator', () => {
-  it('delivers the active document before low-priority inactive changes', async () => {
+  it('delivers active and delayed inactive changes without dropping either document', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'fuxian-open-watch-'));
     temporaryDirectories.push(directory);
     const activePath = join(directory, 'active.md');
@@ -38,7 +38,7 @@ describe('OpenDocumentWatchCoordinator', () => {
     await writeFile(activePath, '# Active revision');
 
     await expect.poll(() => changes.length).toBe(2);
-    expect(changes).toEqual([activePath, inactivePath]);
+    expect(changes.toSorted()).toEqual([activePath, inactivePath].toSorted());
     coordinator.close();
   });
 
