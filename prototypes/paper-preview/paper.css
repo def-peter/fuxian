@@ -1,0 +1,86 @@
+@page {
+  size: A4;
+  margin: 18mm 16mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  color: #202826;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+body {
+  margin: 0;
+}
+h1 {
+  margin: 0 0 8mm;
+  font-size: 28px;
+}
+h2 {
+  margin: 10mm 0 4mm;
+  padding-bottom: 2mm;
+  border-bottom: 1px solid #d8dfdd;
+  font-size: 20px;
+  break-after: avoid;
+}
+p,
+td,
+th {
+  font-size: 14px;
+  line-height: 1.7;
+}
+p {
+  margin: 0 0 5mm;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead {
+  display: table-header-group;
+}
+th,
+td {
+  padding: 2mm 2.5mm;
+  border: 1px solid #d8dfdd;
+  text-align: left;
+  vertical-align: top;
+}
+pre {
+  margin: 5mm 0;
+  padding: 4mm;
+  border: 1px solid #d8dfdd;
+  background: #f8faf9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+code {
+  font:
+    11px/1.55 'SFMono-Regular',
+    Consolas,
+    monospace;
+}
+figure {
+  margin: 6mm 0;
+  break-inside: avoid;
+}
+svg {
+  display: block;
+  width: 100%;
+  max-height: 170mm;
+}
+svg text {
+  font-size: 15px;
+  user-select: text;
+}
+
+@media print {
+  .pagedjs_pages {
+    background: white !important;
+  }
+  .pagedjs_page {
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fuxian paper preview prototype</title>
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body>
+    <header class="prototype-header">
+      <strong>纸张预览技术原型</strong>
+      <span id="status">正在分页...</span>
+    </header>
+    <main id="viewport">
+      <article id="source">
+        <h1 id="overview">浮现纸张预览</h1>
+        <p>
+          这个 throwaway 原型只回答一个问题：Paged.js 能否在隔离 Electron renderer 中生成可选择的 A4
+          页面，并与 printToPDF 保持一页对一页。
+        </p>
+        <h2 id="structure">结构与锚点</h2>
+        <p class="repeat"></p>
+        <p class="repeat"></p>
+        <p class="repeat"></p>
+        <h2 id="table">跨页表格</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>序号</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <h2 id="code">长代码</h2>
+        <pre><code id="code-content"></code></pre>
+        <h2 id="diagram">可选择 SVG</h2>
+        <figure>
+          <svg viewBox="0 0 620 260" role="img" aria-label="分页流程">
+            <rect x="20" y="70" width="160" height="90" rx="4" fill="#e9eef0" stroke="#42535a" />
+            <rect x="230" y="70" width="160" height="90" rx="4" fill="#e9eef0" stroke="#42535a" />
+            <rect x="440" y="70" width="160" height="90" rx="4" fill="#e9eef0" stroke="#42535a" />
+            <text x="100" y="120" text-anchor="middle">异步内容结算</text>
+            <text x="310" y="120" text-anchor="middle">Paged.js 分页</text>
+            <text x="520" y="120" text-anchor="middle">PDF 快照</text>
+            <path d="M180 115H230M390 115H440" stroke="#42535a" stroke-width="2" />
+          </svg>
+        </figure>
+        <h2 id="ending">末尾验收</h2>
+        <p id="ending-marker">FUXIAN_PAPER_PREVIEW_END</p>
+      </article>
+      <section id="preview" aria-label="纸张预览"></section>
+    </main>
+    <nav class="prototype-switcher" aria-label="原型方案">
+      <button id="previous" type="button" aria-label="上一个方案">←</button>
+      <span id="variant-label"></span>
+      <button id="next" type="button" aria-label="下一个方案">→</button>
+    </nav>
+  </body>
+</html>
