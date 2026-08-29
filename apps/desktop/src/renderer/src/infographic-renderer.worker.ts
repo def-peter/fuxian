@@ -1,13 +1,14 @@
 import {
   assertInfographicSourceSize,
-  collectInfographicIconNames,
+  collectInfographicIllustrationNames,
   invalidInfographicSource,
-  isSupportedInfographicTemplate,
   maximumInfographicSvgBytes,
+  unsupportedInfographicTemplateCapability,
   validateInfographicData,
   validateInfographicThemeConfig,
 } from './infographic-policy';
 import { resolveInfographicIcon } from './infographic-icons';
+import { createInfographicResourceFetch } from './infographic-resource-policy';
 import { DOMParser, parseHTML } from 'linkedom/worker';
 
 interface RenderRequest {
@@ -21,6 +22,13 @@ type RenderResponse =
 
 const immediateHandles = new Map<number, ReturnType<typeof setTimeout>>();
 let immediateId = 0;
+const nativeFetch = globalThis.fetch.bind(globalThis);
+const onlineIllustrationQueries = new Set<string>();
+const infographicResourceFetch = createInfographicResourceFetch({
+  fetchNetwork: nativeFetch,
+  preferOnlineResource: (query) => onlineIllustrationQueries.has(query),
+  resolveLocalResource: resolveInfographicIcon,
+});
 
 Object.assign(globalThis, {
   clearImmediate: (id: number): void => {
@@ -28,18 +36,7 @@ Object.assign(globalThis, {
     if (handle !== undefined) clearTimeout(handle);
     immediateHandles.delete(id);
   },
-  fetch: async (input: RequestInfo | URL): Promise<Response> => {
-    const request = input instanceof Request ? input : new Request(input);
-    const url = new URL(request.url);
-    if (url.origin === 'https://www.weavefox.cn' && url.pathname === '/api/v1/infographic/icon') {
-      const icon = await resolveInfographicIcon(url.searchParams.get('text') ?? '');
-      return new Response(JSON.stringify({ data: icon ? [icon] : [], success: true }), {
-        headers: { 'content-type': 'application/json' },
-        status: 200,
-      });
-    }
-    return new Response('', { status: 403, statusText: 'Fuxian blocks external resources' });
-  },
+  fetch: infographicResourceFetch,
   process: { versions: { node: 'fuxian-worker' } },
   setImmediate: (
     callback: (...arguments_: unknown[]) => void,
@@ -171,19 +168,19 @@ const render = async (source: string): Promise<string> => {
   if (typeof template !== 'string' || !getTemplates().includes(template)) {
     throw invalidInfographicSource('必须使用名称完全匹配的官方内置模板。');
   }
-  if (!isSupportedInfographicTemplate(template)) {
-    throw invalidInfographicSource('首版不支持动画、交互、插图或词云模板。');
+  const unsupportedCapability = unsupportedInfographicTemplateCapability(template);
+  if (unsupportedCapability) {
+    throw invalidInfographicSource('暂不支持动画模板，以保证屏幕与 PDF 的静态结果一致。');
   }
   if (theme !== undefined && (typeof theme !== 'string' || !getThemes().includes(theme))) {
     throw invalidInfographicSource('必须使用名称完全匹配的官方内置主题。');
   }
   validateInfographicData(data);
   validateInfographicThemeConfig(themeConfig);
-  for (const iconName of collectInfographicIconNames(data)) {
-    if (!(await resolveInfographicIcon(iconName))) {
-      throw invalidInfographicSource(`找不到本地图标 ${iconName}，请使用 lucide 或 mdi 图标名。`);
-    }
-  }
+  onlineIllustrationQueries.clear();
+  collectInfographicIllustrationNames(data).forEach((query) =>
+    onlineIllustrationQueries.add(query),
+  );
 
   const { container } = setupOfflineDom();
   const infographic = new Infographic({

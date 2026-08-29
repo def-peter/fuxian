@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   invalidInfographicSource,
+  isSupportedInfographicTemplate,
   validateInfographicData,
   validateInfographicThemeConfig,
 } from './infographic-policy';
@@ -37,16 +38,20 @@ class FakeWorker {
 }
 
 describe('Infographic policy', () => {
-  it('rejects remote resources, illustrations, and arbitrary attributes', () => {
+  it('rejects remote resources, resource objects, and arbitrary attributes', () => {
     expect(() =>
       validateInfographicData({ items: [{ icon: 'https://example.test/a.svg' }] }),
     ).toThrow(/不允许外部 URL/u);
-    expect(() => validateInfographicData({ items: [{ illus: 'coffee' }] })).toThrow(
-      /不支持 illus/u,
-    );
+    expect(() => validateInfographicData({ items: [{ illus: 'coffee' }] })).not.toThrow();
     expect(() =>
       validateInfographicData({ items: [{ attributes: { onclick: 'bad()' } }] }),
     ).toThrow(/不支持 attributes/u);
+    expect(() =>
+      validateInfographicData({ items: [{ icon: { source: 'remote', value: 'example.test' } }] }),
+    ).toThrow(/图标和插图只支持/u);
+    expect(() =>
+      validateInfographicData({ items: [{ illus: { source: 'remote', value: 'example.test' } }] }),
+    ).toThrow(/图标和插图只支持/u);
   });
 
   it('accepts official basic data and a bounded color theme', () => {
@@ -63,6 +68,20 @@ describe('Infographic policy', () => {
       /theme\.base/u,
     );
     expect(invalidInfographicSource('test')).toBeInstanceOf(TypeError);
+  });
+
+  it('supports static sequence and word-cloud templates by capability', () => {
+    expect(isSupportedInfographicTemplate('sequence-interaction-default-badge-card')).toBe(true);
+    expect(isSupportedInfographicTemplate('chart-wordcloud')).toBe(true);
+    expect(isSupportedInfographicTemplate('chart-wordcloud-rotate')).toBe(true);
+    expect(isSupportedInfographicTemplate('relation-dagre-flow-tb-animated-badge-card')).toBe(
+      false,
+    );
+    expect(isSupportedInfographicTemplate('sequence-interaction-wide-animated-compact-card')).toBe(
+      false,
+    );
+    expect(isSupportedInfographicTemplate('sequence-timeline-simple-illus')).toBe(true);
+    expect(isSupportedInfographicTemplate('quadrant-simple-illus')).toBe(true);
   });
 });
 

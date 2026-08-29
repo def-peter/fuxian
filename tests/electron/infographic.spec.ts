@@ -12,7 +12,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourcePath = resolve(repositoryRoot, 'fixtures/infographic.md');
 
-test('renders official Infographic text structure and rejects external resources', async () => {
+test('renders supported official Infographics from one sanitized SVG snapshot', async () => {
   test.setTimeout(60_000);
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-infographic-'));
   const outputPath = join(directory, 'infographic.pdf');
@@ -35,7 +35,7 @@ test('renders official Infographic text structure and rejects external resources
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
     await expect(finishedDocument.getByText('正文应当立即可读')).toBeVisible();
     const tasks = finishedDocument.locator('[data-render-task-kind="infographic"]');
-    await expect(tasks).toHaveCount(3);
+    await expect(tasks).toHaveCount(7);
 
     const infographic = tasks.first();
     await expect(infographic).toHaveAttribute('data-render-state', 'succeeded', {
@@ -71,11 +71,37 @@ test('renders official Infographic text structure and rejects external resources
       'ready',
     );
 
+    for (const supportedTemplate of [tasks.nth(3), tasks.nth(4), tasks.nth(5)]) {
+      await expect(supportedTemplate).toHaveAttribute('data-render-state', 'succeeded');
+      await expect(supportedTemplate.locator('.render-task-output > svg')).toBeVisible();
+    }
+    await expect(
+      tasks.nth(3).locator('foreignObject > span').filter({ hasText: '中文排版' }),
+    ).toBeVisible();
+    await expect(
+      tasks.nth(4).locator('foreignObject > span').filter({ hasText: '文档作者' }),
+    ).toBeVisible();
+    await expect(
+      tasks.nth(5).locator('foreignObject > span').filter({ hasText: '可信插图资源' }),
+    ).toBeVisible();
+    await expect(tasks.nth(5).locator('defs symbol')).not.toHaveCount(0);
+    await expect(tasks.nth(5).locator('use')).not.toHaveCount(0);
+
+    const rejectedAnimation = tasks.nth(6);
+    await expect(rejectedAnimation).toHaveAttribute('data-render-state', 'failed');
+    await expect(rejectedAnimation.locator('.render-task-error-detail')).toContainText(
+      '屏幕与 PDF 的静态结果一致',
+    );
+
     await infographic.getByRole('button', { name: '查看图表源码' }).click();
     const sourceDrawer = window.getByRole('complementary', { name: '图表源码' });
     await expect(sourceDrawer.getByLabel('AntV Infographic 图表源码')).toContainText(
       '浮现发布流程',
     );
+    await sourceDrawer.getByRole('button', { name: '复制 SVG' }).click();
+    await expect
+      .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
+      .toBe(visibleSnapshot);
     await sourceDrawer.getByRole('button', { name: '关闭图表源码' }).click();
 
     await infographic.getByRole('button', { name: '全屏查看图表' }).click();
@@ -83,6 +109,12 @@ test('renders official Infographic text structure and rejects external resources
     await expect(
       focusDialog.locator('foreignObject > span').filter({ hasText: '稳定导出' }),
     ).toBeVisible();
+    expect(
+      await focusDialog
+        .getByLabel('图表全屏画布')
+        .locator(':scope > div > svg')
+        .evaluate((svg) => svg.outerHTML),
+    ).toBe(visibleSnapshot);
     await focusDialog.getByRole('button', { name: '返回文档' }).click();
 
     await window.getByRole('button', { name: '导出 PDF' }).click();
@@ -94,10 +126,18 @@ test('renders official Infographic text structure and rejects external resources
     const exportedInfographic = exportWindow.locator(
       '[data-render-task-kind="infographic"] .render-task-output > svg',
     );
-    await expect(exportedInfographic.first()).toBeVisible({ timeout: 15_000 });
-    expect(await exportedInfographic.first().evaluate((svg) => svg.outerHTML)).toBe(
-      visibleSnapshot,
+    await expect(exportedInfographic).toHaveCount(5, { timeout: 15_000 });
+    const visibleSnapshots = await Promise.all(
+      [0, 1, 3, 4, 5].map((index) =>
+        tasks
+          .nth(index)
+          .locator('.render-task-output > svg')
+          .evaluate((svg) => svg.outerHTML),
+      ),
     );
+    expect(
+      await exportedInfographic.evaluateAll((svgs) => svgs.map((svg) => svg.outerHTML)),
+    ).toEqual(visibleSnapshots);
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
 
     const bytes = await readFile(outputPath);
@@ -111,7 +151,11 @@ test('renders official Infographic text structure and rejects external resources
       text.push(content.items.flatMap((item) => ('str' in item ? [item.str] : [])).join(''));
     }
     await loading.destroy();
-    expect(text.join('').replace(/\s+/gu, '')).toContain('浮现发布流程');
+    const pdfText = text.join('').normalize('NFKC').replace(/\s+/gu, '');
+    expect(pdfText).toContain('浮现发布流程');
+    expect(pdfText).toContain('中文排版');
+    expect(pdfText).toContain('文档作者');
+    expect(pdfText).toContain('可信插图资源');
   } finally {
     await electronApp.close();
     await rm(directory, { force: true, recursive: true });

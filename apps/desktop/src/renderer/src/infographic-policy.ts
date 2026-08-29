@@ -5,9 +5,9 @@ const maximumDataDepth = 32;
 const maximumDataItems = 2_000;
 const maximumDataProperties = 20_000;
 const maximumTextLength = 20_000;
-const forbiddenDataKeys = new Set(['attributes', 'illus']);
+const forbiddenDataKeys = new Set(['attributes']);
 const externalResourcePattern = /(?:\b(?:data|file|https?|javascript):|ref:(?:remote|svg))/iu;
-const supportedIconPattern = /^(?:(?:lucide|mdi)\/)?[a-z0-9][a-z0-9 -]{0,95}$/u;
+const supportedResourceSearchPattern = /^(?:(?:lucide|mdi)\/)?[\p{L}\p{N}][\p{L}\p{N} _/-]{0,95}$/u;
 
 interface ValidationState {
   items: number;
@@ -39,10 +39,13 @@ const validateValue = (
   key?: string,
 ): void => {
   if (depth > maximumDataDepth) throw invalidInfographicSource('数据嵌套层级过深。');
+  if ((key === 'icon' || key === 'illus') && typeof value !== 'string') {
+    throw invalidInfographicSource('图标和插图只支持简短关键词或本地 lucide、mdi 名称。');
+  }
   if (typeof value === 'string') {
     validateText(value);
-    if (key === 'icon' && !supportedIconPattern.test(value)) {
-      throw invalidInfographicSource('图标只支持本地 lucide、mdi 名称或简短关键词。');
+    if ((key === 'icon' || key === 'illus') && !supportedResourceSearchPattern.test(value)) {
+      throw invalidInfographicSource('图标和插图只支持简短关键词或本地 lucide、mdi 名称。');
     }
     return;
   }
@@ -77,8 +80,8 @@ export const validateInfographicData = (data: unknown): void => {
   validateValue(data, { items: 0, properties: 0 }, 0);
 };
 
-export const collectInfographicIconNames = (data: unknown): string[] => {
-  const icons = new Set<string>();
+export const collectInfographicIllustrationNames = (data: unknown): string[] => {
+  const illustrations = new Set<string>();
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) {
       value.forEach(visit);
@@ -86,12 +89,12 @@ export const collectInfographicIconNames = (data: unknown): string[] => {
     }
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
-      if (key === 'icon' && typeof child === 'string') icons.add(child);
+      if (key === 'illus' && typeof child === 'string') illustrations.add(child);
       visit(child);
     }
   };
   visit(data);
-  return [...icons];
+  return [...illustrations];
 };
 
 const safeColorPattern = /^#[0-9a-f]{3,8}$/iu;
@@ -120,5 +123,30 @@ export const validateInfographicThemeConfig = (themeConfig: unknown): void => {
   }
 };
 
+const animatedInfographicTemplates = new Set([
+  'relation-dagre-flow-lr-animated-badge-card',
+  'relation-dagre-flow-lr-animated-capsule',
+  'relation-dagre-flow-lr-animated-compact-card',
+  'relation-dagre-flow-lr-animated-simple-circle-node',
+  'relation-dagre-flow-tb-animated-badge-card',
+  'relation-dagre-flow-tb-animated-capsule',
+  'relation-dagre-flow-tb-animated-compact-card',
+  'relation-dagre-flow-tb-animated-simple-circle-node',
+  ...['compact', 'default', 'wide'].flatMap((spacing) =>
+    ['badge-card', 'capsule-item', 'compact-card', 'rounded-rect-node'].map(
+      (item) => `sequence-interaction-${spacing}-animated-${item}`,
+    ),
+  ),
+]);
+
+export type UnsupportedInfographicTemplateCapability = 'animation';
+
+export const unsupportedInfographicTemplateCapability = (
+  template: string,
+): UnsupportedInfographicTemplateCapability | undefined => {
+  if (animatedInfographicTemplates.has(template)) return 'animation';
+  return undefined;
+};
+
 export const isSupportedInfographicTemplate = (template: string): boolean =>
-  !/(?:^|-)(?:animated|interaction|illus|wordcloud)(?:-|$)/u.test(template);
+  unsupportedInfographicTemplateCapability(template) === undefined;
