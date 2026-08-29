@@ -220,7 +220,7 @@ export function DocumentSessionSidebar({
       aria-label="文档会话"
       className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted"
     >
-      <header className="flex min-w-0 items-center gap-1 border-b px-2">
+      <header className="flex min-w-0 items-center gap-1 border-b bg-card px-2">
         <FuxianLockup className="mr-auto h-7 w-auto" decorative={false} />
         <Tooltip>
           <TooltipTrigger asChild>
