@@ -50,9 +50,13 @@ test('downloads an available update and flushes the reading session before insta
     await readerWindow.setViewportSize({ height: 900, width: 1_440 });
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
     const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
-    await finishedDocument
-      .getByRole('heading', { name: '本地资源' })
-      .evaluate((element) => element.scrollIntoView({ block: 'start' }));
+    await finishedDocument.locator('html').evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await expect
+      .poll(() => finishedDocument.locator('html').evaluate(() => window.scrollY))
+      .toBeGreaterThan(0);
+    await readerWindow.waitForTimeout(200);
 
     const settingsButton = readerWindow.getByRole('button', { name: '设置，有可用更新' });
     await expect(settingsButton).toBeVisible();

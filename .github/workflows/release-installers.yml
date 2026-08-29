@@ -83,7 +83,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Windows workflows
-        run: pnpm test:e2e
+        run: pnpm test:e2e:release
 
       - name: Build NSIS installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
@@ -128,7 +128,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify macOS workflows
-        run: pnpm test:e2e
+        run: pnpm test:e2e:release
 
       - name: Build unsigned macOS artifacts
         run: pnpm exec electron-builder --mac dmg zip --x64 --arm64 --publish never

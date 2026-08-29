@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import { CancellationError, type CancellationToken, type ProgressInfo } from 'builder-util-runtime';
 import type { UpdateInfo } from 'electron-updater';
 import type { AppUpdateAdapter } from './app-update-service';
@@ -73,7 +73,7 @@ export class E2EAppUpdateAdapter extends EventEmitter implements AppUpdateAdapte
 
   quitAndInstall(): void {
     if (this.installMarkerPath) {
-      void writeFile(this.installMarkerPath, JSON.stringify({ installedVersion: '0.2.0' }), 'utf8');
+      writeFileSync(this.installMarkerPath, JSON.stringify({ installedVersion: '0.2.0' }), 'utf8');
     }
   }
 }

@@ -35,7 +35,7 @@ pnpm verify:package
 gh workflow run release-installers.yml --ref main
 ```
 
-4. The workflow runs checks and E2E, produces Windows NSIS update metadata, and builds both unsigned macOS architectures in one job so `latest-mac.yml` can detect either architecture.
+4. The workflow runs static checks, unit tests, and a release-critical Electron E2E suite on both Windows and macOS; produces Windows NSIS update metadata; and builds both unsigned macOS architectures in one job so `latest-mac.yml` can detect either architecture. Run the broader `pnpm test:e2e` suite during feature development.
 5. It verifies packaged smoke tests, asset presence, size, and SHA-512 metadata. Assets enter a draft Release first; only the complete verified draft becomes the stable latest Release.
 
 Published assets include `latest.yml`, `latest-mac.yml`, NSIS EXE, macOS ZIP and DMG files, and matching blockmaps.
