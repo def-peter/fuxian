@@ -154,7 +154,7 @@ const setupOfflineDom = (): { container: Element; document: Document } => {
 const render = async (source: string): Promise<string> => {
   assertInfographicSourceSize(source);
   const runtime = await import('@antv/infographic');
-  const { exportToSVG, getTemplates, getThemes, Infographic, parseSyntax } = runtime;
+  const { exportToSVG, getPalettes, getTemplates, getThemes, Infographic, parseSyntax } = runtime;
   const parsed = parseSyntax(source);
   const parseProblem = parsed.errors[0] ?? parsed.warnings[0];
   if (parseProblem) {
@@ -176,7 +176,7 @@ const render = async (source: string): Promise<string> => {
     throw invalidInfographicSource('必须使用名称完全匹配的官方内置主题。');
   }
   validateInfographicData(data);
-  validateInfographicThemeConfig(themeConfig);
+  validateInfographicThemeConfig(themeConfig, getPalettes());
   onlineIllustrationQueries.clear();
   collectInfographicIllustrationNames(data).forEach((query) =>
     onlineIllustrationQueries.add(query),

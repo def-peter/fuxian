@@ -98,8 +98,12 @@ export const collectInfographicIllustrationNames = (data: unknown): string[] => 
 };
 
 const safeColorPattern = /^#[0-9a-f]{3,8}$/iu;
+const noNamedPalettes: Readonly<Record<string, unknown>> = Object.freeze({});
 
-export const validateInfographicThemeConfig = (themeConfig: unknown): void => {
+export const validateInfographicThemeConfig = (
+  themeConfig: unknown,
+  namedPalettes: Readonly<Record<string, unknown>> = noNamedPalettes,
+): void => {
   if (themeConfig === undefined) return;
   if (!themeConfig || typeof themeConfig !== 'object' || Array.isArray(themeConfig)) {
     throw invalidInfographicSource('主题配置必须是对象。');
@@ -111,13 +115,15 @@ export const validateInfographicThemeConfig = (themeConfig: unknown): void => {
       }
       continue;
     }
-    if (
-      key === 'palette' &&
-      Array.isArray(value) &&
-      value.length <= 12 &&
-      value.every((color) => typeof color === 'string' && safeColorPattern.test(color))
-    ) {
-      continue;
+    if (key === 'palette') {
+      if (typeof value === 'string' && Object.hasOwn(namedPalettes, value)) continue;
+      if (
+        Array.isArray(value) &&
+        value.length <= 12 &&
+        value.every((color) => typeof color === 'string' && safeColorPattern.test(color))
+      ) {
+        continue;
+      }
     }
     throw invalidInfographicSource(`首版不支持 theme.${key} 配置。`);
   }

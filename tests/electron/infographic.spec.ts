@@ -28,6 +28,22 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
       NODE_ENV: 'test',
     },
   });
+  const trustedAssetUrl =
+    'https://mdn.alipayobjects.com/infographicservice/afts/img/e2e-resource/original';
+  await electronApp.context().route('https://www.weavefox.cn/api/v1/infographic/icon**', (route) =>
+    route.fulfill({
+      body: JSON.stringify({ data: [trustedAssetUrl], success: true }),
+      contentType: 'application/json',
+      status: 200,
+    }),
+  );
+  await electronApp.context().route(trustedAssetUrl, (route) =>
+    route.fulfill({
+      body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#1783FF" d="M4 4h16v16H4z"/></svg>',
+      contentType: 'image/svg+xml',
+      status: 200,
+    }),
+  );
 
   try {
     const window = await electronApp.firstWindow();
@@ -35,7 +51,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
     await expect(finishedDocument.getByText('正文应当立即可读')).toBeVisible();
     const tasks = finishedDocument.locator('[data-render-task-kind="infographic"]');
-    await expect(tasks).toHaveCount(7);
+    await expect(tasks).toHaveCount(8);
 
     const infographic = tasks.first();
     await expect(infographic).toHaveAttribute('data-render-state', 'succeeded', {
@@ -93,6 +109,16 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
       '屏幕与 PDF 的静态结果一致',
     );
 
+    const officialResources = tasks.nth(7);
+    await expect(officialResources).toHaveAttribute('data-render-state', 'succeeded', {
+      timeout: 30_000,
+    });
+    await expect(
+      officialResources.locator('foreignObject > span').filter({ hasText: '企业优势列表' }),
+    ).toBeVisible();
+    await expect(officialResources.locator('defs symbol')).not.toHaveCount(0);
+    await expect(officialResources.locator('use')).not.toHaveCount(0);
+
     await infographic.getByRole('button', { name: '查看图表源码' }).click();
     const sourceDrawer = window.getByRole('complementary', { name: '图表源码' });
     await expect(sourceDrawer.getByLabel('AntV Infographic 图表源码')).toContainText(
@@ -126,9 +152,9 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     const exportedInfographic = exportWindow.locator(
       '[data-render-task-kind="infographic"] .render-task-output > svg',
     );
-    await expect(exportedInfographic).toHaveCount(5, { timeout: 15_000 });
+    await expect(exportedInfographic).toHaveCount(6, { timeout: 15_000 });
     const visibleSnapshots = await Promise.all(
-      [0, 1, 3, 4, 5].map((index) =>
+      [0, 1, 3, 4, 5, 7].map((index) =>
         tasks
           .nth(index)
           .locator('.render-task-output > svg')
@@ -156,6 +182,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     expect(pdfText).toContain('中文排版');
     expect(pdfText).toContain('文档作者');
     expect(pdfText).toContain('可信插图资源');
+    expect(pdfText).toContain('企业优势列表');
   } finally {
     await electronApp.close();
     await rm(directory, { force: true, recursive: true });
