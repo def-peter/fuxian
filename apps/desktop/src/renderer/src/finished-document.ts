@@ -48,6 +48,7 @@ export interface FinishedDocumentController {
   scrollToEnd(): ReadingPosition;
   scrollToHeading(id: string): void;
   whenRenderReady(): Promise<RenderRevisionSnapshot>;
+  whenRenderTaskKindsReady(taskKinds: readonly string[]): Promise<RenderRevisionSnapshot>;
 }
 
 export interface RenderedVisualSnapshot {
@@ -821,5 +822,6 @@ export function bindFinishedDocument(
       frameDocument.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     whenRenderReady: () => renderRevision.whenReady(),
+    whenRenderTaskKindsReady: (taskKinds) => renderRevision.whenTaskKindsReady(taskKinds),
   };
 }

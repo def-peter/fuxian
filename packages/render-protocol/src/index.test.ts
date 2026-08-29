@@ -96,6 +96,32 @@ describe('RenderCoordinator', () => {
     expect(applied).toEqual(['math:formula']);
   });
 
+  it('can wait for selected task kinds without blocking on unrelated work', async () => {
+    const adapter = new ControlledAdapter();
+    const coordinator = new RenderCoordinator({
+      adapter,
+      onTaskSuccess: () => undefined,
+      timeoutMilliseconds: 10_000,
+    });
+    const revision = coordinator.startRevision('revision-1', [
+      { id: 'vega', kind: 'vega-lite', source: 'chart' },
+      { id: 'plantuml', kind: 'plantuml', source: 'diagram' },
+    ]);
+    const requiredSnapshots = revision.whenTaskKindsReady(['vega-lite', 'infographic']);
+
+    adapter.attempt('vega').resolve('chart-svg');
+    const targetedSnapshot = await requiredSnapshots;
+
+    expect(targetedSnapshot.tasks).toEqual([
+      expect.objectContaining({ id: 'vega', status: 'succeeded' }),
+      expect.objectContaining({ id: 'plantuml', status: 'pending' }),
+    ]);
+    expect(targetedSnapshot.readiness.complete).toBe(false);
+
+    adapter.attempt('plantuml').resolve('diagram-svg');
+    expect((await revision.whenReady()).readiness.complete).toBe(true);
+  });
+
   it('retries a manually timed-out task through a controlled scheduler', async () => {
     const adapter = new ControlledAdapter();
     const scheduler = new ManualScheduler();

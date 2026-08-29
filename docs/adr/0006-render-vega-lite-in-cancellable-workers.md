@@ -10,7 +10,7 @@ Fuxian treats a canonical `vega-lite` fenced block as a visualization block. It 
 
 The runtime uses Vega's AST parser with `vega-interpreter`; it never enables `unsafe-eval`. A fail-closed loader rejects every external resource. The MVP rejects interactive parameters, external or named data, image marks, links, nondeterministic expressions, and transforms with unbounded or random expansion. The final SVG passes through the same structural sanitizer used by other rendered visual blocks.
 
-The finished document and PDF export reuse the same sanitized SVG snapshot. Vega-Lite is not rerun in the export window, and its author-provided specification is not rewritten by application appearance settings.
+The finished document and PDF export reuse the same sanitized SVG snapshot. PDF export waits for the Vega-Lite and Infographic tasks in the finished-document revision active when export starts to settle before collecting snapshots; export-capable formats do not block this handoff. Vega-Lite is not rerun in the export window, and its author-provided specification is not rewritten by application appearance settings.
 
 ## Consequences
 

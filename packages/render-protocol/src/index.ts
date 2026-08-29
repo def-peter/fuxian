@@ -51,6 +51,7 @@ export interface RenderRevisionHandle {
   retry(taskId: string): boolean;
   snapshot(): RenderRevisionSnapshot;
   whenReady(): Promise<RenderRevisionSnapshot>;
+  whenTaskKindsReady(taskKinds: readonly string[]): Promise<RenderRevisionSnapshot>;
 }
 
 interface TaskRecord extends RenderTaskSnapshot {
@@ -61,6 +62,10 @@ interface TaskRecord extends RenderTaskSnapshot {
 
 interface RevisionState {
   revisionId: string;
+  taskKindWaiters: Array<{
+    kinds: ReadonlySet<string>;
+    resolve(snapshot: RenderRevisionSnapshot): void;
+  }>;
   tasks: Map<string, TaskRecord>;
   waiters: Array<(snapshot: RenderRevisionSnapshot) => void>;
 }
@@ -133,7 +138,12 @@ export class RenderCoordinator<Result> {
       });
     }
 
-    const revision: RevisionState = { revisionId, tasks: uniqueTasks, waiters: [] };
+    const revision: RevisionState = {
+      revisionId,
+      taskKindWaiters: [],
+      tasks: uniqueTasks,
+      waiters: [],
+    };
     this.currentRevision = revision;
     for (const task of revision.tasks.values()) {
       this.runTask(revision, task);
@@ -146,6 +156,7 @@ export class RenderCoordinator<Result> {
       retry: (taskId) => this.retryTask(revision, taskId),
       snapshot: () => createSnapshot(revision),
       whenReady: () => this.whenReady(revision),
+      whenTaskKindsReady: (taskKinds) => this.whenTaskKindsReady(revision, taskKinds),
     };
   }
 
@@ -229,14 +240,38 @@ export class RenderCoordinator<Result> {
 
   private resolveWaiters(revision: RevisionState): void {
     const snapshot = createSnapshot(revision);
-    if (!snapshot.readiness.complete) return;
-    for (const resolve of revision.waiters.splice(0)) resolve(snapshot);
+    if (snapshot.readiness.complete) {
+      for (const resolve of revision.waiters.splice(0)) resolve(snapshot);
+    }
+    for (let index = revision.taskKindWaiters.length - 1; index >= 0; index -= 1) {
+      const waiter = revision.taskKindWaiters[index];
+      if (
+        !waiter ||
+        snapshot.tasks.some((task) => waiter.kinds.has(task.kind) && task.status === 'pending')
+      ) {
+        continue;
+      }
+      revision.taskKindWaiters.splice(index, 1);
+      waiter.resolve(snapshot);
+    }
   }
 
   private whenReady(revision: RevisionState): Promise<RenderRevisionSnapshot> {
     const snapshot = createSnapshot(revision);
     if (snapshot.readiness.complete) return Promise.resolve(snapshot);
     return new Promise((resolve) => revision.waiters.push(resolve));
+  }
+
+  private whenTaskKindsReady(
+    revision: RevisionState,
+    taskKinds: readonly string[],
+  ): Promise<RenderRevisionSnapshot> {
+    const snapshot = createSnapshot(revision);
+    const kinds = new Set(taskKinds);
+    if (!snapshot.tasks.some((task) => kinds.has(task.kind) && task.status === 'pending')) {
+      return Promise.resolve(snapshot);
+    }
+    return new Promise((resolve) => revision.taskKindWaiters.push({ kinds, resolve }));
   }
 
   private retryTask(revision: RevisionState, taskId: string): boolean {

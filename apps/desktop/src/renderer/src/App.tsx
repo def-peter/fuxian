@@ -1007,13 +1007,23 @@ export function App(): React.JSX.Element {
     const document = sessionRef.current.openDocuments.find(
       (item): item is SessionDocument => item.status === 'available' && item.document.path === path,
     );
-    if (!path || !document || pdfExportStarting || pdfExportProgress?.status === 'running') return;
+    const controller = finishedDocumentController.current;
+    if (
+      !path ||
+      !document ||
+      !controller ||
+      pdfExportStarting ||
+      pdfExportProgress?.status === 'running'
+    )
+      return;
     setPdfExportStarting(true);
     try {
+      await controller.whenRenderTaskKindsReady(['infographic', 'vega-lite']);
       const result = await window.fuxian.startPdfExport({
         path,
         preferences,
-        renderedVisuals: (finishedDocumentController.current?.getRenderedVisualSnapshots() ?? [])
+        renderedVisuals: controller
+          .getRenderedVisualSnapshots()
           .filter(
             (
               diagram,
