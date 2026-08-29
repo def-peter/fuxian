@@ -17,6 +17,8 @@ const collectFiles = async (directory) => {
 };
 
 const normalizePath = (path) => path.split(sep).join('/');
+const normalizeArchivePath = (path) => path.replaceAll('\\', '/');
+const toArchiveEntryPath = (path) => path.slice(1).split('/').join(sep);
 
 export const verifyPackagedApp = async (outputDirectory) => {
   const root = resolve(outputDirectory);
@@ -37,7 +39,7 @@ export const verifyPackagedApp = async (outputDirectory) => {
   }
 
   for (const archive of archives) {
-    const entries = listPackage(archive);
+    const entries = listPackage(archive).map(normalizeArchivePath);
     if (entries.some((path) => path.startsWith('/node_modules/electron/'))) {
       errors.push(`${relative(root, archive)} contains the Electron development dependency`);
     }
@@ -53,10 +55,14 @@ export const verifyPackagedApp = async (outputDirectory) => {
     }
     if (requiredEntries.some((entry) => !entries.includes(entry))) continue;
 
-    const mainSource = extractFile(archive, 'apps/desktop/out/main/index.js').toString('utf8');
-    const rendererIndex = extractFile(archive, 'apps/desktop/out/renderer/index.html').toString(
-      'utf8',
-    );
+    const mainSource = extractFile(
+      archive,
+      toArchiveEntryPath('/apps/desktop/out/main/index.js'),
+    ).toString('utf8');
+    const rendererIndex = extractFile(
+      archive,
+      toArchiveEntryPath('/apps/desktop/out/renderer/index.html'),
+    ).toString('utf8');
     const securitySettings = [
       ['context isolation', /contextIsolation:\s*true/],
       ['disabled Node integration', /nodeIntegration:\s*false/],
