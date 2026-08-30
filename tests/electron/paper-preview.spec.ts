@@ -74,11 +74,16 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
     const screenPageCount = await pages.count();
     expect(screenPageCount).toBeGreaterThan(2);
     const fitScale = await paper.locator('html').evaluate((element) => ({
+      innerHeight,
       innerWidth,
       value: Number.parseFloat(getComputedStyle(element).getPropertyValue('--paper-preview-scale')),
     }));
     expect(fitScale.value).toBeCloseTo(
-      Math.min(1, Math.max(320, fitScale.innerWidth - 40) / ((210 / 25.4) * 96)),
+      Math.min(
+        1,
+        Math.max(1, fitScale.innerWidth - 40) / ((210 / 25.4) * 96),
+        Math.max(1, fitScale.innerHeight - 40) / ((297 / 25.4) * 96),
+      ),
       5,
     );
     await expect(window.getByRole('radio', { name: '实际大小' })).toHaveCount(0);
@@ -192,21 +197,34 @@ test('paper mode scrolls with the mouse wheel', async () => {
     const paperGeometry = await pages.evaluateAll((elements) => {
       const first = elements[0]?.getBoundingClientRect();
       const second = elements[1]?.getBoundingClientRect();
+      const pageContainer = elements[0]?.parentElement;
+      const previewPages = pageContainer?.parentElement;
+      const viewport = previewPages?.parentElement;
       return {
         background: first ? getComputedStyle(elements[0]!).backgroundColor : '',
         gap: first && second ? second.top - first.bottom : 0,
         height: first?.height ?? 0,
         leftGutter: first?.left ?? 0,
         outerBackground: getComputedStyle(document.body).backgroundColor,
-        rightGutter: first ? innerWidth - first.right : 0,
+        pageContainerBackground: pageContainer
+          ? getComputedStyle(pageContainer).backgroundColor
+          : '',
+        previewPagesBackground: previewPages ? getComputedStyle(previewPages).backgroundColor : '',
+        rightGutter: first ? document.documentElement.clientWidth - first.right : 0,
+        viewportBackground: viewport ? getComputedStyle(viewport).backgroundColor : '',
+        viewportHeight: innerHeight,
         width: first?.width ?? 0,
       };
     });
     expect(paperGeometry.height).toBeGreaterThan(paperGeometry.width);
+    expect(paperGeometry.height).toBeLessThanOrEqual(paperGeometry.viewportHeight - 40 + 1);
     expect(paperGeometry.width / paperGeometry.height).toBeCloseTo(210 / 297, 2);
     expect(paperGeometry.gap).toBeGreaterThan(8);
     expect(paperGeometry.leftGutter).toBeCloseTo(paperGeometry.rightGutter, 0);
     expect(paperGeometry.background).not.toBe(paperGeometry.outerBackground);
+    expect(paperGeometry.pageContainerBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(paperGeometry.previewPagesBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(paperGeometry.viewportBackground).toBe('rgba(0, 0, 0, 0)');
     await pages.first().hover();
     const scrollTopBeforeWheel = await paper
       .locator('html')

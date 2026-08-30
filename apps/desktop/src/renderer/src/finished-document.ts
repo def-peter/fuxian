@@ -585,12 +585,15 @@ export function bindFinishedDocument(
     }
 
     const activationLine = Math.min(140, frameWindow.innerHeight * 0.25);
-    let activeHeading = headingElements[0];
-    for (const heading of headingElements) {
-      if (heading.getBoundingClientRect().top > activationLine) {
-        break;
+    let activeHeading = headingElements.at(-1);
+    if (frameWindow.scrollY < getMaxScroll() - 1) {
+      activeHeading = headingElements[0];
+      for (const heading of headingElements) {
+        if (heading.getBoundingClientRect().top > activationLine) {
+          break;
+        }
+        activeHeading = heading;
       }
-      activeHeading = heading;
     }
 
     onActiveHeadingChange(activeHeading?.id);

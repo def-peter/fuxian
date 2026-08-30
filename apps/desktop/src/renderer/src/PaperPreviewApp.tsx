@@ -4,6 +4,7 @@ import { bindFinishedDocument, type FinishedDocumentController } from './finishe
 import {
   applyPaperTheme,
   paginateFinishedDocument,
+  paperPageHeightPixels,
   paperPageWidthPixels,
   paperPagedMediaCss,
   paperRuntimeCss,
@@ -27,8 +28,13 @@ const postToHost = (message: PaperPreviewFramePayload): void => {
 };
 
 const fitPaperToViewport = (): void => {
-  const availableWidth = Math.max(320, globalThis.innerWidth - 40);
-  const scale = Math.min(1, availableWidth / paperPageWidthPixels);
+  const availableWidth = Math.max(1, globalThis.innerWidth - 40);
+  const availableHeight = Math.max(1, globalThis.innerHeight - 40);
+  const scale = Math.min(
+    1,
+    availableWidth / paperPageWidthPixels,
+    availableHeight / paperPageHeightPixels,
+  );
   document.documentElement.style.setProperty('--paper-preview-scale', `${scale}`);
 };
 

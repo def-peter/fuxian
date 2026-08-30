@@ -5,6 +5,7 @@ import {
 } from '@fuxian/document-theme';
 
 export const paperPageWidthPixels = (210 / 25.4) * 96;
+export const paperPageHeightPixels = (297 / 25.4) * 96;
 const maximumRowsPerTableFragment = 8;
 const maximumTableRowsHeightPixels = 780;
 
@@ -182,6 +183,7 @@ body {
   display: block;
   width: max-content;
   min-width: 100%;
+  background: transparent !important;
   zoom: var(--paper-preview-scale, 1);
 }
 
