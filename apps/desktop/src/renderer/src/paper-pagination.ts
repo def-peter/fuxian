@@ -68,8 +68,13 @@ tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline
 .paper-rendered-visual-placeholder {
   display: block;
   max-width: 100%;
-  margin: 0 auto;
-  object-fit: contain;
+  margin: 28px auto;
+  break-inside: avoid;
+}
+
+.paper-rendered-visual-page-break {
+  display: block;
+  break-before: page;
   break-inside: avoid;
 }
 
@@ -170,6 +175,10 @@ body {
   zoom: var(--paper-preview-scale, 1);
 }
 
+.paper-preview-pages.paper-pagination-staging > .pagedjs_pages {
+  zoom: 1;
+}
+
 .paper-preview-pages .pagedjs_page {
   flex: none;
   margin: 0;
@@ -255,8 +264,6 @@ const waitForImage = (image: HTMLImageElement): Promise<void> => {
   });
 };
 
-const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-
 const svgFallbackSize = (svg: SVGSVGElement, axis: 'height' | 'width'): number => {
   const viewBox = svg.viewBox.baseVal;
   const viewBoxSize = axis === 'width' ? viewBox.width : viewBox.height;
@@ -266,37 +273,98 @@ const svgFallbackSize = (svg: SVGSVGElement, axis: 'height' | 'width'): number =
 
 const makeRenderedVisualsAtomic = (
   root: ParentNode,
-): { restore(destination: ParentNode): void } => {
-  const originals = new Map<string, SVGSVGElement>();
-  const svgs = root.querySelectorAll<SVGSVGElement>(
-    '.diagram-render-task > .render-task-output > svg',
+): {
+  findInvalid(destination: ParentNode): Set<string>;
+  forceAllPageBreaks(): void;
+  forcePageBreaks(ids: Iterable<string>): void;
+  restore(destination: ParentNode): void;
+} => {
+  const originals = new Map<string, HTMLElement>();
+  const sourcePlaceholders = new Map<string, HTMLDivElement>();
+  const pageBreakWrappers = new Map<string, HTMLDivElement>();
+  const renderTasks = Array.from(root.querySelectorAll<HTMLElement>('.diagram-render-task')).filter(
+    (renderTask) => renderTask.querySelector(':scope > .render-task-output > svg'),
   );
-  for (const [index, svg] of Array.from(svgs).entries()) {
-    const bounds = svg.getBoundingClientRect();
+  for (const [index, renderTask] of renderTasks.entries()) {
+    const svg = renderTask.querySelector<SVGSVGElement>(':scope > .render-task-output > svg');
+    if (!svg) continue;
+    const bounds = renderTask.getBoundingClientRect();
     const id = `paper-rendered-visual-${index}`;
-    const renderTask = svg.closest<HTMLElement>('[data-render-task-id]');
-    const source = renderTask?.querySelector<HTMLElement>('.render-task-source')?.textContent;
-    if (renderTask && source !== undefined) renderTask.dataset.staticRenderTaskSource = source;
-    const placeholder = svg.ownerDocument.createElement('img');
+    const source = renderTask.querySelector<HTMLElement>('.render-task-source')?.textContent;
+    if (source !== undefined) renderTask.dataset.staticRenderTaskSource = source;
+    const placeholder = svg.ownerDocument.createElement('div');
     const width = Math.max(1, bounds.width || svgFallbackSize(svg, 'width'));
     const height = Math.max(1, bounds.height || svgFallbackSize(svg, 'height'));
-    placeholder.alt = '';
     placeholder.ariaHidden = 'true';
     placeholder.className = 'paper-rendered-visual-placeholder';
     placeholder.dataset.paperRenderedVisual = id;
-    placeholder.decoding = 'sync';
-    placeholder.height = Math.ceil(height);
-    placeholder.src = transparentPixel;
     placeholder.style.height = `${height}px`;
     placeholder.style.width = `${width}px`;
-    placeholder.width = Math.ceil(width);
-    originals.set(id, svg);
-    svg.replaceWith(placeholder);
+    originals.set(id, renderTask);
+    sourcePlaceholders.set(id, placeholder);
+    renderTask.replaceWith(placeholder);
   }
 
+  const forcePageBreaks = (ids: Iterable<string>): void => {
+    for (const id of ids) {
+      const placeholder = sourcePlaceholders.get(id);
+      if (!placeholder || pageBreakWrappers.has(id)) continue;
+      const wrapper = placeholder.ownerDocument.createElement('div');
+      wrapper.className = 'paper-rendered-visual-page-break';
+      placeholder.replaceWith(wrapper);
+      wrapper.append(placeholder);
+      pageBreakWrappers.set(id, wrapper);
+    }
+  };
+
   return {
+    findInvalid: (destination) => {
+      const occurrences = new Map<string, HTMLElement[]>();
+      for (const placeholder of destination.querySelectorAll<HTMLElement>(
+        '[data-paper-rendered-visual]',
+      )) {
+        const id = placeholder.dataset.paperRenderedVisual;
+        if (!id || !originals.has(id)) continue;
+        const current = occurrences.get(id) ?? [];
+        current.push(placeholder);
+        occurrences.set(id, current);
+      }
+      const invalid = new Set<string>();
+      for (const id of originals.keys()) {
+        const matches = occurrences.get(id) ?? [];
+        const fitting = matches.filter((placeholder) => {
+          const page = placeholder.closest<HTMLElement>('.pagedjs_page');
+          if (!page) return false;
+          const bounds = placeholder.getBoundingClientRect();
+          const pageBounds = page.getBoundingClientRect();
+          const tolerance = 1;
+          return (
+            bounds.width > 0 &&
+            bounds.height > 0 &&
+            bounds.left >= pageBounds.left - tolerance &&
+            bounds.right <= pageBounds.right + tolerance &&
+            bounds.top >= pageBounds.top - tolerance &&
+            bounds.bottom <= pageBounds.bottom + tolerance
+          );
+        });
+        const keeper = fitting[0];
+        if (!keeper) {
+          invalid.add(id);
+          continue;
+        }
+        for (const duplicate of matches) {
+          if (duplicate === keeper) continue;
+          const wrapper = duplicate.closest<HTMLElement>('.paper-rendered-visual-page-break');
+          if (wrapper) wrapper.remove();
+          else duplicate.remove();
+        }
+      }
+      return invalid;
+    },
+    forceAllPageBreaks: () => forcePageBreaks(originals.keys()),
+    forcePageBreaks,
     restore: (destination) => {
-      const placeholders = destination.querySelectorAll<HTMLImageElement>(
+      const placeholders = destination.querySelectorAll<HTMLElement>(
         '[data-paper-rendered-visual]',
       );
       if (placeholders.length !== originals.size) {
@@ -304,9 +372,11 @@ const makeRenderedVisualsAtomic = (
       }
       for (const placeholder of placeholders) {
         const id = placeholder.dataset.paperRenderedVisual;
-        const svg = id ? originals.get(id) : undefined;
-        if (!svg) throw new Error('分页图表占位无法恢复。');
-        placeholder.replaceWith(svg);
+        const renderTask = id ? originals.get(id) : undefined;
+        if (!renderTask) throw new Error('分页图表占位无法恢复。');
+        const wrapper = placeholder.closest<HTMLElement>('.paper-rendered-visual-page-break');
+        if (wrapper) wrapper.replaceWith(renderTask);
+        else placeholder.replaceWith(renderTask);
       }
     },
   };
@@ -466,25 +536,42 @@ export const paginateFinishedDocument = async ({
     const renderedVisuals = makeRenderedVisualsAtomic(source);
 
     const { Previewer } = await import('pagedjs');
-    previewer = new Previewer();
-    if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
     const stylesheetUrl = new URL(document.location.href).href;
-    const pagination = previewer.preview(
-      source.outerHTML,
-      [{ [stylesheetUrl]: documentThemeCss }, { [stylesheetUrl]: paperPagedMediaCss }],
-      destination,
-    );
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         previewer?.chunker.stop();
         reject(new Error('纸张分页超时。'));
       }, timeoutMilliseconds);
     });
-    const flow = await Promise.race([pagination, timedOut]);
-    if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
-    const pageCount = destination.querySelectorAll('.pagedjs_page').length;
-    if (pageCount === 0 || pageCount !== flow.total) {
-      throw new Error('分页结果不完整。');
+
+    let pageCount = 0;
+    let attempt = 0;
+    while (attempt < 3) {
+      previewer = new Previewer();
+      if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
+      const pagination = previewer.preview(
+        source.outerHTML,
+        [{ [stylesheetUrl]: documentThemeCss }, { [stylesheetUrl]: paperPagedMediaCss }],
+        destination,
+      );
+      const flow = await Promise.race([pagination, timedOut]);
+      if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
+      pageCount = destination.querySelectorAll('.pagedjs_page').length;
+      if (pageCount === 0 || pageCount !== flow.total) {
+        throw new Error('分页结果不完整。');
+      }
+      const invalidVisuals = renderedVisuals.findInvalid(destination);
+      if (invalidVisuals.size === 0) break;
+      previewer.polisher.destroy();
+      destination.replaceChildren();
+      previewer = undefined;
+      if (attempt === 0) renderedVisuals.forcePageBreaks(invalidVisuals);
+      else renderedVisuals.forceAllPageBreaks();
+      attempt += 1;
+    }
+    const remainingInvalidVisuals = renderedVisuals.findInvalid(destination);
+    if (!previewer || remainingInvalidVisuals.size > 0) {
+      throw new Error('图表无法完整放入纸张页面。');
     }
     renderedVisuals.restore(destination);
     destination.classList.remove('paper-pagination-staging');

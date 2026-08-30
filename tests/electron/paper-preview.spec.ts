@@ -242,3 +242,120 @@ test('paper mode discards an obsolete pagination snapshot', async () => {
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+test('paper mode keeps multiple tall rendered visuals inside their A4 pages', async () => {
+  test.setTimeout(90_000);
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-visual-layout-'));
+  const sourcePath = join(directory, 'paper-visual-layout.md');
+  await writeFile(sourcePath, '# Initial visual layout\n\nInitial content.');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await expect(paper.getByRole('heading', { name: 'Initial visual layout' })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    const dimensions = [
+      [700, 300],
+      [700, 130],
+      [700, 510],
+      [700, 510],
+      [510, 600],
+      [700, 470],
+      [440, 590],
+      [700, 335],
+      [270, 600],
+    ] as const;
+    const table = `<table><thead><tr><th>符号</th><th>说明</th><th>来源</th></tr></thead><tbody>${Array.from(
+      { length: 12 },
+      (_, index) =>
+        `<tr><td>${index + 1}</td><td>用于形成真实分页边界的表格内容</td><td>测试</td></tr>`,
+    ).join('')}</tbody></table>`;
+    const html = [
+      '<h1 id="visual-layout">多图表纸张布局</h1>',
+      ...Array.from({ length: 8 }, (_, index) => `<p>开篇正文第 ${index + 1} 段。</p>`),
+      table,
+      ...dimensions.flatMap(([width, height], index) => [
+        `<h2 id="visual-${index + 1}">图表 ${index + 1}</h2>`,
+        ...Array.from(
+          { length: 3 + (index % 4) },
+          (_, paragraph) =>
+            `<p>图表 ${index + 1} 前的正文 ${paragraph + 1}，用于改变剩余页高。</p>`,
+        ),
+        index === 3 || index === 6 ? table : '',
+        `<figure aria-label="PlantUML 图表" class="render-task diagram-render-task" data-render-state="succeeded" data-render-task-id="paper-visual-${index + 1}" data-render-task-kind="plantuml"><code class="render-task-source" hidden>@startuml\nAlice -> Bob: ${index + 1}\n@enduml</code><div class="render-task-output"><svg height="${height}" viewBox="0 0 ${width} ${height}" width="${width}" xmlns="http://www.w3.org/2000/svg"><rect fill="#edf5f2" height="${height - 2}" stroke="#61706b" width="${width - 2}" x="1" y="1"/><text font-size="28" x="40" y="70">PAPER_VISUAL_${index + 1}</text></svg></div><span class="render-task-error" hidden></span></figure>`,
+      ]),
+      '<h2 id="terminal">末尾验收</h2><p>PAPER_VISUAL_TERMINAL_MARKER</p>',
+    ].join('');
+
+    await window.locator('iframe[title="纸张预览"]').evaluate(
+      (element, snapshot) => {
+        const iframe = element as HTMLIFrameElement;
+        const channelId = new URL(iframe.src).searchParams.get('channelId');
+        iframe.contentWindow?.postMessage(
+          { channelId, scope: 'fuxian-paper-preview', snapshot, type: 'render' },
+          '*',
+        );
+      },
+      {
+        html,
+        initialReadingPosition: { headingOffset: 0, relativeProgress: 0 },
+        preferences: {
+          appearance: 'light' as const,
+          bodyFamily: 'serif' as const,
+          bodySize: 17,
+          customWidth: 860,
+          lineHeight: 1.85,
+          widthMode: 'adaptive' as const,
+        },
+        revisionId: 'multi-visual-layout',
+      },
+    );
+
+    const committedPages = paper.locator('.paper-preview-pages:not(.paper-pagination-staging)');
+    await expect(committedPages.getByText('PAPER_VISUAL_TERMINAL_MARKER')).toBeVisible({
+      timeout: 30_000,
+    });
+    const visuals = paper.locator(
+      '.paper-preview-pages:not(.paper-pagination-staging) [data-render-task-kind="plantuml"] .render-task-output > svg',
+    );
+    await expect(visuals).toHaveCount(dimensions.length);
+    expect(
+      await visuals.evaluateAll((svgs) =>
+        svgs.map((svg) => {
+          const page = svg.closest('.pagedjs_page');
+          if (!page) return false;
+          const bounds = svg.getBoundingClientRect();
+          const pageBounds = page.getBoundingClientRect();
+          return (
+            bounds.left >= pageBounds.left - 1 &&
+            bounds.right <= pageBounds.right + 1 &&
+            bounds.top >= pageBounds.top - 1 &&
+            bounds.bottom <= pageBounds.bottom + 1
+          );
+        }),
+      ),
+    ).toEqual(dimensions.map(() => true));
+    await expect(
+      paper.locator(
+        '.paper-preview-pages:not(.paper-pagination-staging) [data-render-task-id^="paper-visual-"]',
+      ),
+    ).toHaveCount(dimensions.length);
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
