@@ -92,7 +92,7 @@ export function PaperPreviewApp(): React.JSX.Element {
                 const active = currentController.current;
                 if (!active) return;
                 postToHost({
-                  ...(activeHeadingId ? { activeHeadingId } : {}),
+                  activeHeadingId: activeHeadingId ?? null,
                   followState: active.getViewportFollowState(),
                   position: active.getReadingPosition(),
                   type: 'reading-position',

@@ -146,8 +146,21 @@ tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline
 `;
 
 export const paperRuntimeCss = `
-html[data-paper-preview], html[data-paper-preview] body {
+html[data-paper-preview] {
+  height: auto;
   min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html[data-paper-preview] body,
+html[data-paper-preview] #root {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+html[data-paper-preview], html[data-paper-preview] body {
   background: #f2f5f7;
 }
 
@@ -162,7 +175,7 @@ body {
 .paper-preview-viewport {
   min-height: 100vh;
   padding: 20px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .paper-preview-pages > .pagedjs_pages {

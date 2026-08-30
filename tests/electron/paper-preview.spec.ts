@@ -159,6 +159,52 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
   }
 });
 
+test('paper mode scrolls with the mouse wheel', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-scroll-'));
+  const sourcePath = join(directory, 'paper-scroll.md');
+  await writeFile(
+    sourcePath,
+    [
+      '# 纸张滚动验收',
+      ...Array.from({ length: 80 }, (_, index) => `第 ${index + 1} 段多页正文。`.repeat(8)),
+    ].join('\n\n'),
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    const pages = paper.locator(
+      '.paper-preview-pages:not(.paper-pagination-staging) .pagedjs_page',
+    );
+    await expect.poll(() => pages.count(), { timeout: 20_000 }).toBeGreaterThan(2);
+    await pages.first().hover();
+    const scrollTopBeforeWheel = await paper
+      .locator('html')
+      .evaluate(() => document.scrollingElement?.scrollTop ?? 0);
+    await window.mouse.wheel(0, 800);
+    await expect
+      .poll(() => paper.locator('html').evaluate(() => document.scrollingElement?.scrollTop ?? 0), {
+        timeout: 2_000,
+      })
+      .toBeGreaterThan(scrollTopBeforeWheel);
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('paper mode discards an obsolete pagination snapshot', async () => {
   test.setTimeout(90_000);
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-revision-'));

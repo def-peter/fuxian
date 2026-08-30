@@ -200,7 +200,9 @@ export function PaperPreviewFrame({
       } else if (message.type === 'reading-position') {
         positionRef.current = message.position;
         followStateRef.current = message.followState;
-        callbacks.onActiveHeadingChange(message.activeHeadingId);
+        if (message.activeHeadingId !== undefined) {
+          callbacks.onActiveHeadingChange(message.activeHeadingId ?? undefined);
+        }
         callbacks.onReadingPositionChange(message.position);
       } else if (message.type === 'visual-action') {
         if (message.action === 'source') callbacks.onInspectRenderedVisual(message.visual);

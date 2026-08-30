@@ -32,7 +32,7 @@ export type PaperPreviewFramePayload =
   | { pageCount: number; position: ReadingPosition; revisionId: string; type: 'ready' }
   | { findResult: FindResult; type: 'find-result' }
   | {
-      activeHeadingId?: string;
+      activeHeadingId?: string | null;
       followState: { distanceFromEnd: number; hasSelection: boolean };
       position: ReadingPosition;
       type: 'reading-position';
