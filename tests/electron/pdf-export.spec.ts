@@ -314,6 +314,9 @@ test('exports complete finished-document content with stable pagination', async 
       '',
       '[OpenAI](https://openai.com/)',
       '',
+      '> [!IMPORTANT] Export callout',
+      '> Callout content remains semantic and selectable.',
+      '',
       '![Local pixel](./pixel.png)',
       '',
       '`selectable-code`',
@@ -366,6 +369,9 @@ test('exports complete finished-document content with stable pagination', async 
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
     await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
+    await expect(
+      exportWindow.locator('.callout[data-callout-type="important"] .callout-header'),
+    ).toHaveText('Export callout');
     await expect
       .poll(() =>
         exportWindow
@@ -404,6 +410,8 @@ test('exports complete finished-document content with stable pagination', async 
     const first = await inspectPdf(outputPath);
     expect(first.text).toContain('Deterministic export');
     expect(first.text).toContain('selectable-code');
+    expect(first.text).toContain('Export callout');
+    expect(first.text).toContain('Callout content remains semantic and selectable.');
     expect(first.text).toContain('Authentication Request');
     expect(first.text).toContain('Vega Alpha');
     expect(first.text).toContain('Vega Beta');

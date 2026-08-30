@@ -114,4 +114,25 @@ describe('document theme preferences', () => {
       /@media print\s*\{[\s\S]*\.diagram-render-task\[data-render-task-kind="plantuml"\] svg\s*\{[^}]*max-height: none;/,
     );
   });
+
+  it('styles semantic callout families for screen, dark mode, forced colors, and print', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toMatch(
+      /blockquote\.callout\s*\{[^}]*border-left: 3px solid var\(--callout-accent\);[^}]*background: var\(--callout-background\);/s,
+    );
+    expect(css).toMatch(
+      /\.callout-header::before\s*\{[^}]*content: var\(--callout-symbol\);[^}]*font-size: 11px;/s,
+    );
+    for (const family of ['danger', 'guidance', 'important', 'positive', 'quote', 'risk']) {
+      expect(css).toContain(`.callout[data-callout-family="${family}"]`);
+    }
+    expect(css).toContain(':root[data-appearance="dark"] .callout');
+    expect(css).toMatch(
+      /@media \(forced-colors: active\)[\s\S]*blockquote\.callout\s*\{[^}]*border-color: CanvasText;[^}]*background: Canvas;/,
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*blockquote\.callout\s*\{[^}]*print-color-adjust: exact;/,
+    );
+  });
 });

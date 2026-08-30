@@ -6,7 +6,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize';
 import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
-import type { Root as MarkdownRoot } from 'mdast';
+import type { Blockquote, Paragraph, PhrasingContent, Root as MarkdownRoot, Text } from 'mdast';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -50,6 +50,94 @@ export type DocumentResource =
   | { kind: 'image'; source: string; status: 'blocked'; error: DocumentResourceError };
 
 const rawHtmlIdPrefix = 'fuxian-user-content-';
+const calloutIdentifierPattern = /^[a-z\d][a-z\d_-]{0,63}$/;
+const calloutMarkerPattern = /^\[!([a-z\d][a-z\d_-]{0,63})\](?=$|[\t\n ])/i;
+const calloutTypes = [
+  'abstract',
+  'bug',
+  'caution',
+  'danger',
+  'example',
+  'failure',
+  'important',
+  'info',
+  'note',
+  'question',
+  'quote',
+  'success',
+  'tip',
+  'todo',
+  'warning',
+] as const;
+type CalloutType = (typeof calloutTypes)[number];
+type CalloutFamily =
+  'danger' | 'guidance' | 'important' | 'neutral' | 'positive' | 'quote' | 'risk';
+
+const calloutAliases: Record<string, CalloutType> = {
+  abstract: 'abstract',
+  attention: 'warning',
+  bug: 'bug',
+  caution: 'caution',
+  check: 'success',
+  cite: 'quote',
+  danger: 'danger',
+  done: 'success',
+  error: 'danger',
+  example: 'example',
+  fail: 'failure',
+  failure: 'failure',
+  faq: 'question',
+  help: 'question',
+  hint: 'tip',
+  important: 'important',
+  info: 'info',
+  missing: 'failure',
+  note: 'note',
+  question: 'question',
+  quote: 'quote',
+  success: 'success',
+  summary: 'abstract',
+  tip: 'tip',
+  tldr: 'abstract',
+  todo: 'todo',
+  warning: 'warning',
+};
+
+const calloutFamilies: Record<CalloutType, CalloutFamily> = {
+  abstract: 'neutral',
+  bug: 'danger',
+  caution: 'risk',
+  danger: 'danger',
+  example: 'neutral',
+  failure: 'danger',
+  important: 'important',
+  info: 'neutral',
+  note: 'neutral',
+  question: 'guidance',
+  quote: 'quote',
+  success: 'positive',
+  tip: 'guidance',
+  todo: 'neutral',
+  warning: 'risk',
+};
+
+const calloutTitles: Record<CalloutType, string> = {
+  abstract: '摘要',
+  bug: '缺陷',
+  caution: '注意',
+  danger: '危险',
+  example: '示例',
+  failure: '失败',
+  important: '重要',
+  info: '信息',
+  note: '备注',
+  question: '问题',
+  quote: '引用',
+  success: '成功',
+  tip: '提示',
+  todo: '待办',
+  warning: '警告',
+};
 const supportedImageExtensions = new Set([
   '.avif',
   '.bmp',
@@ -65,10 +153,28 @@ const finishedDocumentSchema: SanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    blockquote: [
+      ['className', 'callout'],
+      [
+        'dataCalloutFamily',
+        'danger',
+        'guidance',
+        'important',
+        'neutral',
+        'positive',
+        'quote',
+        'risk',
+      ],
+      ['dataCalloutSource', calloutIdentifierPattern],
+      ['dataCalloutType', ...calloutTypes],
+      ['role', 'note'],
+      ...(defaultSchema.attributes?.blockquote ?? []),
+    ],
     code: [
       ['className', /^language-./, 'math-display', 'math-inline'],
       ...(defaultSchema.attributes?.code ?? []),
     ],
+    div: [['className', 'callout-header'], ...(defaultSchema.attributes?.div ?? [])],
   },
   clobberPrefix: rawHtmlIdPrefix,
   protocols: {
@@ -102,6 +208,110 @@ const alignSanitizedFragmentLinks: Plugin<[], Root> = () => (tree) => {
 
 const hideFrontmatter: Plugin<[], MarkdownRoot> = () => (tree) => {
   tree.children = tree.children.filter((node) => node.type !== 'yaml');
+};
+
+const trimTitleChildren = (children: PhrasingContent[]): PhrasingContent[] => {
+  const trimmed = [...children];
+  const first = trimmed[0];
+  if (first?.type === 'text') {
+    first.value = first.value.trimStart();
+    if (!first.value) trimmed.shift();
+  }
+  const last = trimmed.at(-1);
+  if (last?.type === 'text') {
+    last.value = last.value.trimEnd();
+    if (!last.value) trimmed.pop();
+  }
+  return trimmed;
+};
+
+const splitCalloutOpeningLine = (
+  paragraph: Paragraph,
+  markerLength: number,
+): { body: PhrasingContent[]; title: PhrasingContent[] } => {
+  const first = paragraph.children[0] as Text;
+  const remaining: PhrasingContent[] = [
+    { ...first, value: first.value.slice(markerLength).replace(/^[\t ]+/u, '') },
+    ...paragraph.children.slice(1),
+  ];
+  const title: PhrasingContent[] = [];
+  const body: PhrasingContent[] = [];
+  let openingLineEnded = false;
+
+  for (const child of remaining) {
+    if (openingLineEnded) {
+      body.push(child);
+      continue;
+    }
+    if (child.type === 'break') {
+      openingLineEnded = true;
+      continue;
+    }
+    if (child.type !== 'text') {
+      title.push(child);
+      continue;
+    }
+
+    const lineBreak = child.value.indexOf('\n');
+    if (lineBreak < 0) {
+      title.push(child);
+      continue;
+    }
+
+    const titleText = child.value.slice(0, lineBreak);
+    const bodyText = child.value.slice(lineBreak + 1);
+    if (titleText) title.push({ ...child, value: titleText });
+    if (bodyText) body.push({ ...child, value: bodyText });
+    openingLineEnded = true;
+  }
+
+  return { body, title: trimTitleChildren(title) };
+};
+
+const transformCallouts: Plugin<[], MarkdownRoot> = () => (tree) => {
+  visit(tree, 'blockquote', (node: Blockquote) => {
+    const opening = node.children[0];
+    if (opening?.type !== 'paragraph') return;
+    const first = opening.children[0];
+    if (first?.type !== 'text') return;
+    const marker = calloutMarkerPattern.exec(first.value);
+    if (!marker?.[1]) return;
+
+    const sourceType = marker[1];
+    const normalizedSourceType = sourceType.toLowerCase();
+    const type = calloutAliases[normalizedSourceType] ?? 'note';
+    const { body, title } = splitCalloutOpeningLine(opening, marker[0].length);
+    const header: Paragraph = {
+      type: 'paragraph',
+      data: {
+        hName: 'div',
+        hProperties: { className: ['callout-header'] },
+      },
+      children:
+        title.length > 0
+          ? title
+          : [
+              {
+                type: 'text',
+                value: calloutAliases[normalizedSourceType] ? calloutTitles[type] : sourceType,
+              },
+            ],
+    };
+    const bodyParagraph: Paragraph | undefined =
+      body.length > 0 ? { ...opening, children: body } : undefined;
+
+    node.data = {
+      ...(node.data ?? {}),
+      hProperties: {
+        className: ['callout'],
+        dataCalloutFamily: calloutFamilies[type],
+        dataCalloutSource: normalizedSourceType,
+        dataCalloutType: type,
+        role: 'note',
+      },
+    };
+    node.children = [header, ...(bodyParagraph ? [bodyParagraph] : []), ...node.children.slice(1)];
+  });
 };
 
 const blockedImageMessages: Record<DocumentResourceError, string> = {
@@ -533,6 +743,7 @@ const createMarkdownProcessor = (
     .use(remarkGfm)
     .use(remarkMath)
     .use(hideFrontmatter)
+    .use(transformCallouts)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeSanitize, finishedDocumentSchema)

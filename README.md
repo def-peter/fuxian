@@ -12,7 +12,7 @@ Fuxian is a polished, read-only Markdown desktop reader for Windows and macOS. I
 
 - Read multiple independent Markdown documents in one restorable session.
 - Track external file changes without interrupting the current reading position.
-- Render Mermaid, PlantUML, Vega-Lite, AntV Infographic, KaTeX, tables, and code.
+- Render Mermaid, PlantUML, Vega-Lite, AntV Infographic, KaTeX, GitHub/Obsidian callouts, tables, and code.
 - Inspect and copy selectable diagram content instead of flattening it into images.
 - Export complete finished documents to PDF after asynchronous diagrams are ready.
 - Keep Markdown rendering isolated from the Electron and React application shell.

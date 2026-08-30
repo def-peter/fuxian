@@ -271,6 +271,153 @@ blockquote > :last-child {
   margin-bottom: 0;
 }
 
+blockquote.callout {
+  --callout-accent: #496674;
+  --callout-border: #c8d5da;
+  --callout-background: #f5f8f9;
+  --callout-symbol: "i";
+  margin: 28px 0;
+  padding: 14px 18px 16px 16px;
+  border: 1px solid var(--callout-border);
+  border-left: 3px solid var(--callout-accent);
+  border-radius: 4px;
+  color: var(--document-foreground);
+  background: var(--callout-background);
+  box-decoration-break: clone;
+}
+
+.callout[data-callout-family="guidance"] {
+  --callout-accent: #326b61;
+  --callout-border: #bfd4ce;
+  --callout-background: #f3f8f6;
+  --callout-symbol: "↗";
+}
+
+.callout[data-callout-family="important"] {
+  --callout-accent: #3f5f86;
+  --callout-border: #c2cfdd;
+  --callout-background: #f4f7fa;
+  --callout-symbol: "!";
+}
+
+.callout[data-callout-family="positive"] {
+  --callout-accent: #35664c;
+  --callout-border: #c2d4c8;
+  --callout-background: #f4f8f5;
+  --callout-symbol: "✓";
+}
+
+.callout[data-callout-family="risk"] {
+  --callout-accent: #8a5b18;
+  --callout-border: #dcccae;
+  --callout-background: #fbf8f1;
+  --callout-symbol: "!";
+}
+
+.callout[data-callout-family="danger"] {
+  --callout-accent: #8a453e;
+  --callout-border: #ddc1bd;
+  --callout-background: #fbf5f4;
+  --callout-symbol: "×";
+}
+
+.callout[data-callout-family="quote"] {
+  --callout-accent: #67645e;
+  --callout-border: #d0cdc6;
+  --callout-background: #f8f7f5;
+  --callout-symbol: "“";
+}
+
+:root[data-appearance="dark"] .callout {
+  --callout-accent: #94b4c2;
+  --callout-border: #42545b;
+  --callout-background: #1b2326;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="guidance"] {
+  --callout-accent: #8cc1b4;
+  --callout-border: #3e5b54;
+  --callout-background: #1a2421;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="important"] {
+  --callout-accent: #9eb8d7;
+  --callout-border: #43566c;
+  --callout-background: #1c222a;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="positive"] {
+  --callout-accent: #8fc4a3;
+  --callout-border: #405d4c;
+  --callout-background: #1a241e;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="risk"] {
+  --callout-accent: #d5b06d;
+  --callout-border: #655536;
+  --callout-background: #282318;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="danger"] {
+  --callout-accent: #e0a09a;
+  --callout-border: #694742;
+  --callout-background: #291e1d;
+}
+
+:root[data-appearance="dark"] .callout[data-callout-family="quote"] {
+  --callout-accent: #bcb7ad;
+  --callout-border: #55514a;
+  --callout-background: #22211e;
+}
+
+.callout-header {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-height: 20px;
+  margin: 0 0 8px;
+  color: var(--callout-accent);
+  font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: calc(var(--document-body-size) * 0.94);
+  font-weight: 680;
+  line-height: 1.45;
+}
+
+.callout-header::before {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 58%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  content: var(--callout-symbol);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.callout[data-callout-family="quote"] .callout-header::before {
+  border-color: transparent;
+  background: transparent;
+  font-family: Georgia, serif;
+  font-size: 20px;
+  line-height: 0.8;
+}
+
+.callout > p,
+.callout > ul,
+.callout > ol,
+.callout > .code-block,
+.callout > blockquote {
+  margin-bottom: 14px;
+}
+
+.callout > .callout-header + p {
+  margin-top: 0;
+}
+
 hr {
   height: 1px;
   margin: 44px 0;
@@ -691,6 +838,13 @@ code {
     background: Canvas;
   }
 
+  blockquote.callout {
+    border-color: CanvasText;
+    color: CanvasText;
+    background: Canvas;
+    forced-color-adjust: auto;
+  }
+
   .diagram-action-button:disabled {
     border-color: GrayText;
     color: GrayText;
@@ -913,6 +1067,11 @@ svg {
 
   .render-task-retry-button {
     display: none;
+  }
+
+  blockquote.callout {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   .code-block pre code {

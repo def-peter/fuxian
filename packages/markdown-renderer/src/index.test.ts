@@ -53,6 +53,88 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.headings.map(({ text }) => text)).not.toContain('Footnotes');
   });
 
+  it('normalizes all supported callout spellings without changing ordinary blockquotes', () => {
+    const expectedTypes = {
+      abstract: ['abstract', 'summary', 'tldr'],
+      bug: ['bug'],
+      caution: ['caution'],
+      danger: ['danger', 'error'],
+      example: ['example'],
+      failure: ['failure', 'fail', 'missing'],
+      important: ['important'],
+      info: ['info'],
+      note: ['note'],
+      question: ['question', 'help', 'faq'],
+      quote: ['quote', 'cite'],
+      success: ['success', 'check', 'done'],
+      tip: ['tip', 'hint'],
+      todo: ['todo'],
+      warning: ['warning', 'attention'],
+    } as const;
+    const spellings = Object.values(expectedTypes).flat();
+    const source = [
+      '> 普通引用不会变成 Callout。',
+      '',
+      ...spellings.flatMap((spelling) => [
+        `> [!${spelling.toUpperCase()}]`,
+        `> ${spelling} body`,
+        '',
+      ]),
+    ].join('\n');
+    const html = renderMarkdown({ source }).html;
+
+    expect(html.match(/class="callout"/g)).toHaveLength(27);
+    expect(html).toContain('<blockquote>\n<p>普通引用不会变成 Callout。</p>\n</blockquote>');
+    for (const [type, aliases] of Object.entries(expectedTypes)) {
+      for (const alias of aliases) {
+        expect(html).toContain(`data-callout-source="${alias}" data-callout-type="${type}"`);
+      }
+    }
+  });
+
+  it('keeps rich custom titles and nested Markdown inside semantic callouts', () => {
+    const source = [
+      '> [!WARNING] **发布前检查**',
+      '> 请确认 [备份说明](https://example.com/backup)：',
+      '>',
+      '> - 已备份数据',
+      '> - 已停止服务',
+      '>',
+      '> ```sh',
+      '> pnpm test',
+      '> ```',
+    ].join('\n');
+    const html = renderMarkdown({ source }).html;
+
+    expect(html).toContain(
+      '<blockquote class="callout" data-callout-family="risk" data-callout-source="warning" data-callout-type="warning" role="note">',
+    );
+    expect(html).toContain('<div class="callout-header"><strong>发布前检查</strong></div>');
+    expect(html).toContain('<p>请确认 <a href="https://example.com/backup"');
+    expect(html).toContain('<li>已备份数据</li>');
+    expect(html).toContain('class="code-block"');
+    expect(html).not.toContain('[!WARNING]');
+  });
+
+  it('uses a neutral fallback for unknown callouts and leaves malformed markers untouched', () => {
+    const html = renderMarkdown({
+      source: [
+        '> [!Architecture-Decision]',
+        '> 保留未知类型的正文。',
+        '',
+        '> [!bad marker]',
+        '> 这仍然是普通引用。',
+      ].join('\n'),
+    }).html;
+
+    expect(html).toContain('data-callout-family="neutral"');
+    expect(html).toContain('data-callout-source="architecture-decision"');
+    expect(html).toContain('data-callout-type="note"');
+    expect(html).toContain('<div class="callout-header">Architecture-Decision</div>');
+    expect(html).toContain('<p>保留未知类型的正文。</p>');
+    expect(html).toContain('<p>[!bad marker]\n这仍然是普通引用。</p>');
+  });
+
   it('keeps allowed raw HTML and removes executable content and unsafe URLs', () => {
     const finishedDocument = renderMarkdown({ source: showcaseSource });
 
