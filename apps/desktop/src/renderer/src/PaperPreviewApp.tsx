@@ -28,7 +28,7 @@ const postToHost = (message: PaperPreviewFramePayload): void => {
 
 const fitPaperToViewport = (): void => {
   const availableWidth = Math.max(320, globalThis.innerWidth - 40);
-  const scale = Math.min(1.5, availableWidth / paperPageWidthPixels);
+  const scale = Math.min(1, availableWidth / paperPageWidthPixels);
   document.documentElement.style.setProperty('--paper-preview-scale', `${scale}`);
 };
 

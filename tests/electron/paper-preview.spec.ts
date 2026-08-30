@@ -78,7 +78,7 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
       value: Number.parseFloat(getComputedStyle(element).getPropertyValue('--paper-preview-scale')),
     }));
     expect(fitScale.value).toBeCloseTo(
-      Math.min(1.5, Math.max(320, fitScale.innerWidth - 40) / ((210 / 25.4) * 96)),
+      Math.min(1, Math.max(320, fitScale.innerWidth - 40) / ((210 / 25.4) * 96)),
       5,
     );
     await expect(window.getByRole('radio', { name: '实际大小' })).toHaveCount(0);
@@ -189,6 +189,24 @@ test('paper mode scrolls with the mouse wheel', async () => {
       '.paper-preview-pages:not(.paper-pagination-staging) .pagedjs_page',
     );
     await expect.poll(() => pages.count(), { timeout: 20_000 }).toBeGreaterThan(2);
+    const paperGeometry = await pages.evaluateAll((elements) => {
+      const first = elements[0]?.getBoundingClientRect();
+      const second = elements[1]?.getBoundingClientRect();
+      return {
+        background: first ? getComputedStyle(elements[0]!).backgroundColor : '',
+        gap: first && second ? second.top - first.bottom : 0,
+        height: first?.height ?? 0,
+        leftGutter: first?.left ?? 0,
+        outerBackground: getComputedStyle(document.body).backgroundColor,
+        rightGutter: first ? innerWidth - first.right : 0,
+        width: first?.width ?? 0,
+      };
+    });
+    expect(paperGeometry.height).toBeGreaterThan(paperGeometry.width);
+    expect(paperGeometry.width / paperGeometry.height).toBeCloseTo(210 / 297, 2);
+    expect(paperGeometry.gap).toBeGreaterThan(8);
+    expect(paperGeometry.leftGutter).toBeCloseTo(paperGeometry.rightGutter, 0);
+    expect(paperGeometry.background).not.toBe(paperGeometry.outerBackground);
     await pages.first().hover();
     const scrollTopBeforeWheel = await paper
       .locator('html')

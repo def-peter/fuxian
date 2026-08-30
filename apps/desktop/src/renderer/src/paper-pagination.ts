@@ -179,10 +179,7 @@ body {
 }
 
 .paper-preview-pages > .pagedjs_pages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
+  display: block;
   width: max-content;
   min-width: 100%;
   zoom: var(--paper-preview-scale, 1);
@@ -194,9 +191,13 @@ body {
 
 .paper-preview-pages .pagedjs_page {
   flex: none;
-  margin: 0;
+  margin: 0 auto !important;
   background: var(--document-background);
   box-shadow: 0 1px 7px rgb(20 30 34 / 13%);
+}
+
+.paper-preview-pages .pagedjs_page + .pagedjs_page {
+  margin-top: 20px !important;
 }
 
 .paper-preview-status {
@@ -246,6 +247,7 @@ body {
   }
 
   .paper-preview-pages .pagedjs_page {
+    margin: 0 !important;
     box-shadow: none;
   }
 }
