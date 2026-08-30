@@ -1,9 +1,11 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import {
   defaultPlantUmlServerUrl,
+  isCodeHighlightTheme,
   isSettingsSectionId,
   readerPreferenceLimits,
   type AppearancePreference,
+  type CodeHighlightTheme,
   type DocumentBodyFamily,
   type ReaderPreferences,
   type SettingsSectionId,
@@ -23,7 +25,7 @@ import {
   Sun,
   Type,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,8 +71,16 @@ const previewSource = `# 完成文档示例
 | 文档主题 | 实时预览 |
 | 阅读宽度 | 全局生效 |
 
-\`\`\`ts
-const finishedDocument = render(markdown)
+\`\`\`typescript
+type FinishedDocument = {
+  title: string
+  pages: number
+}
+
+async function render(source: string) {
+  const pages = await paginate(source)
+  return { title: "浮现", pages }
+}
 \`\`\`
 `;
 
@@ -108,6 +118,38 @@ const appearanceOptions: Array<{
   { icon: Monitor, label: '跟随系统', value: 'system' },
 ];
 
+const codeThemeOptions: Array<{
+  background: string;
+  label: string;
+  tokens: [string, string, string];
+  value: CodeHighlightTheme;
+}> = [
+  {
+    background: '#f7faf8',
+    label: '浮现浅色',
+    tokens: ['#9a3f36', '#236348', '#315e82'],
+    value: 'fuxian-light',
+  },
+  {
+    background: '#181e1c',
+    label: '浮现深色',
+    tokens: ['#e58f82', '#8bc9a9', '#8eb9dc'],
+    value: 'fuxian-dark',
+  },
+  {
+    background: '#ffffff',
+    label: 'GitHub 浅色',
+    tokens: ['#cf222e', '#0a3069', '#8250df'],
+    value: 'github-light',
+  },
+  {
+    background: '#0d1117',
+    label: 'GitHub 深色',
+    tokens: ['#ff7b72', '#a5d6ff', '#d2a8ff'],
+    value: 'github-dark',
+  },
+];
+
 const updateDocumentTypography = (
   preferences: ReaderPreferences,
   patch: Partial<ReaderPreferences['documentTypography']>,
@@ -125,7 +167,10 @@ export function SettingsApp(): React.JSX.Element {
     status: 'idle',
   });
   const previewFrame = useRef<HTMLIFrameElement>(null);
-  const documentTheme = toDocumentThemePreferences(preferences, resolvedAppearance);
+  const documentTheme = useMemo(
+    () => toDocumentThemePreferences(preferences, resolvedAppearance),
+    [preferences, resolvedAppearance],
+  );
   const plantUmlServerValue = plantUmlServerDraft ?? preferences.plantUml.serverUrl;
 
   useEffect(() => {
@@ -153,6 +198,15 @@ export function SettingsApp(): React.JSX.Element {
   const selectBodyFamily = (bodyFamily: string): void => {
     if (bodyFamily === 'serif' || bodyFamily === 'sans-serif') {
       updatePreferences(updateDocumentTypography(preferences, { bodyFamily }));
+    }
+  };
+
+  const selectCodeTheme = (theme: string): void => {
+    if (isCodeHighlightTheme(theme)) {
+      updatePreferences({ ...preferences, codeHighlight: { theme } });
+      previewFrame.current?.contentDocument
+        ?.querySelector('.code-block')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -503,6 +557,42 @@ export function SettingsApp(): React.JSX.Element {
                   step={0.05}
                   value={[preferences.documentTypography.lineHeight]}
                 />
+              </Field>
+
+              <Separator className="my-6" />
+              <Field>
+                <FieldTitle>代码高亮主题</FieldTitle>
+                <FieldDescription>
+                  独立于应用明暗模式。切换后可在右侧代表性代码中即时预览。
+                </FieldDescription>
+                <ToggleGroup
+                  aria-label="代码高亮主题"
+                  className="grid w-full grid-cols-2 gap-2"
+                  onValueChange={selectCodeTheme}
+                  spacing={2}
+                  type="single"
+                  value={preferences.codeHighlight.theme}
+                  variant="outline"
+                >
+                  {codeThemeOptions.map(({ background, label, tokens, value }) => (
+                    <ToggleGroupItem
+                      className="h-auto min-h-14 flex-col items-stretch gap-1.5 px-2.5 py-2"
+                      key={value}
+                      value={value}
+                    >
+                      <span className="truncate text-left">{label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="flex h-3 overflow-hidden rounded-sm border"
+                        style={{ backgroundColor: background }}
+                      >
+                        {tokens.map((color) => (
+                          <span className="flex-1" key={color} style={{ backgroundColor: color }} />
+                        ))}
+                      </span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </Field>
             </section>
           ) : null}

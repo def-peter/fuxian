@@ -84,11 +84,21 @@ export const readerPreferenceLimits = {
 } as const;
 
 export type AppearancePreference = 'dark' | 'light' | 'system';
+export type CodeHighlightTheme = 'fuxian-dark' | 'fuxian-light' | 'github-dark' | 'github-light';
 export type DocumentBodyFamily = 'sans-serif' | 'serif';
 export type DocumentWidthMode = 'a4' | 'adaptive' | 'custom';
 
+export const isCodeHighlightTheme = (value: unknown): value is CodeHighlightTheme =>
+  value === 'fuxian-dark' ||
+  value === 'fuxian-light' ||
+  value === 'github-dark' ||
+  value === 'github-light';
+
 export interface ReaderPreferences {
   appearance: AppearancePreference;
+  codeHighlight: {
+    theme: CodeHighlightTheme;
+  };
   documentTypography: {
     bodyFamily: DocumentBodyFamily;
     bodySize: number;
@@ -110,6 +120,9 @@ export interface ReaderPreferences {
 
 export const createDefaultReaderPreferences = (): ReaderPreferences => ({
   appearance: 'system',
+  codeHighlight: {
+    theme: 'fuxian-light',
+  },
   documentTypography: {
     bodyFamily: 'sans-serif',
     bodySize: 15,
@@ -164,6 +177,7 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   const candidate = value as {
     appearance?: unknown;
+    codeHighlight?: { theme?: unknown };
     documentTypography?: {
       bodyFamily?: unknown;
       bodySize?: unknown;
@@ -196,6 +210,11 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
 
   return {
     appearance,
+    codeHighlight: {
+      theme: isCodeHighlightTheme(candidate.codeHighlight?.theme)
+        ? candidate.codeHighlight.theme
+        : defaults.codeHighlight.theme,
+    },
     documentTypography: {
       bodyFamily,
       bodySize: clampPreference(

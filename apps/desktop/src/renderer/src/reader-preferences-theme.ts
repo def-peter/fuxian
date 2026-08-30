@@ -9,6 +9,7 @@ export const toDocumentThemePreferences = (
   appearance,
   bodyFamily: preferences.documentTypography.bodyFamily,
   bodySize: preferences.documentTypography.bodySize,
+  codeTheme: preferences.codeHighlight.theme,
   customWidth: preferences.documentWidth.customWidth,
   lineHeight: preferences.documentTypography.lineHeight,
   widthMode: preferences.documentWidth.mode,

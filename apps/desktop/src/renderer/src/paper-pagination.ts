@@ -500,6 +500,7 @@ export const applyPaperTheme = (
   preferences: DocumentThemePreferences,
 ): void => {
   document.documentElement.dataset.appearance = preferences.appearance;
+  document.documentElement.dataset.codeTheme = preferences.codeTheme;
   for (const [name, value] of Object.entries(getDocumentThemeVariables(preferences))) {
     document.documentElement.style.setProperty(name, value);
   }

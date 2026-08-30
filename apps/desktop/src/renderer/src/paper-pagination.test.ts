@@ -1,6 +1,6 @@
 import { parseHTML } from 'linkedom';
 import { describe, expect, it } from 'vitest';
-import { splitLongTables } from './paper-pagination';
+import { applyPaperTheme, splitLongTables } from './paper-pagination';
 
 const createTable = (rowCount: number): string => `
   <main>
@@ -42,5 +42,24 @@ describe('paper table preparation', () => {
     expect(fallback?.textContent).toContain('说明内容 2');
     expect(document.querySelectorAll('table')).toHaveLength(2);
     expect(document.querySelector('main')?.textContent).toContain('内容 3');
+  });
+});
+
+describe('paper theme', () => {
+  it('keeps the code theme independent from document appearance', () => {
+    const { document } = parseHTML('<main />');
+
+    applyPaperTheme(document, {
+      appearance: 'light',
+      bodyFamily: 'sans-serif',
+      bodySize: 15,
+      codeTheme: 'github-dark',
+      customWidth: 960,
+      lineHeight: 1.85,
+      widthMode: 'adaptive',
+    });
+
+    expect(document.documentElement.dataset.appearance).toBe('light');
+    expect(document.documentElement.dataset.codeTheme).toBe('github-dark');
   });
 });

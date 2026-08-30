@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
-const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/basic.md');
+const sourceDocumentPath = resolve(repositoryRoot, 'fixtures/code-highlighting.md');
 
 interface LaunchOptions {
   preferencesFilePath: string;
@@ -60,6 +60,8 @@ const readDocumentVariables = (page: Page, title: string) =>
         appearance: root.dataset.appearance,
         bodyFont: root.style.getPropertyValue('--document-body-font'),
         bodySize: root.style.getPropertyValue('--document-body-size'),
+        codeBackground: getComputedStyle(root).getPropertyValue('--code-background').trim(),
+        codeTheme: root.dataset.codeTheme,
         computedBodyFont: bodyParagraph ? getComputedStyle(bodyParagraph).fontFamily : undefined,
         lineHeight: root.style.getPropertyValue('--document-line-height'),
         width: root.style.getPropertyValue('--document-width'),
@@ -81,11 +83,13 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await expect(
       readerWindow
         .frameLocator('iframe[title="Finished document"]')
-        .getByRole('heading', { name: 'A finished document' }),
+        .getByRole('heading', { name: '代码高亮主题' }),
     ).toBeVisible();
     const defaultTypography = {
       bodyFont: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       bodySize: '15px',
+      codeBackground: '#f7faf8',
+      codeTheme: 'fuxian-light',
       computedBodyFont:
         'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       lineHeight: '1.85',
@@ -115,9 +119,36 @@ test('preferences synchronize live, persist at their limits, and restore after r
       'aria-valuenow',
       '15',
     );
+    await expect(settingsWindow.getByRole('radio', { name: '浮现浅色' })).toHaveAttribute(
+      'data-state',
+      'on',
+    );
     await expect
       .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
       .toMatchObject(defaultTypography);
+
+    await settingsWindow.getByRole('button', { name: '外观', exact: true }).click();
+    await settingsWindow.getByRole('radio', { name: '浅色' }).click();
+    await expect
+      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .toMatchObject({ appearance: 'light' });
+
+    await settingsWindow.getByRole('button', { name: '文档', exact: true }).click();
+    await settingsWindow.getByRole('radio', { name: 'GitHub 深色' }).click();
+    await expect(
+      settingsWindow.frameLocator('iframe[title="完成文档预览"]').locator('.code-block'),
+    ).toBeInViewport();
+    const darkCodeOnLightDocument = {
+      appearance: 'light',
+      codeBackground: '#0d1117',
+      codeTheme: 'github-dark',
+    };
+    await expect
+      .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
+      .toMatchObject(darkCodeOnLightDocument);
+    await expect
+      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .toMatchObject(darkCodeOnLightDocument);
 
     await settingsWindow.getByRole('button', { name: '外观', exact: true }).click();
     await settingsWindow.getByRole('radio', { name: '深色' }).click();
@@ -135,6 +166,8 @@ test('preferences synchronize live, persist at their limits, and restore after r
       appearance: 'dark',
       bodyFont: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       bodySize: '22px',
+      codeBackground: '#0d1117',
+      codeTheme: 'github-dark',
       computedBodyFont:
         'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       lineHeight: '1.5',
@@ -146,6 +179,17 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await expect
       .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
       .toEqual(expectedVariables);
+    await readerWindow.getByRole('radio', { name: '纸张预览' }).click();
+    await expect(readerWindow.getByText(/^\d+ 页$/)).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(() => readDocumentVariables(readerWindow, '纸张预览'))
+      .toMatchObject({ codeBackground: '#0d1117', codeTheme: 'github-dark' });
+    await readerWindow.getByRole('radio', { name: '连续阅读' }).click();
+    await expect(
+      readerWindow
+        .frameLocator('iframe[title="Finished document"]')
+        .getByRole('heading', { name: '代码高亮主题' }),
+    ).toBeVisible();
     await settingsWindow.close();
     await expect.poll(() => electronApp.windows().length).toBe(1);
     await expect
@@ -156,6 +200,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
       .poll(async () => JSON.parse(await readFile(launchOptions.preferencesFilePath, 'utf8')))
       .toEqual({
         appearance: 'dark',
+        codeHighlight: { theme: 'github-dark' },
         documentTypography: { bodyFamily: 'sans-serif', bodySize: 22, lineHeight: 1.5 },
         documentWidth: { customWidth: 1200, mode: 'custom' },
         plantUml: { serverUrl: 'https://www.plantuml.com/plantuml' },
@@ -181,6 +226,10 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await expect(settingsWindow.getByRole('slider', { name: '正文字号' })).toHaveAttribute(
       'aria-valuenow',
       '22',
+    );
+    await expect(settingsWindow.getByRole('radio', { name: 'GitHub 深色' })).toHaveAttribute(
+      'data-state',
+      'on',
     );
   } finally {
     await electronApp.close();

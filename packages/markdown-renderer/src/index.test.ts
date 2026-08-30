@@ -290,6 +290,30 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).toContain('language-antv-infographic');
   });
 
+  it('highlights common Python, JavaScript, and Java code fences', () => {
+    const html = renderMarkdown({
+      source: [
+        '```python',
+        'def greet(name):',
+        '    return f"Hello {name}"',
+        '```',
+        '',
+        '```javascript',
+        'const result = await fetch(url);',
+        '```',
+        '',
+        '```java',
+        'public class Main { private final int value = 1; }',
+        '```',
+      ].join('\n'),
+    }).html;
+
+    expect(html.match(/class="hljs language-/g)).toHaveLength(3);
+    expect(html).toContain('class="hljs-keyword"');
+    expect(html).toContain('class="hljs-string"');
+    expect(html).toContain('class="hljs-title class_"');
+  });
+
   it('keeps Markmap fences as ordinary code blocks', () => {
     const source = '# 浮现\n## 快速阅读\n- Markdown\n- PDF';
     const finishedDocument = renderMarkdown({

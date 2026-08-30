@@ -321,6 +321,10 @@ test('exports complete finished-document content with stable pagination', async 
       '',
       '`selectable-code`',
       '',
+      '```typescript',
+      'const selectableTheme = "github-dark";',
+      '```',
+      '',
       '$$E = mc^2$$',
       '',
       '```mermaid',
@@ -353,7 +357,13 @@ test('exports complete finished-document content with stable pagination', async 
       '```',
     ].join('\n'),
   );
-  await writeFile(preferencesPath, JSON.stringify(preferences(server.url)));
+  await writeFile(
+    preferencesPath,
+    JSON.stringify({
+      ...preferences(server.url),
+      codeHighlight: { theme: 'github-dark' },
+    }),
+  );
   const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, outputPath);
 
   try {
@@ -369,6 +379,30 @@ test('exports complete finished-document content with stable pagination', async 
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
     await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
+    await expect(exportWindow.locator('html')).toHaveAttribute('data-code-theme', 'github-dark');
+    const exportedCode = exportWindow.locator('.code-block');
+    await expect(exportedCode).toBeVisible();
+    expect(
+      await exportedCode.evaluate((block) => {
+        const code = block.querySelector('code');
+        const pre = block.querySelector('pre');
+        if (!code || !pre) throw new Error('Exported code block is incomplete.');
+        const selection = globalThis.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        const selectedText = selection?.toString();
+        selection?.removeAllRanges();
+        return {
+          background: getComputedStyle(pre).backgroundColor,
+          selectedText,
+        };
+      }),
+    ).toEqual({
+      background: 'rgb(13, 17, 23)',
+      selectedText: 'const selectableTheme = "github-dark";',
+    });
     await expect(
       exportWindow.locator('.callout[data-callout-type="important"] .callout-header'),
     ).toHaveText('Export callout');
@@ -410,6 +444,8 @@ test('exports complete finished-document content with stable pagination', async 
     const first = await inspectPdf(outputPath);
     expect(first.text).toContain('Deterministic export');
     expect(first.text).toContain('selectable-code');
+    expect(first.text).toContain('selectableTheme');
+    expect(first.text).toContain('github-dark');
     expect(first.text).toContain('Export callout');
     expect(first.text).toContain('Callout content remains semantic and selectable.');
     expect(first.text).toContain('Authentication Request');

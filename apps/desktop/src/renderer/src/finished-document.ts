@@ -276,6 +276,7 @@ export const applyDocumentTheme = (
   if (!root) return;
 
   root.dataset.appearance = preferences.appearance;
+  root.dataset.codeTheme = preferences.codeTheme;
   for (const [name, value] of Object.entries(getDocumentThemeVariables(preferences))) {
     root.style.setProperty(name, value);
   }

@@ -11,11 +11,30 @@ describe('finished document theme', () => {
         appearance: 'light',
         bodyFamily: 'serif',
         bodySize: 17,
+        codeTheme: 'github-dark',
         customWidth: 860,
         lineHeight: 1.85,
         widthMode: 'adaptive',
       }),
     ).not.toThrow();
+  });
+
+  it('applies code themes independently from document appearance', () => {
+    const frameDocument = parseHTML('<!doctype html><html><body></body></html>')
+      .document as unknown as Document;
+
+    applyDocumentTheme(frameDocument, {
+      appearance: 'light',
+      bodyFamily: 'sans-serif',
+      bodySize: 15,
+      codeTheme: 'github-dark',
+      customWidth: 860,
+      lineHeight: 1.85,
+      widthMode: 'adaptive',
+    });
+
+    expect(frameDocument.documentElement.dataset.appearance).toBe('light');
+    expect(frameDocument.documentElement.dataset.codeTheme).toBe('github-dark');
   });
 });
 

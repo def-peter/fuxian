@@ -21,6 +21,12 @@ describe('reader preferences', () => {
     expect(normalizeReaderPreferences({ version: 2 })).toEqual(createDefaultReaderPreferences());
   });
 
+  it('defaults existing version-one files to the Fuxian light code theme', () => {
+    expect(normalizeReaderPreferences({ version: 1 }).codeHighlight).toEqual({
+      theme: 'fuxian-light',
+    });
+  });
+
   it('uses the public PlantUML server by default and restores older version-one files', () => {
     expect(createDefaultReaderPreferences().plantUml.serverUrl).toBe(defaultPlantUmlServerUrl);
     expect(normalizeReaderPreferences({ version: 1 }).plantUml.serverUrl).toBe(
@@ -65,6 +71,7 @@ describe('reader preferences', () => {
       }),
     ).toEqual({
       appearance: 'dark',
+      codeHighlight: { theme: 'fuxian-light' },
       documentTypography: {
         bodyFamily: 'sans-serif',
         bodySize: readerPreferenceLimits.bodySize.max,
@@ -91,6 +98,21 @@ describe('reader preferences', () => {
         version: 1,
       }).documentTypography,
     ).toEqual({ bodyFamily: 'serif', bodySize: 17, lineHeight: 1.7 });
+  });
+
+  it('preserves supported code themes and rejects unknown values', () => {
+    expect(
+      normalizeReaderPreferences({
+        codeHighlight: { theme: 'github-dark' },
+        version: 1,
+      }).codeHighlight,
+    ).toEqual({ theme: 'github-dark' });
+    expect(
+      normalizeReaderPreferences({
+        codeHighlight: { theme: 'dracula' },
+        version: 1,
+      }).codeHighlight,
+    ).toEqual({ theme: 'fuxian-light' });
   });
 
   it('falls back invalid typography fields independently', () => {

@@ -5,6 +5,7 @@ const preferences = {
   appearance: 'dark' as const,
   bodyFamily: 'sans-serif' as const,
   bodySize: 20,
+  codeTheme: 'github-dark' as const,
   customWidth: 1_050,
   lineHeight: 1.65,
   widthMode: 'custom' as const,
@@ -80,6 +81,24 @@ describe('document theme preferences', () => {
     expect(css).toContain('--document-inline-padding: clamp(32px, 5vw, 48px)');
     expect(css).toContain('--document-width: 1050px');
     expect(css).toContain(':root[data-appearance="dark"]');
+  });
+
+  it('keeps four curated code themes independent from document appearance', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toContain('--code-background: #f7faf8;');
+    expect(css).toContain(':root[data-code-theme="fuxian-dark"]');
+    expect(css).toContain(':root[data-code-theme="github-light"]');
+    expect(css).toContain(':root[data-code-theme="github-dark"]');
+    expect(css).toMatch(
+      /\.code-block\s*\{[^}]*border: 1px solid var\(--code-border\);[^}]*background: var\(--code-background\);/s,
+    );
+    expect(css).toMatch(
+      /\.code-block pre\s*\{[^}]*color: var\(--code-foreground\);[^}]*background: var\(--code-background\);/s,
+    );
+    expect(css).toContain('color: var(--syntax-keyword);');
+    expect(css).toContain('color: var(--syntax-string);');
+    expect(css).not.toMatch(/data-appearance="dark"[^}]+\.hljs/s);
   });
 
   it('animates only completed formulas and diagrams with reduced-motion support', () => {
