@@ -143,16 +143,6 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     ).toBe(visibleSnapshot);
     await focusDialog.getByRole('button', { name: '返回文档' }).click();
 
-    await window.getByRole('button', { name: '导出 PDF' }).click();
-    await expect.poll(async () => (await electronApp.windows()).length).toBe(2);
-    const exportWindow = (await electronApp.windows()).find((candidate) =>
-      candidate.url().includes('view=pdf-export'),
-    );
-    if (!exportWindow) throw new Error('PDF export window was not created.');
-    const exportedInfographic = exportWindow.locator(
-      '[data-render-task-kind="infographic"] .render-task-output > svg',
-    );
-    await expect(exportedInfographic).toHaveCount(6, { timeout: 15_000 });
     const visibleSnapshots = await Promise.all(
       [0, 1, 3, 4, 5, 7].map((index) =>
         tasks
@@ -161,9 +151,36 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
           .evaluate((svg) => svg.outerHTML),
       ),
     );
-    expect(
-      await exportedInfographic.evaluateAll((svgs) => svgs.map((svg) => svg.outerHTML)),
-    ).toEqual(visibleSnapshots);
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect.poll(async () => (await electronApp.windows()).length).toBe(2);
+    const exportWindow = (await electronApp.windows()).find((candidate) =>
+      candidate.url().includes('view=pdf-export'),
+    );
+    if (!exportWindow) throw new Error('PDF export window was not created.');
+    const exportedSnapshots = await exportWindow.evaluate(
+      ({ selector, timeoutMilliseconds }) =>
+        new Promise<string[]>((resolveSnapshots, rejectSnapshots) => {
+          const timeout = globalThis.setTimeout(
+            () => rejectSnapshots(new Error('Timed out waiting for exported Infographics.')),
+            timeoutMilliseconds,
+          );
+          const inspect = () => {
+            const svgs = [...document.querySelectorAll<SVGElement>(selector)];
+            if (svgs.length === 6) {
+              globalThis.clearTimeout(timeout);
+              resolveSnapshots(svgs.map((svg) => svg.outerHTML));
+              return;
+            }
+            globalThis.requestAnimationFrame(inspect);
+          };
+          inspect();
+        }),
+      {
+        selector: '[data-render-task-kind="infographic"] .render-task-output > svg',
+        timeoutMilliseconds: 15_000,
+      },
+    );
+    expect(exportedSnapshots).toEqual(visibleSnapshots);
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
 
     const bytes = await readFile(outputPath);

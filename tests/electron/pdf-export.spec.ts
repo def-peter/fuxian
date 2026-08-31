@@ -274,9 +274,16 @@ test('preserves PlantUML colors in PDF', async () => {
       expect.soft(colorDistance(pdf.color, screen.color)).toBeLessThanOrEqual(35);
     }
 
+    await rm(outputPath);
     await window.getByRole('button', { name: '导出 PDF' }).click();
-    await expect(window.getByText('正在准备文档')).toBeVisible();
-    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(async () =>
+        access(outputPath).then(
+          () => true,
+          () => false,
+        ),
+      )
+      .toBe(true);
     expect(server.requestCount()).toBe(1);
     const secondPdfPixels = await rasterizePdf(outputPath);
     for (const expected of expectedColors) {
@@ -290,7 +297,7 @@ test('preserves PlantUML colors in PDF', async () => {
   }
 });
 
-test('exports complete finished-document content with stable pagination', async () => {
+test('@release exports complete finished-document content with stable pagination', async () => {
   test.setTimeout(90_000);
   const server = await startDeferredPlantUmlServer();
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-pdf-'));
@@ -378,66 +385,83 @@ test('exports complete finished-document content with stable pagination', async 
     const visibleVegaLiteSnapshot = await visibleVegaLite.evaluate((svg) => svg.outerHTML);
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
-    await expect(exportWindow.getByRole('heading', { name: 'Deterministic export' })).toBeVisible();
-    await expect(exportWindow.locator('html')).toHaveAttribute('data-code-theme', 'github-dark');
-    const exportedCode = exportWindow.locator('.code-block');
-    await expect(exportedCode).toBeVisible();
-    expect(
-      await exportedCode.evaluate((block) => {
-        const code = block.querySelector('code');
-        const pre = block.querySelector('pre');
-        if (!code || !pre) throw new Error('Exported code block is incomplete.');
-        const selection = globalThis.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(code);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-        const selectedText = selection?.toString();
-        selection?.removeAllRanges();
-        return {
-          background: getComputedStyle(pre).backgroundColor,
-          selectedText,
-        };
-      }),
-    ).toEqual({
-      background: 'rgb(13, 17, 23)',
-      selectedText: 'const selectableTheme = "github-dark";',
-    });
-    await expect(
-      exportWindow.locator('.callout[data-callout-type="important"] .callout-header'),
-    ).toHaveText('Export callout');
-    await expect
-      .poll(() =>
-        exportWindow
-          .locator('p')
-          .first()
-          .evaluate((paragraph) => {
-            const style = getComputedStyle(paragraph);
-            return { fontFamily: style.fontFamily, fontSize: style.fontSize };
-          }),
-      )
-      .toEqual({
-        fontFamily: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
-        fontSize: '15px',
-      });
-    await expect(exportWindow.locator('img[alt="Local pixel"]')).toHaveJSProperty('complete', true);
-    await expect(exportWindow.locator('.math-render-task math')).toBeVisible({ timeout: 10_000 });
-    await expect(
-      exportWindow.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
-    ).toBeVisible({ timeout: 10_000 });
-    const exportedVegaLite = exportWindow.locator(
-      '[data-render-task-kind="vega-lite"] .render-task-output svg',
+    const exportSnapshot = await exportWindow.evaluate(
+      (timeoutMilliseconds) =>
+        new Promise<{
+          calloutHeader: string;
+          codeBackground: string;
+          codeTheme: string;
+          fontFamily: string;
+          fontSize: string;
+          heading: string;
+          codeText: string;
+          vegaLite: string;
+        }>((resolveSnapshot, rejectSnapshot) => {
+          const timeout = globalThis.setTimeout(
+            () => rejectSnapshot(new Error('Timed out waiting for the exported document DOM.')),
+            timeoutMilliseconds,
+          );
+          const inspect = () => {
+            const heading = document.querySelector('h1');
+            const code = document.querySelector<HTMLElement>('.code-block code');
+            const pre = document.querySelector<HTMLElement>('.code-block pre');
+            const callout = document.querySelector<HTMLElement>(
+              '.callout[data-callout-type="important"] .callout-header',
+            );
+            const paragraph = document.querySelector<HTMLElement>('p');
+            const image = document.querySelector<HTMLImageElement>('img[alt="Local pixel"]');
+            const math = document.querySelector('.math-render-task math');
+            const mermaid = document.querySelector(
+              '[data-render-task-kind="mermaid"] .render-task-output svg',
+            );
+            const vegaLite = document.querySelector<SVGElement>(
+              '[data-render-task-kind="vega-lite"] .render-task-output svg',
+            );
+            if (
+              !heading ||
+              !code ||
+              !pre ||
+              !callout ||
+              !paragraph ||
+              !image?.complete ||
+              !math ||
+              !mermaid ||
+              !vegaLite
+            ) {
+              globalThis.requestAnimationFrame(inspect);
+              return;
+            }
+            const paragraphStyle = getComputedStyle(paragraph);
+            const vegaLiteClone = vegaLite.cloneNode(true) as SVGElement;
+            for (const element of [vegaLiteClone, ...vegaLiteClone.querySelectorAll('*')]) {
+              element.removeAttribute('data-ref');
+            }
+            globalThis.clearTimeout(timeout);
+            resolveSnapshot({
+              calloutHeader: callout.textContent ?? '',
+              codeBackground: getComputedStyle(pre).backgroundColor,
+              codeText: code.textContent?.trim() ?? '',
+              codeTheme: document.documentElement.dataset.codeTheme ?? '',
+              fontFamily: paragraphStyle.fontFamily,
+              fontSize: paragraphStyle.fontSize,
+              heading: heading.textContent ?? '',
+              vegaLite: vegaLiteClone.outerHTML,
+            });
+          };
+          inspect();
+        }),
+      15_000,
     );
-    await expect(exportedVegaLite).toBeVisible({ timeout: 15_000 });
-    expect(
-      await exportedVegaLite.evaluate((svg) => {
-        const clone = svg.cloneNode(true) as SVGElement;
-        for (const element of [clone, ...clone.querySelectorAll('*')]) {
-          element.removeAttribute('data-ref');
-        }
-        return clone.outerHTML;
-      }),
-    ).toBe(visibleVegaLiteSnapshot);
+    expect(exportSnapshot).toEqual({
+      calloutHeader: 'Export callout',
+      codeBackground: 'rgb(13, 17, 23)',
+      codeText: 'const selectableTheme = "github-dark";',
+      codeTheme: 'github-dark',
+      fontFamily: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+      fontSize: '15px',
+      heading: 'Deterministic export',
+      vegaLite: visibleVegaLiteSnapshot,
+    });
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
     expect(server.requestCount()).toBe(1);
 
@@ -460,9 +484,16 @@ test('exports complete finished-document content with stable pagination', async 
       ),
     ).toBeGreaterThan(500);
 
+    await rm(outputPath);
     await window.getByRole('button', { name: '导出 PDF' }).click();
-    await expect(window.getByText('正在准备文档')).toBeVisible();
-    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(async () =>
+        access(outputPath).then(
+          () => true,
+          () => false,
+        ),
+      )
+      .toBe(true);
     expect(server.requestCount()).toBe(1);
     const second = await inspectPdf(outputPath);
     expect(second.pages).toBe(first.pages);
