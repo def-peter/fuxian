@@ -10,8 +10,8 @@
 - 保留书页与承载面上的均匀面性渐变；不要添加边缘高光、玻璃效果或重投影。
 - 最小常规界面尺寸为 `24px`；`16px` 仅用于 favicon 等受限场景。
 - 圆角承载面四周保留约 `4%` 的透明净空。
-- 中文横版中的“浮现”使用鼎猎宋刻体，字标视觉高度约为图形的 `82%`，呈现更明确的古籍刊刻气质；英文横版中的“Fuxian”使用 Source Serif 4 Semibold，保持编辑出版感。
-- 中文字标按 alpha 重心与图形做光学居中，`28px` 高度下保留约 `5.75px` 有效间距，并采用轻量笔画增重；不要用纯黑描边重新加粗。
+- 中文横版中的“浮现”使用鸿雷板书简体，字标视觉高度约为图形的 `83%`，呈现自然、有辨识度的板书笔势；英文横版中的“Fuxian”使用 Source Serif 4 Semibold，保持编辑出版感。
+- 中文字标按 alpha 重心与图形做光学居中，并抵消字体自带的左侧字面留白；`28px` 高度下保留约 `5.75px` 有效间距。增重须基于字体原始矢量轮廓使用轻量 synthetic grade，保留尖锐的起收笔；不要使用会钝化笔锋的圆角描边，也不添加异色描边。
 - 两套字标均已固化在 PNG 中，界面不可改用系统字体重新排版。字体文件不随项目提交；中文字体由品牌方提供并留存授权凭证，Source Serif 4 遵循 SIL Open Font License 1.1。
 
 ## 标准物料
@@ -37,7 +37,7 @@
 | `../alternatives/faceted-origami-v1/`            | 备选的彩色折面书页方案               |
 | `../archive/modern-sans-lockup-v1/`              | 上一版现代无衬线中文横版             |
 | `../archive/zcool-xiaowei-lockup-v2/`            | 上一版 ZCOOL XiaoWei 中文横版        |
-| `../archive/dinglie-regular-lockup-v3/`          | 上一版紧间距、未增重的鼎猎宋刻体横版 |
+| `../archive/dinglie-regular-lockup-v3/`          | 上一版鼎猎宋刻体中文横版             |
 | `../archive/monochrome-book-jian-v1/`            | 上一版灰阶矢量 Logo，可用于历史回溯  |
 
 Electron 运行时图标位于 `apps/desktop/resources/icon.png`；打包图标位于 `build/icon.png`、`build/icon.icns` 和 `build/icon.ico`，均由 RGBA 母版导出。
