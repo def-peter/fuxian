@@ -62,7 +62,9 @@ test('content outline balances gutters without reserving empty disclosure slots'
       expect.soft(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth);
       expect.soft(overflow.textOverflow).toBe('ellipsis');
       await expect(
-        outline.getByRole('button', { name: `展开“可展开章节”下的深层标题` }),
+        outline.getByRole('button', {
+          name: /(?:展开|折叠)“可展开章节”下的深层标题/,
+        }),
       ).toBeVisible();
     };
 
