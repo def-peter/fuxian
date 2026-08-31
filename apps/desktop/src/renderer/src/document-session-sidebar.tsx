@@ -69,7 +69,6 @@ function UnavailableDocumentItem({
       aria-label={`${document.name}，文档不可用。${document.message}`}
       className="flex min-h-10 items-center border-l-2 border-warning/60 px-1 pl-3"
       role="group"
-      title={`${document.path}\n${document.message}`}
     >
       <Tooltip>
         <TooltipTrigger asChild>
@@ -83,8 +82,8 @@ function UnavailableDocumentItem({
             <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </div>
         </TooltipTrigger>
-        <TooltipContent className="max-w-96" side="right" sideOffset={6}>
-          <p className="break-all">{document.path}</p>
+        <TooltipContent side="right" sideOffset={6}>
+          <p>{document.path}</p>
           <p>{document.message}</p>
         </TooltipContent>
       </Tooltip>
@@ -153,7 +152,7 @@ function DocumentItem({
             <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </button>
         </TooltipTrigger>
-        <TooltipContent className="max-w-96 break-all" side="right" sideOffset={6}>
+        <TooltipContent side="right" sideOffset={6}>
           {document.path}
         </TooltipContent>
       </Tooltip>

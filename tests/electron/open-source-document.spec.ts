@@ -624,11 +624,29 @@ test('the content outline navigates nested headings and can be collapsed', async
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     const outline = window.getByRole('complementary', { name: '内容目录' });
+    const session = window.getByRole('complementary', { name: '文档会话' });
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
     await expect(outline).toBeVisible();
     await expect(outline.getByRole('button', { name: '稳定标题' })).toHaveCount(2);
     await expect(outline.getByRole('button', { name: 'Footnotes' })).toHaveCount(0);
     await expect(outline.getByRole('button', { exact: true, name: '深层标题' })).toHaveCount(0);
+
+    await session.getByRole('button', { exact: true, name: 'showcase.md' }).hover();
+    const fileTooltip = window.getByRole('tooltip');
+    await expect(fileTooltip).toBeVisible({ timeout: 500 });
+    const sharedTooltipClass = await fileTooltip.getAttribute('class');
+    await window.keyboard.press('Escape');
+    await expect(fileTooltip).toBeHidden();
+
+    const longHeadingText =
+      '这是一个非常非常非常非常非常非常非常非常非常非常长的标题用于验证真实技术文档不会破坏版心';
+    const longHeading = outline.getByRole('button', { exact: true, name: longHeadingText });
+    await longHeading.hover();
+    const outlineTooltip = window.getByRole('tooltip');
+    await expect(outlineTooltip).toHaveText(longHeadingText, { timeout: 500 });
+    await expect(outlineTooltip).toHaveAttribute('class', sharedTooltipClass ?? '');
+    await expect(longHeading).not.toHaveAttribute('title');
+    await window.keyboard.press('Escape');
 
     await outline.getByRole('button', { name: /展开“这是一个.+”下的深层标题/ }).click();
     await expect(outline.getByRole('button', { exact: true, name: '深层标题' })).toBeVisible();
