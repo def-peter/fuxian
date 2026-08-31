@@ -162,7 +162,7 @@ html[data-paper-preview] #root {
 }
 
 html[data-paper-preview], html[data-paper-preview] body {
-  background: #f2f5f7;
+  background: transparent;
 }
 
 html[data-pdf-export], html[data-pdf-export] body {
@@ -195,7 +195,14 @@ body {
   flex: none;
   margin: 0 auto !important;
   background: var(--document-background);
-  box-shadow: 0 1px 7px rgb(20 30 34 / 13%);
+}
+
+@media screen {
+  .paper-preview-pages .pagedjs_page {
+    box-shadow:
+      0 2px 12px rgb(20 30 34 / 14%),
+      0 1px 2px rgb(20 30 34 / 9%) !important;
+  }
 }
 
 .paper-preview-pages .pagedjs_page + .pagedjs_page {

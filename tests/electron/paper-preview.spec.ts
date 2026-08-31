@@ -194,6 +194,9 @@ test('paper mode scrolls with the mouse wheel', async () => {
       '.paper-preview-pages:not(.paper-pagination-staging) .pagedjs_page',
     );
     await expect.poll(() => pages.count(), { timeout: 20_000 }).toBeGreaterThan(2);
+    const frameBackground = await window
+      .locator('iframe[title="纸张预览"]')
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
     const paperGeometry = await pages.evaluateAll((elements) => {
       const first = elements[0]?.getBoundingClientRect();
       const second = elements[1]?.getBoundingClientRect();
@@ -206,6 +209,7 @@ test('paper mode scrolls with the mouse wheel', async () => {
         height: first?.height ?? 0,
         leftGutter: first?.left ?? 0,
         outerBackground: getComputedStyle(document.body).backgroundColor,
+        pageShadow: first ? getComputedStyle(elements[0]!).boxShadow : '',
         pageContainerBackground: pageContainer
           ? getComputedStyle(pageContainer).backgroundColor
           : '',
@@ -221,7 +225,10 @@ test('paper mode scrolls with the mouse wheel', async () => {
     expect(paperGeometry.width / paperGeometry.height).toBeCloseTo(210 / 297, 2);
     expect(paperGeometry.gap).toBeGreaterThan(8);
     expect(paperGeometry.leftGutter).toBeCloseTo(paperGeometry.rightGutter, 0);
-    expect(paperGeometry.background).not.toBe(paperGeometry.outerBackground);
+    expect(paperGeometry.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(paperGeometry.pageShadow).not.toBe('none');
+    expect(frameBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(paperGeometry.outerBackground).toBe('rgba(0, 0, 0, 0)');
     expect(paperGeometry.pageContainerBackground).toBe('rgba(0, 0, 0, 0)');
     expect(paperGeometry.previewPagesBackground).toBe('rgba(0, 0, 0, 0)');
     expect(paperGeometry.viewportBackground).toBe('rgba(0, 0, 0, 0)');

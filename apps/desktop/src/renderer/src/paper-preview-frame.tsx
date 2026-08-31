@@ -218,7 +218,7 @@ export function PaperPreviewFrame({
 
   return (
     <iframe
-      className={cn('block size-full min-h-0 min-w-0 border-0 bg-muted', className)}
+      className={cn('block size-full min-h-0 min-w-0 border-0 bg-transparent', className)}
       ref={iframe}
       src={sourceUrl}
       title="纸张预览"
