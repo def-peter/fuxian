@@ -81,6 +81,7 @@ export const readerPreferenceLimits = {
   bodySize: { max: 22, min: 14 },
   customWidth: { max: 1200, min: 640 },
   lineHeight: { max: 2.2, min: 1.5 },
+  shellRegionWidth: { max: 360, min: 176 },
 } as const;
 
 export type AppearancePreference = 'dark' | 'light' | 'system';
@@ -113,7 +114,9 @@ export interface ReaderPreferences {
   };
   shell: {
     contentOutlineExpanded: boolean;
+    contentOutlineWidth: number;
     documentSessionExpanded: boolean;
+    documentSessionWidth: number;
   };
   version: 1;
 }
@@ -137,7 +140,9 @@ export const createDefaultReaderPreferences = (): ReaderPreferences => ({
   },
   shell: {
     contentOutlineExpanded: true,
+    contentOutlineWidth: 216,
     documentSessionExpanded: true,
+    documentSessionWidth: 216,
   },
   version: 1,
 });
@@ -187,7 +192,9 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
     plantUml?: { serverUrl?: unknown };
     shell?: {
       contentOutlineExpanded?: unknown;
+      contentOutlineWidth?: unknown;
       documentSessionExpanded?: unknown;
+      documentSessionWidth?: unknown;
     };
   };
   const appearance =
@@ -251,10 +258,27 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
         typeof candidate.shell?.contentOutlineExpanded === 'boolean'
           ? candidate.shell.contentOutlineExpanded
           : defaults.shell.contentOutlineExpanded,
+      contentOutlineWidth: clampPreference(
+        Math.round(
+          finiteNumberOr(candidate.shell?.contentOutlineWidth, defaults.shell.contentOutlineWidth),
+        ),
+        readerPreferenceLimits.shellRegionWidth.min,
+        readerPreferenceLimits.shellRegionWidth.max,
+      ),
       documentSessionExpanded:
         typeof candidate.shell?.documentSessionExpanded === 'boolean'
           ? candidate.shell.documentSessionExpanded
           : defaults.shell.documentSessionExpanded,
+      documentSessionWidth: clampPreference(
+        Math.round(
+          finiteNumberOr(
+            candidate.shell?.documentSessionWidth,
+            defaults.shell.documentSessionWidth,
+          ),
+        ),
+        readerPreferenceLimits.shellRegionWidth.min,
+        readerPreferenceLimits.shellRegionWidth.max,
+      ),
     },
     version: 1,
   };

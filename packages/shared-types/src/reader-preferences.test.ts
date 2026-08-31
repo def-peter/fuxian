@@ -82,7 +82,12 @@ describe('reader preferences', () => {
         mode: 'custom',
       },
       plantUml: { serverUrl: defaultPlantUmlServerUrl },
-      shell: { contentOutlineExpanded: true, documentSessionExpanded: true },
+      shell: {
+        contentOutlineExpanded: true,
+        contentOutlineWidth: 216,
+        documentSessionExpanded: true,
+        documentSessionWidth: 216,
+      },
       version: 1,
     });
   });
@@ -131,9 +136,36 @@ describe('reader preferences', () => {
   it('preserves independent shell-region preferences', () => {
     expect(
       normalizeReaderPreferences({
-        shell: { contentOutlineExpanded: false, documentSessionExpanded: false },
+        shell: {
+          contentOutlineExpanded: false,
+          contentOutlineWidth: 248.4,
+          documentSessionExpanded: false,
+          documentSessionWidth: 320.6,
+        },
         version: 1,
       }).shell,
-    ).toEqual({ contentOutlineExpanded: false, documentSessionExpanded: false });
+    ).toEqual({
+      contentOutlineExpanded: false,
+      contentOutlineWidth: 248,
+      documentSessionExpanded: false,
+      documentSessionWidth: 321,
+    });
+  });
+
+  it('restores and clamps shell-region widths', () => {
+    expect(
+      normalizeReaderPreferences({
+        shell: { contentOutlineWidth: 50, documentSessionWidth: 900 },
+        version: 1,
+      }).shell,
+    ).toMatchObject({
+      contentOutlineWidth: readerPreferenceLimits.shellRegionWidth.min,
+      documentSessionWidth: readerPreferenceLimits.shellRegionWidth.max,
+    });
+
+    expect(normalizeReaderPreferences({ version: 1 }).shell).toMatchObject({
+      contentOutlineWidth: 216,
+      documentSessionWidth: 216,
+    });
   });
 });

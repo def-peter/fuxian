@@ -169,7 +169,12 @@ test('adapts the reader shell without losing independent region preferences', as
         };
         return preferences.shell;
       })
-      .toEqual({ contentOutlineExpanded: false, documentSessionExpanded: false });
+      .toEqual({
+        contentOutlineExpanded: false,
+        contentOutlineWidth: 216,
+        documentSessionExpanded: false,
+        documentSessionWidth: 216,
+      });
   } finally {
     await electronApp.close();
     await rm(temporaryDirectory, { force: true, recursive: true });

@@ -1,13 +1,15 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
-import type {
-  ExternalRevisionEvent,
-  OpenSourceDocumentsResult,
-  PdfExportProgress,
-  ReadingPosition,
-  ReadSourceDocumentResult,
-  ReaderPreferences,
-  SourceDocumentData,
+import {
+  readerPreferenceLimits,
+  type ExternalRevisionEvent,
+  type OpenSourceDocumentsResult,
+  type PdfExportProgress,
+  type ReadingPosition,
+  type ReadSourceDocumentResult,
+  type ReaderPreferences,
+  type SourceDocumentData,
 } from '@fuxian/shared-types';
+import type { LayoutChangedMeta, PanelImperativeHandle } from 'react-resizable-panels';
 import {
   AlertCircle,
   ArrowDown,
@@ -36,6 +38,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -88,6 +91,7 @@ import { useAppUpdateStatus } from '@/use-app-update-status';
 import { ArticleStructureMapDialog } from '@/article-structure-map-dialog';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
+const defaultShellRegionWidth = 216;
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
 let externalFrameRevision = 0;
 
@@ -207,7 +211,9 @@ export function App(): React.JSX.Element {
   const findReturnFocus = useRef<HTMLElement | undefined>(undefined);
   const contentOutlineSheet = useRef<HTMLDivElement>(null);
   const contentOutlineTrigger = useRef<HTMLButtonElement>(null);
+  const contentOutlinePanel = useRef<PanelImperativeHandle>(null);
   const documentSessionTrigger = useRef<HTMLButtonElement>(null);
+  const documentSessionPanel = useRef<PanelImperativeHandle>(null);
   const dragDepth = useRef(0);
   const sessionRef = useRef(session);
   const diagramLayoutReadingPosition = useRef<ReadingPosition | undefined>(undefined);
@@ -263,6 +269,48 @@ export function App(): React.JSX.Element {
     },
     [preferences, updatePreferences],
   );
+
+  const commitDocumentSessionWidth = useCallback(
+    (meta: LayoutChangedMeta): void => {
+      if (!meta.isUserInteraction) return;
+      const width = Math.round(documentSessionPanel.current?.getSize().inPixels ?? 0);
+      if (width === preferences.shell.documentSessionWidth) return;
+      updateShellPreferences({ documentSessionWidth: width });
+    },
+    [preferences.shell.documentSessionWidth, updateShellPreferences],
+  );
+
+  const commitContentOutlineWidth = useCallback(
+    (meta: LayoutChangedMeta): void => {
+      if (!meta.isUserInteraction) return;
+      const width = Math.round(contentOutlinePanel.current?.getSize().inPixels ?? 0);
+      if (width === preferences.shell.contentOutlineWidth) return;
+      updateShellPreferences({ contentOutlineWidth: width });
+    },
+    [preferences.shell.contentOutlineWidth, updateShellPreferences],
+  );
+
+  useEffect(() => {
+    if (!documentSessionInline) return;
+    const animationFrame = window.requestAnimationFrame(() => {
+      documentSessionPanel.current?.resize(preferences.shell.documentSessionWidth);
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [documentSessionInline, preferences.shell.documentSessionWidth]);
+
+  useEffect(() => {
+    if (!contentOutlineInline) return;
+    let resizeFrame: number | undefined;
+    const layoutFrame = window.requestAnimationFrame(() => {
+      resizeFrame = window.requestAnimationFrame(() => {
+        contentOutlinePanel.current?.resize(preferences.shell.contentOutlineWidth);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(layoutFrame);
+      if (resizeFrame !== undefined) window.cancelAnimationFrame(resizeFrame);
+    };
+  }, [contentOutlineInline, preferences.shell.contentOutlineWidth]);
 
   useEffect(() => {
     setContentOutlineSheetOpen(false);
@@ -1289,10 +1337,7 @@ export function App(): React.JSX.Element {
   return (
     <TooltipProvider>
       <div
-        className={cn(
-          'relative grid h-full bg-background',
-          documentSessionInline ? 'grid-cols-[216px_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]',
-        )}
+        className="relative h-full bg-background"
         data-shell-layout={shellLayout}
         data-session-root=""
         onDragEnter={handleDragEnter}
@@ -1300,572 +1345,656 @@ export function App(): React.JSX.Element {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {documentSessionInline ? documentSessionSidebar : null}
-        {!documentSessionInline ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
-                className="absolute top-1 left-2 z-30"
-                onClick={() => {
-                  if (shellLayout === 'narrow') {
-                    setDocumentSessionSheetOpen(true);
-                  } else {
-                    updateShellPreferences({ documentSessionExpanded: true });
-                  }
+        <ResizablePanelGroup
+          className="min-h-0 min-w-0"
+          id="reader-shell"
+          onLayoutChanged={(_layout, meta) => commitDocumentSessionWidth(meta)}
+          orientation="horizontal"
+        >
+          {documentSessionInline ? (
+            <>
+              <ResizablePanel
+                className="min-h-0 min-w-0 !overflow-hidden"
+                defaultSize={preferences.shell.documentSessionWidth}
+                groupResizeBehavior="preserve-pixel-size"
+                id="document-session"
+                maxSize={readerPreferenceLimits.shellRegionWidth.max}
+                minSize={readerPreferenceLimits.shellRegionWidth.min}
+                panelRef={documentSessionPanel}
+              >
+                {documentSessionSidebar}
+              </ResizablePanel>
+              <ResizableHandle
+                aria-label="调整文档会话宽度"
+                className="bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring/50 data-[separator=active]:after:bg-ring/50"
+                disableDoubleClick
+                id="document-session-resize-handle"
+                onDoubleClick={() => {
+                  documentSessionPanel.current?.resize(defaultShellRegionWidth);
+                  updateShellPreferences({ documentSessionWidth: defaultShellRegionWidth });
                 }}
-                ref={documentSessionTrigger}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <PanelLeftOpen aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+              />
+            </>
+          ) : null}
+          <ResizablePanel
+            className="relative h-full min-h-0 min-w-0 !overflow-hidden"
+            id="reader-content"
+            minSize={400}
+          >
+            {!documentSessionInline ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label={shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+                    className="absolute top-1 left-2 z-30"
+                    onClick={() => {
+                      if (shellLayout === 'narrow') {
+                        setDocumentSessionSheetOpen(true);
+                      } else {
+                        updateShellPreferences({ documentSessionExpanded: true });
+                      }
+                    }}
+                    ref={documentSessionTrigger}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <PanelLeftOpen aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
 
-        {restorationStatus === 'loading' ? (
-          <main className="flex min-h-0 items-center justify-center text-sm text-muted-foreground">
-            正在恢复上次会话...
-          </main>
-        ) : activeLoadingDocument ? (
-          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
-            <header
-              className={cn(
-                'flex items-center gap-2 border-b bg-card px-4',
-                !documentSessionInline && 'pl-12',
-              )}
-            >
-              <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
-              <span className="truncate text-sm font-semibold">{activeLoadingDocument.name}</span>
-              <span
-                aria-live="polite"
-                className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                <Spinner aria-hidden="true" />
-                正在更新...
-              </span>
-            </header>
-            <main
-              aria-label="正在准备文档"
-              className="grid min-h-0 grid-cols-[minmax(0,1fr)] bg-background p-3"
-            >
-              <div className="col-start-1 row-start-1 mx-auto w-full max-w-3xl animate-pulse px-16 py-16">
-                <div className="h-8 w-2/5 bg-muted" />
-                <div className="mt-10 h-4 w-full bg-muted" />
-                <div className="mt-4 h-4 w-11/12 bg-muted" />
-                <div className="mt-4 h-4 w-4/5 bg-muted" />
-                <div className="mt-12 h-6 w-1/3 bg-muted" />
-                <div className="mt-6 h-4 w-full bg-muted" />
-                <div className="mt-4 h-4 w-3/4 bg-muted" />
-              </div>
-              {pendingFrames.map((frame) => (
-                <FinishedDocumentFrame
-                  documentWidth={preferences.documentWidth}
-                  draggingFiles={draggingFiles}
-                  frame={frame}
-                  key={frame.id}
-                  onLoad={handleFinishedDocumentLoad}
-                  onRemove={handleFinishedDocumentFrameRemove}
-                  visible={false}
-                />
-              ))}
-            </main>
-          </div>
-        ) : activeDocument && visibleFrame ? (
-          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
-            <header
-              className={cn(
-                'flex items-center justify-between border-b bg-card px-4',
-                !documentSessionInline && 'pl-12',
-              )}
-              data-reader-toolbar=""
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
-                <span
-                  aria-label={`${activeDocument.document.name}，${activeDocument.document.path}`}
-                  className="truncate text-sm font-semibold"
-                  title={activeDocument.document.path}
+            {restorationStatus === 'loading' ? (
+              <main className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
+                正在恢复上次会话...
+              </main>
+            ) : activeLoadingDocument ? (
+              <div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
+                <header
+                  className={cn(
+                    'flex items-center gap-2 border-b bg-card px-4',
+                    !documentSessionInline && 'pl-12',
+                  )}
                 >
-                  {activeDocument.document.name}
-                </span>
-                {externalRevisionStatus.state === 'updating' ? (
+                  <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
+                  <span className="truncate text-sm font-semibold">
+                    {activeLoadingDocument.name}
+                  </span>
                   <span
                     aria-live="polite"
-                    className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                    className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"
                   >
                     <Spinner aria-hidden="true" />
                     正在更新...
                   </span>
-                ) : null}
-                {externalRevisionStatus.state === 'updated' ? (
-                  <span
-                    aria-live="polite"
-                    className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
-                  >
-                    <CheckCircle2 aria-hidden="true" className="size-3.5 text-success" />
-                    已更新 · {externalRevisionStatus.time}
-                  </span>
-                ) : null}
-                {externalRevisionStatus.state === 'new-content' ? (
-                  <Button
-                    className="ml-2 shrink-0"
-                    onClick={showNewContent}
-                    size="xs"
-                    variant="secondary"
-                  >
-                    <ArrowDown aria-hidden="true" />
-                    有新内容
-                  </Button>
-                ) : null}
-                {externalRevisionStatus.state === 'failed' ? (
-                  <div
-                    aria-live="assertive"
-                    className="ml-2 flex shrink-0 items-center gap-1 text-xs text-destructive"
-                  >
-                    <AlertCircle aria-hidden="true" className="size-3.5" />
-                    <span>更新失败</span>
-                    <Button
-                      aria-label="重试文档更新"
-                      onClick={() => void retryExternalRevision()}
-                      size="icon-xs"
-                      variant="ghost"
-                    >
-                      <RefreshCw aria-hidden="true" data-icon="inline-start" />
-                    </Button>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button size="xs" variant="ghost">
-                          详情
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="w-80">
-                        <PopoverHeader>
-                          <PopoverTitle>文档更新失败</PopoverTitle>
-                          <PopoverDescription className="break-words">
-                            正在显示上一版本。{externalRevisionStatus.detail}
-                          </PopoverDescription>
-                        </PopoverHeader>
-                      </PopoverContent>
-                    </Popover>
+                </header>
+                <main
+                  aria-label="正在准备文档"
+                  className="grid min-h-0 grid-cols-[minmax(0,1fr)] bg-background p-3"
+                >
+                  <div className="col-start-1 row-start-1 mx-auto w-full max-w-3xl animate-pulse px-16 py-16">
+                    <div className="h-8 w-2/5 bg-muted" />
+                    <div className="mt-10 h-4 w-full bg-muted" />
+                    <div className="mt-4 h-4 w-11/12 bg-muted" />
+                    <div className="mt-4 h-4 w-4/5 bg-muted" />
+                    <div className="mt-12 h-6 w-1/3 bg-muted" />
+                    <div className="mt-6 h-4 w-full bg-muted" />
+                    <div className="mt-4 h-4 w-3/4 bg-muted" />
                   </div>
-                ) : null}
-              </div>
-
-              <div className="ml-4 flex shrink-0 items-center gap-1">
-                <ToggleGroup
-                  aria-label="文档显示模式"
-                  onValueChange={(value) => {
-                    if (value === 'continuous' || value === 'paper') changeViewMode(value);
-                  }}
-                  size="sm"
-                  type="single"
-                  value={viewMode}
-                  variant="outline"
-                >
-                  <ToggleGroupItem aria-label="无界阅读" value="continuous">
-                    无界
-                  </ToggleGroupItem>
-                  <ToggleGroupItem aria-label="纸张预览" value="paper">
-                    纸张
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                {viewMode === 'continuous' ? (
-                  <DocumentWidthPopover
-                    onChange={(documentWidth) =>
-                      updatePreferences({ ...preferences, documentWidth })
-                    }
-                    value={preferences.documentWidth}
-                  />
-                ) : paperPageCount ? (
-                  <span className="px-1 text-xs tabular-nums text-muted-foreground">
-                    {paperPageCount} 页
-                  </span>
-                ) : null}
-                <Button
-                  aria-label="导出 PDF"
-                  disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
-                  onClick={() => void startPdfExport()}
-                  size="icon-sm"
-                  title="导出 PDF"
-                  variant="ghost"
-                >
-                  {pdfExportStarting ? (
-                    <Spinner aria-hidden="true" />
-                  ) : (
-                    <FileDown aria-hidden="true" />
-                  )}
-                </Button>
-                {findOpen ? (
-                  <div
-                    aria-label="页内查找"
-                    className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
-                    role="search"
-                  >
-                    <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
-                    <input
-                      aria-label="页内查找"
-                      className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
-                      onChange={(event) => setFindQuery(event.target.value)}
-                      onKeyDown={handleFindKeyDown}
-                      placeholder="查找"
-                      ref={findInput}
-                      type="text"
-                      value={findQuery}
+                  {pendingFrames.map((frame) => (
+                    <FinishedDocumentFrame
+                      documentWidth={preferences.documentWidth}
+                      draggingFiles={draggingFiles}
+                      frame={frame}
+                      key={frame.id}
+                      onLoad={handleFinishedDocumentLoad}
+                      onRemove={handleFinishedDocumentFrameRemove}
+                      visible={false}
                     />
-                    <span
-                      aria-live="polite"
-                      className="min-w-12 px-1 text-center text-xs tabular-nums text-muted-foreground"
-                    >
-                      {findResult.current}/{findResult.total}
-                    </span>
-                    <Button
-                      aria-label="上一个匹配项"
-                      disabled={findResult.total === 0}
-                      onClick={showPreviousFindResult}
-                      size="icon-xs"
-                      title="上一个匹配项"
-                      variant="ghost"
-                    >
-                      <ChevronUp aria-hidden="true" />
-                    </Button>
-                    <Button
-                      aria-label="下一个匹配项"
-                      disabled={findResult.total === 0}
-                      onClick={showNextFindResult}
-                      size="icon-xs"
-                      title="下一个匹配项"
-                      variant="ghost"
-                    >
-                      <ChevronDown aria-hidden="true" />
-                    </Button>
-                    <Button
-                      aria-label="关闭查找"
-                      className="mx-1"
-                      onClick={closeFind}
-                      size="icon-xs"
-                      title="关闭查找"
-                      variant="ghost"
-                    >
-                      <X aria-hidden="true" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    aria-label="页内查找"
-                    onClick={openFind}
-                    size="icon-sm"
-                    title="页内查找"
-                    variant="ghost"
-                  >
-                    <Search aria-hidden="true" />
-                  </Button>
-                )}
-                <Button
-                  aria-label="打开其他文档"
-                  className="max-[1199px]:w-8 max-[1199px]:px-0"
-                  disabled={opening}
-                  onClick={() => void openSourceDocuments()}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <FolderOpen aria-hidden="true" />
-                  <span className="max-[1199px]:sr-only">打开其他文档</span>
-                </Button>
-                <Button
-                  aria-label={
-                    contentOutlineInline
-                      ? '折叠内容目录'
-                      : shellLayout === 'wide'
-                        ? '展开内容目录'
-                        : '打开内容目录'
-                  }
-                  onClick={() => {
-                    if (contentOutlineInline) {
-                      updateShellPreferences({ contentOutlineExpanded: false });
-                    } else if (shellLayout === 'wide') {
-                      updateShellPreferences({ contentOutlineExpanded: true });
-                    } else {
-                      setContentOutlineSheetOpen(true);
-                    }
-                  }}
-                  ref={contentOutlineTrigger}
-                  size="icon-sm"
-                  title={
-                    contentOutlineInline
-                      ? '折叠内容目录'
-                      : shellLayout === 'wide'
-                        ? '展开内容目录'
-                        : '打开内容目录'
-                  }
-                  variant="ghost"
-                >
-                  {contentOutlineInline ? (
-                    <PanelRightClose aria-hidden="true" />
-                  ) : (
-                    <PanelRightOpen aria-hidden="true" />
-                  )}
-                </Button>
+                  ))}
+                </main>
               </div>
-            </header>
-
-            <div
-              className={cn(
-                'grid min-h-0 grid-cols-[minmax(0,1fr)]',
-                sourceDiagram
-                  ? shellLayout === 'wide' && 'grid-cols-[minmax(0,1fr)_360px]'
-                  : contentOutlineInline && 'grid-cols-[minmax(0,1fr)_216px]',
-              )}
-            >
-              <main
-                className="relative grid min-h-0 bg-background p-3"
-                aria-label="完成文档阅读区"
-                data-finished-document-region=""
-              >
-                {documentFrames.map((frame) => (
-                  <FinishedDocumentFrame
-                    documentWidth={preferences.documentWidth}
-                    draggingFiles={draggingFiles}
-                    frame={frame}
-                    key={frame.id}
-                    onLoad={handleFinishedDocumentLoad}
-                    onRemove={handleFinishedDocumentFrameRemove}
-                    visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
-                  />
-                ))}
-                {paperSnapshot && paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
-                  <PaperPreviewFrame
-                    className={cn(
-                      'col-start-1 row-start-1 z-10',
-                      viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
-                      draggingFiles && 'pointer-events-none',
-                    )}
-                    key={activeDocument.document.path}
-                    onActiveHeadingChange={setActiveHeadingId}
-                    onControllerChange={(controller) => {
-                      paperPreviewController.current = controller;
-                      if (controller && viewModeRef.current === 'paper' && findOpen) {
-                        setFindResult(controller.find(findQuery));
-                      }
-                    }}
-                    onFailure={setPaperPreviewFailure}
-                    onFindRequest={openFind}
-                    onFindResult={setFindResult}
-                    onFocusRenderedVisual={setFocusedDiagram}
-                    onInspectRenderedVisual={showDiagramSource}
-                    onReady={(pageCount, revisionId) => {
-                      if (revisionId !== paperSnapshot.revisionId) return;
-                      setPaperPageCount(pageCount);
-                      setPaperReadyRevisionId(revisionId);
-                      setPaperPreviewFailure(undefined);
-                    }}
-                    onReadingPositionChange={(position) => {
-                      if (viewModeRef.current !== 'paper') return;
-                      setSession((current) =>
-                        updateReadingPosition(current, activeDocument.document.path, position),
-                      );
-                    }}
-                    snapshot={paperSnapshot}
-                  />
-                ) : null}
-                {viewMode === 'paper' && paperPreviewFailure ? (
-                  <div
-                    aria-live="polite"
-                    className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
-                  >
-                    正在保留上一版纸张预览。{paperPreviewFailure}
-                  </div>
-                ) : null}
-                {pdfExportProgress ? (
-                  <PdfExportPanel
-                    key={pdfExportProgress.exportId}
-                    onCancel={cancelPdfExport}
-                    onRetry={() => void startPdfExport()}
-                    progress={pdfExportProgress}
-                  />
-                ) : null}
-              </main>
-              {sourceDiagram && shellLayout === 'wide' ? (
-                <DiagramSourceDrawer
-                  copyText={window.fuxian.copyText}
-                  diagram={sourceDiagram}
-                  onClose={closeDiagramSource}
-                  onLocate={locateSourceDiagram}
-                />
-              ) : contentOutlineInline ? (
-                <ContentOutline
-                  activeHeadingId={activeHeadingId}
-                  headings={activeDocument.headings}
-                  key={activeDocument.document.path}
-                  onNavigate={(id) => getReadingController()?.scrollToHeading(id)}
-                  onOpenStructureMap={() => setArticleStructureMapOpen(true)}
-                />
-              ) : null}
-            </div>
-            <DiagramFocusDialog
-              copyText={window.fuxian.copyText}
-              diagram={focusedDiagram}
-              key={focusedDiagram?.id ?? 'closed-diagram-focus'}
-              onClose={() => setFocusedDiagram(undefined)}
-              onReturnFocus={(diagram) => restoreDiagramActionFocus(diagram, 'focus')}
-            />
-            {articleStructureMapOpen ? (
-              <ArticleStructureMapDialog
-                documentName={activeDocument.document.name}
-                headings={activeDocument.headings}
-                onOpenChange={setArticleStructureMapOpen}
-                open
-              />
-            ) : null}
-            {shellLayout !== 'wide' && activeDocument ? (
-              <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
-                <SheetContent
-                  className="w-72 max-w-[88vw] p-0"
-                  onCloseAutoFocus={(event) => {
-                    event.preventDefault();
-                    contentOutlineTrigger.current?.focus();
-                  }}
-                  onOpenAutoFocus={(event) => {
-                    event.preventDefault();
-                    contentOutlineSheet.current?.focus();
-                  }}
-                  ref={contentOutlineSheet}
-                  showCloseButton={false}
+            ) : activeDocument && visibleFrame ? (
+              <div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
+                <header
+                  className={cn(
+                    'flex items-center justify-between border-b bg-card px-4',
+                    !documentSessionInline && 'pl-12',
+                  )}
+                  data-reader-toolbar=""
                 >
-                  <SheetTitle className="sr-only">内容目录</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    浏览并跳转到当前文档中的标题。
-                  </SheetDescription>
-                  <ContentOutline
-                    activeHeadingId={activeHeadingId}
-                    headings={activeDocument.headings}
-                    key={`sheet:${activeDocument.document.path}`}
-                    onNavigate={(id) => {
-                      getReadingController()?.scrollToHeading(id);
-                      setContentOutlineSheetOpen(false);
-                    }}
-                    onOpenStructureMap={() => {
-                      setContentOutlineSheetOpen(false);
-                      setArticleStructureMapOpen(true);
-                    }}
-                  />
-                </SheetContent>
-              </Sheet>
-            ) : null}
-            {sourceDiagram && shellLayout !== 'wide' ? (
-              <Sheet
-                onOpenChange={(open) => !open && closeDiagramSource()}
-                open={Boolean(sourceDiagram)}
-              >
-                <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
-                  <SheetTitle className="sr-only">图表源码</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    查看并复制当前 Mermaid 或 PlantUML 图表源码。
-                  </SheetDescription>
-                  <DiagramSourceDrawer
-                    copyText={window.fuxian.copyText}
-                    diagram={sourceDiagram}
-                    onClose={closeDiagramSource}
-                    onLocate={locateSourceDiagram}
-                  />
-                </SheetContent>
-              </Sheet>
-            ) : null}
-          </div>
-        ) : (
-          <main className="flex min-h-0 items-center justify-center overflow-y-auto px-8 py-12">
-            {blockingError ? (
-              <Alert className="w-full max-w-md" variant="destructive">
-                <AlertCircle aria-hidden="true" />
-                <AlertTitle>
-                  <h1 id="error-title">无法打开文档</h1>
-                </AlertTitle>
-                <AlertDescription>
-                  <p>{blockingError}</p>
-                  <Button className="mt-3" onClick={() => void openSourceDocuments()}>
-                    <FolderOpen aria-hidden="true" />
-                    打开其他文档
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            ) : unavailableDocuments.length > 0 ? (
-              <Alert className="w-full max-w-md">
-                <AlertCircle aria-hidden="true" />
-                <AlertTitle>
-                  <h1>部分文档暂时不可用</h1>
-                </AlertTitle>
-                <AlertDescription>
-                  <p>可在左侧对文档执行重试、重新定位或移除。</p>
-                  <Button className="mt-3" onClick={() => void openSourceDocuments()}>
-                    <FolderOpen aria-hidden="true" />
-                    打开其他文档
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <section className="w-full max-w-xl" aria-labelledby="start-title">
-                <FuxianMark className="mb-6 size-20" />
-                <h1 id="start-title" className="text-3xl font-semibold text-foreground">
-                  浮现
-                </h1>
-                <div className="mt-8 border-t pt-6">
-                  <Button disabled={opening} onClick={() => void openSourceDocuments()} size="lg">
-                    <FolderOpen aria-hidden="true" />
-                    {opening ? '正在打开...' : '打开 Markdown'}
-                  </Button>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    也可以将 Markdown 文档拖放到窗口中
-                  </p>
-                </div>
-
-                {startRecentDocuments.length > 0 ? (
-                  <section className="mt-10 border-t pt-5" aria-labelledby="start-recent-title">
-                    <div className="flex items-center justify-between gap-4">
-                      <h2 id="start-recent-title" className="text-sm font-semibold">
-                        最近查看
-                      </h2>
-                      {session.recentDocuments.length > 5 ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
+                    <span
+                      aria-label={`${activeDocument.document.name}，${activeDocument.document.path}`}
+                      className="truncate text-sm font-semibold"
+                      title={activeDocument.document.path}
+                    >
+                      {activeDocument.document.name}
+                    </span>
+                    {externalRevisionStatus.state === 'updating' ? (
+                      <span
+                        aria-live="polite"
+                        className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                      >
+                        <Spinner aria-hidden="true" />
+                        正在更新...
+                      </span>
+                    ) : null}
+                    {externalRevisionStatus.state === 'updated' ? (
+                      <span
+                        aria-live="polite"
+                        className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                      >
+                        <CheckCircle2 aria-hidden="true" className="size-3.5 text-success" />
+                        已更新 · {externalRevisionStatus.time}
+                      </span>
+                    ) : null}
+                    {externalRevisionStatus.state === 'new-content' ? (
+                      <Button
+                        className="ml-2 shrink-0"
+                        onClick={showNewContent}
+                        size="xs"
+                        variant="secondary"
+                      >
+                        <ArrowDown aria-hidden="true" />
+                        有新内容
+                      </Button>
+                    ) : null}
+                    {externalRevisionStatus.state === 'failed' ? (
+                      <div
+                        aria-live="assertive"
+                        className="ml-2 flex shrink-0 items-center gap-1 text-xs text-destructive"
+                      >
+                        <AlertCircle aria-hidden="true" className="size-3.5" />
+                        <span>更新失败</span>
                         <Button
-                          onClick={() => setShowAllStartRecent((current) => !current)}
-                          size="xs"
+                          aria-label="重试文档更新"
+                          onClick={() => void retryExternalRevision()}
+                          size="icon-xs"
                           variant="ghost"
                         >
-                          {showAllStartRecent ? '收起' : '查看全部'}
+                          <RefreshCw aria-hidden="true" data-icon="inline-start" />
                         </Button>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 flex flex-col">
-                      {startRecentDocuments.map((document) => (
-                        <Tooltip key={document.path}>
-                          <TooltipTrigger asChild>
-                            <button
-                              className="flex min-h-10 items-center gap-2 border-b px-1 text-left text-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                              onClick={() => void reopenDocument(document.path)}
-                              type="button"
-                            >
-                              <FileText
-                                aria-hidden="true"
-                                className="size-4 shrink-0 text-muted-foreground"
-                              />
-                              <span className="truncate">{document.name}</span>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={6}>
-                            {document.path}
-                          </TooltipContent>
-                        </Tooltip>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="xs" variant="ghost">
+                              详情
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-80">
+                            <PopoverHeader>
+                              <PopoverTitle>文档更新失败</PopoverTitle>
+                              <PopoverDescription className="break-words">
+                                正在显示上一版本。{externalRevisionStatus.detail}
+                              </PopoverDescription>
+                            </PopoverHeader>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="ml-4 flex shrink-0 items-center gap-1">
+                    <ToggleGroup
+                      aria-label="文档显示模式"
+                      onValueChange={(value) => {
+                        if (value === 'continuous' || value === 'paper') changeViewMode(value);
+                      }}
+                      size="sm"
+                      type="single"
+                      value={viewMode}
+                      variant="outline"
+                    >
+                      <ToggleGroupItem aria-label="无界阅读" value="continuous">
+                        无界
+                      </ToggleGroupItem>
+                      <ToggleGroupItem aria-label="纸张预览" value="paper">
+                        纸张
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    {viewMode === 'continuous' ? (
+                      <DocumentWidthPopover
+                        onChange={(documentWidth) =>
+                          updatePreferences({ ...preferences, documentWidth })
+                        }
+                        value={preferences.documentWidth}
+                      />
+                    ) : paperPageCount ? (
+                      <span className="px-1 text-xs tabular-nums text-muted-foreground">
+                        {paperPageCount} 页
+                      </span>
+                    ) : null}
+                    <Button
+                      aria-label="导出 PDF"
+                      disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
+                      onClick={() => void startPdfExport()}
+                      size="icon-sm"
+                      title="导出 PDF"
+                      variant="ghost"
+                    >
+                      {pdfExportStarting ? (
+                        <Spinner aria-hidden="true" />
+                      ) : (
+                        <FileDown aria-hidden="true" />
+                      )}
+                    </Button>
+                    {findOpen ? (
+                      <div
+                        aria-label="页内查找"
+                        className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
+                        role="search"
+                      >
+                        <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
+                        <input
+                          aria-label="页内查找"
+                          className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
+                          onChange={(event) => setFindQuery(event.target.value)}
+                          onKeyDown={handleFindKeyDown}
+                          placeholder="查找"
+                          ref={findInput}
+                          type="text"
+                          value={findQuery}
+                        />
+                        <span
+                          aria-live="polite"
+                          className="min-w-12 px-1 text-center text-xs tabular-nums text-muted-foreground"
+                        >
+                          {findResult.current}/{findResult.total}
+                        </span>
+                        <Button
+                          aria-label="上一个匹配项"
+                          disabled={findResult.total === 0}
+                          onClick={showPreviousFindResult}
+                          size="icon-xs"
+                          title="上一个匹配项"
+                          variant="ghost"
+                        >
+                          <ChevronUp aria-hidden="true" />
+                        </Button>
+                        <Button
+                          aria-label="下一个匹配项"
+                          disabled={findResult.total === 0}
+                          onClick={showNextFindResult}
+                          size="icon-xs"
+                          title="下一个匹配项"
+                          variant="ghost"
+                        >
+                          <ChevronDown aria-hidden="true" />
+                        </Button>
+                        <Button
+                          aria-label="关闭查找"
+                          className="mx-1"
+                          onClick={closeFind}
+                          size="icon-xs"
+                          title="关闭查找"
+                          variant="ghost"
+                        >
+                          <X aria-hidden="true" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        aria-label="页内查找"
+                        onClick={openFind}
+                        size="icon-sm"
+                        title="页内查找"
+                        variant="ghost"
+                      >
+                        <Search aria-hidden="true" />
+                      </Button>
+                    )}
+                    <Button
+                      aria-label="打开其他文档"
+                      className="max-[1199px]:w-8 max-[1199px]:px-0"
+                      disabled={opening}
+                      onClick={() => void openSourceDocuments()}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <FolderOpen aria-hidden="true" />
+                      <span className="max-[1199px]:sr-only">打开其他文档</span>
+                    </Button>
+                    <Button
+                      aria-label={
+                        contentOutlineInline
+                          ? '折叠内容目录'
+                          : shellLayout === 'wide'
+                            ? '展开内容目录'
+                            : '打开内容目录'
+                      }
+                      onClick={() => {
+                        if (contentOutlineInline) {
+                          updateShellPreferences({ contentOutlineExpanded: false });
+                        } else if (shellLayout === 'wide') {
+                          updateShellPreferences({ contentOutlineExpanded: true });
+                        } else {
+                          setContentOutlineSheetOpen(true);
+                        }
+                      }}
+                      ref={contentOutlineTrigger}
+                      size="icon-sm"
+                      title={
+                        contentOutlineInline
+                          ? '折叠内容目录'
+                          : shellLayout === 'wide'
+                            ? '展开内容目录'
+                            : '打开内容目录'
+                      }
+                      variant="ghost"
+                    >
+                      {contentOutlineInline ? (
+                        <PanelRightClose aria-hidden="true" />
+                      ) : (
+                        <PanelRightOpen aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
+                </header>
+
+                <ResizablePanelGroup
+                  className="min-h-0 min-w-0"
+                  id="reader-document-layout"
+                  onLayoutChanged={(_layout, meta) => commitContentOutlineWidth(meta)}
+                  orientation="horizontal"
+                >
+                  <ResizablePanel
+                    className="min-h-0 min-w-0 !overflow-hidden"
+                    id="finished-document"
+                    minSize={360}
+                  >
+                    <main
+                      className="relative grid h-full min-h-0 bg-background p-3"
+                      aria-label="完成文档阅读区"
+                      data-finished-document-region=""
+                    >
+                      {documentFrames.map((frame) => (
+                        <FinishedDocumentFrame
+                          documentWidth={preferences.documentWidth}
+                          draggingFiles={draggingFiles}
+                          frame={frame}
+                          key={frame.id}
+                          onLoad={handleFinishedDocumentLoad}
+                          onRemove={handleFinishedDocumentFrameRemove}
+                          visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
+                        />
                       ))}
-                    </div>
-                  </section>
+                      {paperSnapshot &&
+                      paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
+                        <PaperPreviewFrame
+                          className={cn(
+                            'col-start-1 row-start-1 z-10',
+                            viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
+                            draggingFiles && 'pointer-events-none',
+                          )}
+                          key={activeDocument.document.path}
+                          onActiveHeadingChange={setActiveHeadingId}
+                          onControllerChange={(controller) => {
+                            paperPreviewController.current = controller;
+                            if (controller && viewModeRef.current === 'paper' && findOpen) {
+                              setFindResult(controller.find(findQuery));
+                            }
+                          }}
+                          onFailure={setPaperPreviewFailure}
+                          onFindRequest={openFind}
+                          onFindResult={setFindResult}
+                          onFocusRenderedVisual={setFocusedDiagram}
+                          onInspectRenderedVisual={showDiagramSource}
+                          onReady={(pageCount, revisionId) => {
+                            if (revisionId !== paperSnapshot.revisionId) return;
+                            setPaperPageCount(pageCount);
+                            setPaperReadyRevisionId(revisionId);
+                            setPaperPreviewFailure(undefined);
+                          }}
+                          onReadingPositionChange={(position) => {
+                            if (viewModeRef.current !== 'paper') return;
+                            setSession((current) =>
+                              updateReadingPosition(
+                                current,
+                                activeDocument.document.path,
+                                position,
+                              ),
+                            );
+                          }}
+                          snapshot={paperSnapshot}
+                        />
+                      ) : null}
+                      {viewMode === 'paper' && paperPreviewFailure ? (
+                        <div
+                          aria-live="polite"
+                          className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
+                        >
+                          正在保留上一版纸张预览。{paperPreviewFailure}
+                        </div>
+                      ) : null}
+                      {pdfExportProgress ? (
+                        <PdfExportPanel
+                          key={pdfExportProgress.exportId}
+                          onCancel={cancelPdfExport}
+                          onRetry={() => void startPdfExport()}
+                          progress={pdfExportProgress}
+                        />
+                      ) : null}
+                    </main>
+                  </ResizablePanel>
+                  {sourceDiagram && shellLayout === 'wide' ? (
+                    <ResizablePanel
+                      className="min-h-0 min-w-0 !overflow-hidden"
+                      defaultSize={360}
+                      disabled
+                      groupResizeBehavior="preserve-pixel-size"
+                      id="diagram-source"
+                      maxSize={360}
+                      minSize={360}
+                    >
+                      <DiagramSourceDrawer
+                        copyText={window.fuxian.copyText}
+                        diagram={sourceDiagram}
+                        onClose={closeDiagramSource}
+                        onLocate={locateSourceDiagram}
+                      />
+                    </ResizablePanel>
+                  ) : contentOutlineInline ? (
+                    <>
+                      <ResizableHandle
+                        aria-label="调整内容目录宽度"
+                        className="bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring/50 data-[separator=active]:after:bg-ring/50"
+                        disableDoubleClick
+                        id="content-outline-resize-handle"
+                        onDoubleClick={() => {
+                          contentOutlinePanel.current?.resize(defaultShellRegionWidth);
+                          updateShellPreferences({ contentOutlineWidth: defaultShellRegionWidth });
+                        }}
+                      />
+                      <ResizablePanel
+                        className="min-h-0 min-w-0 !overflow-hidden"
+                        defaultSize={preferences.shell.contentOutlineWidth}
+                        groupResizeBehavior="preserve-pixel-size"
+                        id="content-outline"
+                        maxSize={readerPreferenceLimits.shellRegionWidth.max}
+                        minSize={readerPreferenceLimits.shellRegionWidth.min}
+                        panelRef={contentOutlinePanel}
+                      >
+                        <ContentOutline
+                          activeHeadingId={activeHeadingId}
+                          headings={activeDocument.headings}
+                          key={activeDocument.document.path}
+                          onNavigate={(id) => getReadingController()?.scrollToHeading(id)}
+                          onOpenStructureMap={() => setArticleStructureMapOpen(true)}
+                        />
+                      </ResizablePanel>
+                    </>
+                  ) : null}
+                </ResizablePanelGroup>
+                <DiagramFocusDialog
+                  copyText={window.fuxian.copyText}
+                  diagram={focusedDiagram}
+                  key={focusedDiagram?.id ?? 'closed-diagram-focus'}
+                  onClose={() => setFocusedDiagram(undefined)}
+                  onReturnFocus={(diagram) => restoreDiagramActionFocus(diagram, 'focus')}
+                />
+                {articleStructureMapOpen ? (
+                  <ArticleStructureMapDialog
+                    documentName={activeDocument.document.name}
+                    headings={activeDocument.headings}
+                    onOpenChange={setArticleStructureMapOpen}
+                    open
+                  />
                 ) : null}
-              </section>
+                {shellLayout !== 'wide' && activeDocument ? (
+                  <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
+                    <SheetContent
+                      className="w-72 max-w-[88vw] p-0"
+                      onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        contentOutlineTrigger.current?.focus();
+                      }}
+                      onOpenAutoFocus={(event) => {
+                        event.preventDefault();
+                        contentOutlineSheet.current?.focus();
+                      }}
+                      ref={contentOutlineSheet}
+                      showCloseButton={false}
+                    >
+                      <SheetTitle className="sr-only">内容目录</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        浏览并跳转到当前文档中的标题。
+                      </SheetDescription>
+                      <ContentOutline
+                        activeHeadingId={activeHeadingId}
+                        headings={activeDocument.headings}
+                        key={`sheet:${activeDocument.document.path}`}
+                        onNavigate={(id) => {
+                          getReadingController()?.scrollToHeading(id);
+                          setContentOutlineSheetOpen(false);
+                        }}
+                        onOpenStructureMap={() => {
+                          setContentOutlineSheetOpen(false);
+                          setArticleStructureMapOpen(true);
+                        }}
+                      />
+                    </SheetContent>
+                  </Sheet>
+                ) : null}
+                {sourceDiagram && shellLayout !== 'wide' ? (
+                  <Sheet
+                    onOpenChange={(open) => !open && closeDiagramSource()}
+                    open={Boolean(sourceDiagram)}
+                  >
+                    <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
+                      <SheetTitle className="sr-only">图表源码</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        查看并复制当前 Mermaid 或 PlantUML 图表源码。
+                      </SheetDescription>
+                      <DiagramSourceDrawer
+                        copyText={window.fuxian.copyText}
+                        diagram={sourceDiagram}
+                        onClose={closeDiagramSource}
+                        onLocate={locateSourceDiagram}
+                      />
+                    </SheetContent>
+                  </Sheet>
+                ) : null}
+              </div>
+            ) : (
+              <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto px-8 py-12">
+                {blockingError ? (
+                  <Alert className="w-full max-w-md" variant="destructive">
+                    <AlertCircle aria-hidden="true" />
+                    <AlertTitle>
+                      <h1 id="error-title">无法打开文档</h1>
+                    </AlertTitle>
+                    <AlertDescription>
+                      <p>{blockingError}</p>
+                      <Button className="mt-3" onClick={() => void openSourceDocuments()}>
+                        <FolderOpen aria-hidden="true" />
+                        打开其他文档
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : unavailableDocuments.length > 0 ? (
+                  <Alert className="w-full max-w-md">
+                    <AlertCircle aria-hidden="true" />
+                    <AlertTitle>
+                      <h1>部分文档暂时不可用</h1>
+                    </AlertTitle>
+                    <AlertDescription>
+                      <p>可在左侧对文档执行重试、重新定位或移除。</p>
+                      <Button className="mt-3" onClick={() => void openSourceDocuments()}>
+                        <FolderOpen aria-hidden="true" />
+                        打开其他文档
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <section className="w-full max-w-xl" aria-labelledby="start-title">
+                    <FuxianMark className="mb-6 size-20" />
+                    <h1 id="start-title" className="text-3xl font-semibold text-foreground">
+                      浮现
+                    </h1>
+                    <div className="mt-8 border-t pt-6">
+                      <Button
+                        disabled={opening}
+                        onClick={() => void openSourceDocuments()}
+                        size="lg"
+                      >
+                        <FolderOpen aria-hidden="true" />
+                        {opening ? '正在打开...' : '打开 Markdown'}
+                      </Button>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        也可以将 Markdown 文档拖放到窗口中
+                      </p>
+                    </div>
+
+                    {startRecentDocuments.length > 0 ? (
+                      <section className="mt-10 border-t pt-5" aria-labelledby="start-recent-title">
+                        <div className="flex items-center justify-between gap-4">
+                          <h2 id="start-recent-title" className="text-sm font-semibold">
+                            最近查看
+                          </h2>
+                          {session.recentDocuments.length > 5 ? (
+                            <Button
+                              onClick={() => setShowAllStartRecent((current) => !current)}
+                              size="xs"
+                              variant="ghost"
+                            >
+                              {showAllStartRecent ? '收起' : '查看全部'}
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 flex flex-col">
+                          {startRecentDocuments.map((document) => (
+                            <Tooltip key={document.path}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="flex min-h-10 items-center gap-2 border-b px-1 text-left text-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                                  onClick={() => void reopenDocument(document.path)}
+                                  type="button"
+                                >
+                                  <FileText
+                                    aria-hidden="true"
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                  />
+                                  <span className="truncate">{document.name}</span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" sideOffset={6}>
+                                {document.path}
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+                  </section>
+                )}
+              </main>
             )}
-          </main>
-        )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
 
         {draggingFiles ? (
           <div className="pointer-events-none absolute inset-2 flex items-center justify-center border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">

@@ -34,6 +34,7 @@
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-resizable-panels": "^4.12.3",
     "tailwind-merge": "^3.6.0",
     "vega": "6.4.0",
     "vega-interpreter": "2.3.2",

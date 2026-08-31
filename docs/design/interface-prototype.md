@@ -31,6 +31,8 @@ Primary desktop review frame: `1440 x 900`, with an additional approximately `10
 
 The document session occupies the left side, the finished document remains dominant in the center, and the content outline occupies the right side. Both side regions are independently collapsible.
 
+Inline document-session and content-outline regions start at `216 px`, can be resized independently from `176 px` through `360 px`, and remember their widths. Double-clicking either divider restores `216 px`; temporary drawers keep their fixed responsive widths.
+
 Each region has its own compact header. The document-session header carries the Fuxian identity and open action; the finished-document header carries the filename, external-revision status, and document actions; the content-outline header names and controls the outline.
 
 At wide widths both side regions are visible. At medium widths the content outline collapses behind an always-visible control while the document session remains visible. At narrow widths both side regions become temporary drawers so the finished document retains usable width.

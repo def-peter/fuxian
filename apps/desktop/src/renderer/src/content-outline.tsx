@@ -116,7 +116,7 @@ export function ContentOutline({
 
   return (
     <aside
-      className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
+      className="grid h-full min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
       aria-label="内容目录"
     >
       <header className="flex items-center justify-between border-b px-3">

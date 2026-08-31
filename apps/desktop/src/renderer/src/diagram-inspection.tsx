@@ -63,7 +63,7 @@ export function DiagramSourceDrawer({
   return (
     <aside
       aria-label="图表源码"
-      className="grid min-h-0 grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted"
+      className="grid h-full min-h-0 grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted"
     >
       <header className="flex items-center justify-between border-b px-3">
         <div className="flex min-w-0 items-center gap-2">
