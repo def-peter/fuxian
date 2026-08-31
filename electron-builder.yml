@@ -11,16 +11,16 @@ files:
   - '!node_modules/electron{,/**/*}'
 asarUnpack:
   - apps/desktop/resources/**
-fileAssociations:
-  - ext:
-      - md
-      - markdown
-    name: Markdown 文档
-    description: Markdown 源文档
-    role: Viewer
 win:
   executableName: Fuxian
   icon: build/icon.ico
+  fileAssociations:
+    - ext:
+        - md
+        - markdown
+      name: Markdown 文档
+      description: Markdown 源文档
+      icon: markdown-file.ico
   target:
     - nsis
 nsis:
@@ -32,6 +32,12 @@ mac:
   artifactName: fuxian-${version}-mac-${arch}.${ext}
   category: public.app-category.productivity
   icon: build/icon.icns
+  fileAssociations:
+    - ext:
+        - md
+        - markdown
+      name: Markdown 文档
+      role: Viewer
   identity: null
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
