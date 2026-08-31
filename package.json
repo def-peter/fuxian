@@ -26,6 +26,7 @@
     "package:dir": "pnpm build && electron-builder --dir --publish never",
     "package:mac": "pnpm build && electron-builder --mac dmg zip --publish never",
     "package:win": "pnpm build && electron-builder --win nsis --publish never",
+    "release": "node scripts/release.mjs",
     "verify:package": "node scripts/verify-packaged-app.mjs release",
     "verify:release-version": "node scripts/verify-release-version.mjs",
     "verify:update-assets": "node scripts/verify-update-assets.mjs release-assets",

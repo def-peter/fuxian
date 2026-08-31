@@ -27,16 +27,19 @@ pnpm verify:package
 
 ## Publish a version
 
-1. Set the same stable SemVer in `package.json` and `apps/desktop/package.json`; confirm that `v<version>` does not already exist.
-2. Update release-facing documentation, commit, and push the exact source revision to `main`.
-3. Dispatch **Build release installers**:
+Install and authenticate the GitHub CLI once, then run the release helper from a clean, synchronized `main` branch:
 
 ```bash
-gh workflow run release-installers.yml --ref main
+pnpm release
 ```
 
-4. The workflow runs static checks, unit tests, and a release-critical Electron E2E suite on both Windows and macOS; produces Windows NSIS update metadata; and builds both unsigned macOS architectures in one job so `latest-mac.yml` can detect either architecture. Run the broader `pnpm test:e2e` suite during feature development.
-5. It verifies both macOS package structures, smoke-tests the Windows and native Apple Silicon applications, and validates asset presence, size, and SHA-512 metadata. GitHub's Apple Silicon runner cannot launch the Intel build without Rosetta, so the Intel application requires the manual acceptance check below. Assets enter a draft Release first; only the complete verified draft becomes the stable latest Release.
+The default increments the patch version, updates both package manifests, commits `chore(release): prepare v<version>`, pushes `main`, and dispatches **Build release installers**. Use `pnpm release minor`, `pnpm release major`, or an explicit version such as `pnpm release 1.0.0` when needed. Add `--dry-run` to check the proposed version without changing anything, `--yes` to skip confirmation, or `--wait` to keep the terminal open until publishing finishes.
+
+Untracked files are reported but never staged. The helper refuses to run with tracked changes, from a branch other than `main`, when `main` differs from `origin/main`, or when the target tag or Release already exists.
+
+The workflow runs static checks, unit tests, and a release-critical Electron E2E suite on both Windows and macOS; produces Windows NSIS update metadata; and builds both unsigned macOS architectures in one job so `latest-mac.yml` can detect either architecture. Run the broader `pnpm test:e2e` suite during feature development.
+
+It verifies both macOS package structures, smoke-tests the Windows and native Apple Silicon applications, and validates asset presence, size, and SHA-512 metadata. GitHub's Apple Silicon runner cannot launch the Intel build without Rosetta, so the Intel application requires the manual acceptance check below. Assets enter a draft Release first; only the complete verified draft becomes the stable latest Release.
 
 Published assets include `latest.yml`, `latest-mac.yml`, NSIS EXE, macOS ZIP and DMG files, and matching blockmaps.
 
