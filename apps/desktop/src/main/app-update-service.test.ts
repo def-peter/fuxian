@@ -20,7 +20,8 @@ const updateInfo = (version = '0.2.0'): UpdateInfo => ({
   path: `fuxian-${version}.zip`,
   releaseDate: '2026-08-28T00:00:00.000Z',
   releaseName: `浮现 ${version}`,
-  releaseNotes: '<script>不会作为 HTML 执行</script>',
+  releaseNotes:
+    '<h2>主要更新</h2><ul><li>新增安全可靠的软件更新 &amp; 发布流程。</li><li><strong>修复</strong>设置页显示。</li></ul><script>不可信脚本</script>',
   sha512: 'sha512',
   version,
 });
@@ -77,9 +78,22 @@ describe('AppUpdateService', () => {
     await expect(first).resolves.toMatchObject({
       availableVersion: '0.2.0',
       phase: 'available',
-      releaseNotes: '<script>不会作为 HTML 执行</script>',
+      releaseNotes: '主要更新\n\n- 新增安全可靠的软件更新 & 发布流程。\n- 修复设置页显示。',
     });
     expect(adapter.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('combines versioned HTML release notes as inert plain text', () => {
+    const { adapter, service } = createService();
+    adapter.emit('update-available', {
+      ...updateInfo(),
+      releaseNotes: [
+        { note: '<p>当前版本说明</p>', version: '0.2.0' },
+        { note: '<p>上一版本说明</p>', version: '0.1.0' },
+      ],
+    });
+
+    expect(service.getStatus().releaseNotes).toBe('当前版本说明\n\n上一版本说明');
   });
 
   it('reports download progress, supports cancellation, and can retry', async () => {

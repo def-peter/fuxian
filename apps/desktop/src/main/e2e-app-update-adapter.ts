@@ -11,7 +11,8 @@ const updateInfo = (): UpdateInfo => ({
   path: 'fuxian-0.2.0-mac-arm64.zip',
   releaseDate: '2026-08-28T00:00:00.000Z',
   releaseName: '浮现 0.2.0',
-  releaseNotes: '新增安全可靠的软件更新，并完善发布流程。',
+  releaseNotes:
+    '<p>新增安全可靠的软件更新，并完善发布流程。</p><ul><li>修复 HTML 标签显示。</li></ul><script>不可信脚本</script>',
   sha512: 'e2e-sha512',
   version: '0.2.0',
 });

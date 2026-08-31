@@ -89,9 +89,14 @@ test('downloads an available update and flushes the reading session before insta
     const settingsWindow = await findSettingsWindow(electronApp);
     await expect(settingsWindow.getByRole('heading', { name: '关于与更新' })).toBeVisible();
     await expect(settingsWindow.getByText('新版本 0.2.0 可用')).toBeVisible();
-    await expect(
-      settingsWindow.getByText('新增安全可靠的软件更新，并完善发布流程。'),
-    ).toBeVisible();
+    const releaseNotes = settingsWindow
+      .getByRole('heading', { name: '更新内容' })
+      .locator('..')
+      .locator('p');
+    await expect(releaseNotes).toHaveText(
+      '新增安全可靠的软件更新，并完善发布流程。\n\n- 修复 HTML 标签显示。',
+    );
+    expect(await releaseNotes.textContent()).not.toMatch(/<\/?[a-z]/iu);
 
     await settingsWindow.getByRole('button', { name: '下载更新' }).click();
     await expect(settingsWindow.getByText('更新已准备好')).toBeVisible();

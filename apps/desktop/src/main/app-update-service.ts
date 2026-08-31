@@ -1,6 +1,7 @@
 import { CancellationToken } from 'builder-util-runtime';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import type { AppUpdateDelivery, AppUpdatePhase, AppUpdateStatus } from '@fuxian/shared-types';
+import { parseFragment, type DefaultTreeAdapterTypes } from 'parse5';
 
 export interface AppUpdateAdapter {
   allowDowngrade: boolean;
@@ -38,15 +39,87 @@ const releaseText = (value: unknown, maximumLength: number): string | undefined 
   return normalized ? normalized.slice(0, maximumLength) : undefined;
 };
 
+const releaseNotesBlockElements = new Set([
+  'article',
+  'aside',
+  'blockquote',
+  'div',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+]);
+const ignoredReleaseNotesElements = new Set(['noscript', 'script', 'style', 'template']);
+const maximumReleaseNotesSourceLength = 100_000;
+
+const htmlToReleaseNotesText = (source: string): string => {
+  const fragment = parseFragment(source.slice(0, maximumReleaseNotesSourceLength));
+  const parts: string[] = [];
+  let pendingLineBreaks = 0;
+  const appendLineBreaks = (count: 1 | 2): void => {
+    pendingLineBreaks = Math.max(pendingLineBreaks, count);
+  };
+  const appendText = (value: string): void => {
+    if (!value || (pendingLineBreaks > 0 && !value.trim())) return;
+    if (pendingLineBreaks > 0) parts.push('\n'.repeat(pendingLineBreaks));
+    pendingLineBreaks = 0;
+    parts.push(value);
+  };
+  const visit = (node: DefaultTreeAdapterTypes.ChildNode): void => {
+    if (node.nodeName === '#text' && 'value' in node) {
+      appendText(node.value);
+      return;
+    }
+    if (!('tagName' in node) || ignoredReleaseNotesElements.has(node.tagName)) return;
+    if (node.tagName === 'br') {
+      appendLineBreaks(1);
+      return;
+    }
+
+    const isListItem = node.tagName === 'li';
+    const isBlock = isListItem || releaseNotesBlockElements.has(node.tagName);
+    if (isBlock) appendLineBreaks(isListItem ? 1 : 2);
+    if (isListItem) appendText('- ');
+    for (const child of node.childNodes) visit(child);
+    if (isBlock) appendLineBreaks(isListItem ? 1 : 2);
+  };
+
+  for (const node of fragment.childNodes) visit(node);
+  return parts
+    .join('')
+    .replaceAll(/\p{Cc}/gu, (character) => (character === '\n' ? '\n' : ' '))
+    .split('\n')
+    .map((line) => line.replaceAll(/\s+/gu, ' ').trim())
+    .join('\n')
+    .replaceAll(/\n{3,}/gu, '\n\n')
+    .trim();
+};
+
 const releaseNotesText = (releaseNotes: UpdateInfo['releaseNotes']): string | undefined => {
-  const source =
+  const sources =
     typeof releaseNotes === 'string'
-      ? releaseNotes
-      : releaseNotes
-          ?.map(({ note }) => note)
-          .filter((note): note is string => typeof note === 'string')
-          .join('\n\n');
-  return releaseText(source, 12_000);
+      ? [releaseNotes]
+      : (releaseNotes ?? []).flatMap(({ note }) => (typeof note === 'string' ? [note] : []));
+  const normalized = sources.map(htmlToReleaseNotesText).filter(Boolean).join('\n\n');
+  return normalized ? normalized.slice(0, 12_000) : undefined;
 };
 
 const updateFailureMessage = (operation: 'check' | 'download' | 'install'): string => {
