@@ -95,6 +95,22 @@ const defaultShellRegionWidth = 216;
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
 let externalFrameRevision = 0;
 
+interface ToolbarTooltipProps {
+  children: React.ReactElement;
+  label: string;
+}
+
+function ToolbarTooltip({ children, label }: ToolbarTooltipProps): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 interface FinishedDocumentFrameRevision {
   document: FinishedSourceDocument;
   followBehavior: 'auto' | 'notify' | 'preserve';
@@ -255,6 +271,11 @@ export function App(): React.JSX.Element {
   const documentSessionInline =
     shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
   const contentOutlineInline = shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
+  const contentOutlineActionLabel = contentOutlineInline
+    ? '折叠内容目录'
+    : shellLayout === 'wide'
+      ? '展开内容目录'
+      : '打开内容目录';
   const getReadingController = useCallback(
     (): FinishedDocumentController | undefined =>
       viewModeRef.current === 'paper'
@@ -1568,20 +1589,21 @@ export function App(): React.JSX.Element {
                         {paperPageCount} 页
                       </span>
                     ) : null}
-                    <Button
-                      aria-label="导出 PDF"
-                      disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
-                      onClick={() => void startPdfExport()}
-                      size="icon-sm"
-                      title="导出 PDF"
-                      variant="ghost"
-                    >
-                      {pdfExportStarting ? (
-                        <Spinner aria-hidden="true" />
-                      ) : (
-                        <FileDown aria-hidden="true" />
-                      )}
-                    </Button>
+                    <ToolbarTooltip label="导出 PDF">
+                      <Button
+                        aria-label="导出 PDF"
+                        disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
+                        onClick={() => void startPdfExport()}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        {pdfExportStarting ? (
+                          <Spinner aria-hidden="true" />
+                        ) : (
+                          <FileDown aria-hidden="true" />
+                        )}
+                      </Button>
+                    </ToolbarTooltip>
                     {findOpen ? (
                       <div
                         aria-label="页内查找"
@@ -1605,47 +1627,51 @@ export function App(): React.JSX.Element {
                         >
                           {findResult.current}/{findResult.total}
                         </span>
-                        <Button
-                          aria-label="上一个匹配项"
-                          disabled={findResult.total === 0}
-                          onClick={showPreviousFindResult}
-                          size="icon-xs"
-                          title="上一个匹配项"
-                          variant="ghost"
-                        >
-                          <ChevronUp aria-hidden="true" />
-                        </Button>
-                        <Button
-                          aria-label="下一个匹配项"
-                          disabled={findResult.total === 0}
-                          onClick={showNextFindResult}
-                          size="icon-xs"
-                          title="下一个匹配项"
-                          variant="ghost"
-                        >
-                          <ChevronDown aria-hidden="true" />
-                        </Button>
-                        <Button
-                          aria-label="关闭查找"
-                          className="mx-1"
-                          onClick={closeFind}
-                          size="icon-xs"
-                          title="关闭查找"
-                          variant="ghost"
-                        >
-                          <X aria-hidden="true" />
-                        </Button>
+                        <ToolbarTooltip label="上一个匹配项">
+                          <Button
+                            aria-label="上一个匹配项"
+                            disabled={findResult.total === 0}
+                            onClick={showPreviousFindResult}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            <ChevronUp aria-hidden="true" />
+                          </Button>
+                        </ToolbarTooltip>
+                        <ToolbarTooltip label="下一个匹配项">
+                          <Button
+                            aria-label="下一个匹配项"
+                            disabled={findResult.total === 0}
+                            onClick={showNextFindResult}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            <ChevronDown aria-hidden="true" />
+                          </Button>
+                        </ToolbarTooltip>
+                        <ToolbarTooltip label="关闭查找">
+                          <Button
+                            aria-label="关闭查找"
+                            className="mx-1"
+                            onClick={closeFind}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            <X aria-hidden="true" />
+                          </Button>
+                        </ToolbarTooltip>
                       </div>
                     ) : (
-                      <Button
-                        aria-label="页内查找"
-                        onClick={openFind}
-                        size="icon-sm"
-                        title="页内查找"
-                        variant="ghost"
-                      >
-                        <Search aria-hidden="true" />
-                      </Button>
+                      <ToolbarTooltip label="页内查找">
+                        <Button
+                          aria-label="页内查找"
+                          onClick={openFind}
+                          size="icon-sm"
+                          variant="ghost"
+                        >
+                          <Search aria-hidden="true" />
+                        </Button>
+                      </ToolbarTooltip>
                     )}
                     <Button
                       aria-label="打开其他文档"
@@ -1658,40 +1684,29 @@ export function App(): React.JSX.Element {
                       <FolderOpen aria-hidden="true" />
                       <span className="max-[1199px]:sr-only">打开其他文档</span>
                     </Button>
-                    <Button
-                      aria-label={
-                        contentOutlineInline
-                          ? '折叠内容目录'
-                          : shellLayout === 'wide'
-                            ? '展开内容目录'
-                            : '打开内容目录'
-                      }
-                      onClick={() => {
-                        if (contentOutlineInline) {
-                          updateShellPreferences({ contentOutlineExpanded: false });
-                        } else if (shellLayout === 'wide') {
-                          updateShellPreferences({ contentOutlineExpanded: true });
-                        } else {
-                          setContentOutlineSheetOpen(true);
-                        }
-                      }}
-                      ref={contentOutlineTrigger}
-                      size="icon-sm"
-                      title={
-                        contentOutlineInline
-                          ? '折叠内容目录'
-                          : shellLayout === 'wide'
-                            ? '展开内容目录'
-                            : '打开内容目录'
-                      }
-                      variant="ghost"
-                    >
-                      {contentOutlineInline ? (
-                        <PanelRightClose aria-hidden="true" />
-                      ) : (
-                        <PanelRightOpen aria-hidden="true" />
-                      )}
-                    </Button>
+                    <ToolbarTooltip label={contentOutlineActionLabel}>
+                      <Button
+                        aria-label={contentOutlineActionLabel}
+                        onClick={() => {
+                          if (contentOutlineInline) {
+                            updateShellPreferences({ contentOutlineExpanded: false });
+                          } else if (shellLayout === 'wide') {
+                            updateShellPreferences({ contentOutlineExpanded: true });
+                          } else {
+                            setContentOutlineSheetOpen(true);
+                          }
+                        }}
+                        ref={contentOutlineTrigger}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        {contentOutlineInline ? (
+                          <PanelRightClose aria-hidden="true" />
+                        ) : (
+                          <PanelRightOpen aria-hidden="true" />
+                        )}
+                      </Button>
+                    </ToolbarTooltip>
                   </div>
                 </header>
 

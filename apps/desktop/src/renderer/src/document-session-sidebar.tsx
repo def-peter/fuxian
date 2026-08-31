@@ -57,6 +57,22 @@ interface DocumentItemProps {
   onClose?: () => void;
 }
 
+interface SidebarActionTooltipProps {
+  children: React.ReactElement;
+  label: string;
+}
+
+function SidebarActionTooltip({ children, label }: SidebarActionTooltipProps): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={6}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function UnavailableDocumentItem({
   document,
   disabled,
@@ -87,36 +103,39 @@ function UnavailableDocumentItem({
           <p>{document.message}</p>
         </TooltipContent>
       </Tooltip>
-      <Button
-        aria-label={`重试 ${document.name}`}
-        disabled={disabled}
-        onClick={onRetry}
-        size="icon-xs"
-        title={`重试 ${document.name}`}
-        variant="ghost"
-      >
-        <RotateCcw aria-hidden="true" />
-      </Button>
-      <Button
-        aria-label={`定位 ${document.name}`}
-        disabled={disabled}
-        onClick={onLocate}
-        size="icon-xs"
-        title={`定位 ${document.name}`}
-        variant="ghost"
-      >
-        <FolderSearch aria-hidden="true" />
-      </Button>
-      <Button
-        aria-label={`移除 ${document.name}`}
-        disabled={disabled}
-        onClick={onRemove}
-        size="icon-xs"
-        title={`移除 ${document.name}`}
-        variant="ghost"
-      >
-        <X aria-hidden="true" />
-      </Button>
+      <SidebarActionTooltip label={`重试 ${document.name}`}>
+        <Button
+          aria-label={`重试 ${document.name}`}
+          disabled={disabled}
+          onClick={onRetry}
+          size="icon-xs"
+          variant="ghost"
+        >
+          <RotateCcw aria-hidden="true" />
+        </Button>
+      </SidebarActionTooltip>
+      <SidebarActionTooltip label={`定位 ${document.name}`}>
+        <Button
+          aria-label={`定位 ${document.name}`}
+          disabled={disabled}
+          onClick={onLocate}
+          size="icon-xs"
+          variant="ghost"
+        >
+          <FolderSearch aria-hidden="true" />
+        </Button>
+      </SidebarActionTooltip>
+      <SidebarActionTooltip label={`移除 ${document.name}`}>
+        <Button
+          aria-label={`移除 ${document.name}`}
+          disabled={disabled}
+          onClick={onRemove}
+          size="icon-xs"
+          variant="ghost"
+        >
+          <X aria-hidden="true" />
+        </Button>
+      </SidebarActionTooltip>
     </div>
   );
 }
@@ -152,21 +171,22 @@ function DocumentItem({
             <span className="min-w-0 flex-1 truncate">{document.name}</span>
           </button>
         </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={6}>
+        <TooltipContent side="right" sideOffset={30}>
           {document.path}
         </TooltipContent>
       </Tooltip>
       {onClose ? (
-        <Button
-          aria-label={`关闭 ${document.name}`}
-          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-          onClick={onClose}
-          size="icon-xs"
-          title={`关闭 ${document.name}`}
-          variant="ghost"
-        >
-          <X aria-hidden="true" />
-        </Button>
+        <SidebarActionTooltip label={`关闭 ${document.name}`}>
+          <Button
+            aria-label={`关闭 ${document.name}`}
+            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            onClick={onClose}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </SidebarActionTooltip>
       ) : null}
     </div>
   );

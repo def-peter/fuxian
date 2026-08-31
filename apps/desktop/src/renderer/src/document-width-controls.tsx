@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DocumentWidthControlsProps {
   onChange(documentWidth: ReaderPreferences['documentWidth']): void;
@@ -87,11 +88,18 @@ export function DocumentWidthPopover({
 }: DocumentWidthControlsProps): React.JSX.Element {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button aria-label="文档宽度" size="icon-sm" title="文档宽度" variant="ghost">
-          <Scaling aria-hidden="true" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button aria-label="文档宽度" size="icon-sm" variant="ghost">
+              <Scaling aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6}>
+          文档宽度
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" sideOffset={8}>
         <PopoverHeader>
           <PopoverTitle>文档宽度</PopoverTitle>
