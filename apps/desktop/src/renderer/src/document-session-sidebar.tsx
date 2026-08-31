@@ -273,7 +273,7 @@ export function DocumentSessionSidebar({
 
       <ScrollArea className="min-h-0 min-w-0 overflow-hidden">
         <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden py-2">
-          <SessionSection count={openDocuments.length} title="正在打开">
+          <SessionSection count={openDocuments.length} title="正在查看">
             {openDocuments.map((document) =>
               document.status !== 'unavailable' ? (
                 <DocumentItem
@@ -308,7 +308,7 @@ export function DocumentSessionSidebar({
             )}
           </SessionSection>
 
-          <SessionSection count={recentDocuments.length} title="最近打开">
+          <SessionSection count={recentDocuments.length} title="最近查看">
             {recentDocuments.map((document) => (
               <DocumentItem
                 document={document}

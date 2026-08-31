@@ -261,8 +261,8 @@ test('a reader can manage multiple open and recent documents without duplicates'
       finishedDocument.getByRole('heading', { level: 1, name: 'A finished document' }),
     ).toBeVisible();
 
-    const openSection = session.getByRole('button', { name: /正在打开/ });
-    const recentSection = session.getByRole('button', { name: /最近打开/ });
+    const openSection = session.getByRole('button', { name: /正在查看/ });
+    const recentSection = session.getByRole('button', { name: /最近查看/ });
     await openSection.click();
     await expect(openSection).toHaveAttribute('aria-expanded', 'false');
     await expect(recentSection).toHaveAttribute('aria-expanded', 'true');
@@ -299,7 +299,7 @@ test('a reader can manage multiple open and recent documents without duplicates'
     await session.getByRole('button', { name: '关闭 basic.md' }).click();
     await session.getByRole('button', { name: '关闭 showcase.md' }).click();
     const startView = window.getByRole('main');
-    await expect(startView.getByRole('heading', { name: '最近打开' })).toBeVisible();
+    await expect(startView.getByRole('heading', { name: '最近查看' })).toBeVisible();
     await expect(startView.getByRole('button', { name: 'basic.md' })).toBeVisible();
     await expect(startView.getByRole('button', { name: 'showcase.md' })).toBeVisible();
   } finally {
@@ -450,7 +450,7 @@ test('the start view initially shows five recent documents and can reveal all', 
       await session.getByRole('button', { name: `关闭 recent-${index}.md` }).click();
     }
 
-    const startRecent = window.getByRole('region', { name: '最近打开' });
+    const startRecent = window.getByRole('region', { name: '最近查看' });
     await expect(startRecent.getByRole('button').filter({ hasText: /^recent-/ })).toHaveCount(5);
     await startRecent.getByRole('button', { name: '查看全部' }).click();
     await expect(startRecent.getByRole('button').filter({ hasText: /^recent-/ })).toHaveCount(6);

@@ -1467,8 +1467,8 @@ export function App(): React.JSX.Element {
                   value={viewMode}
                   variant="outline"
                 >
-                  <ToggleGroupItem aria-label="连续阅读" value="continuous">
-                    连续
+                  <ToggleGroupItem aria-label="无界阅读" value="continuous">
+                    无界
                   </ToggleGroupItem>
                   <ToggleGroupItem aria-label="纸张预览" value="paper">
                     纸张
@@ -1826,7 +1826,7 @@ export function App(): React.JSX.Element {
                   <section className="mt-10 border-t pt-5" aria-labelledby="start-recent-title">
                     <div className="flex items-center justify-between gap-4">
                       <h2 id="start-recent-title" className="text-sm font-semibold">
-                        最近打开
+                        最近查看
                       </h2>
                       {session.recentDocuments.length > 5 ? (
                         <Button
@@ -1885,7 +1885,7 @@ export function App(): React.JSX.Element {
             >
               <SheetTitle className="sr-only">文档会话</SheetTitle>
               <SheetDescription className="sr-only">
-                切换正在打开的文档或重新打开最近文档。
+                切换正在查看的文档或重新查看最近文档。
               </SheetDescription>
               {documentSessionSidebar}
             </SheetContent>

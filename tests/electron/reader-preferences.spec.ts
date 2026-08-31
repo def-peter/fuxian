@@ -184,7 +184,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await expect
       .poll(() => readDocumentVariables(readerWindow, '纸张预览'))
       .toMatchObject({ codeBackground: '#0d1117', codeTheme: 'github-dark' });
-    await readerWindow.getByRole('radio', { name: '连续阅读' }).click();
+    await readerWindow.getByRole('radio', { name: '无界阅读' }).click();
     await expect(
       readerWindow
         .frameLocator('iframe[title="Finished document"]')

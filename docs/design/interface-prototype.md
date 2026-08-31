@@ -97,7 +97,7 @@ The operating system owns window controls and the application menu. The content 
 
 ## Confirmed Prototype Decisions
 
-- Reading starts on a continuous document surface. The toolbar provides a compact `连续 / 纸张` mode switch; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
+- Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
 - The content outline is open by default, can be collapsed, and remembers the user's choice.
 - The first review demonstrates one distinctive Fuxian document theme rather than a theme gallery.
 - Content appears progressively as real render tasks settle; diagrams and formulas must not delay readable text.
@@ -123,7 +123,7 @@ The operating system owns window controls and the application menu. The content 
 - External-revision status appears temporarily beside the filename as `正在更新...` and `已更新 · time`; failures remain visible with retry and details actions.
 - When the reader is already near the end, appended content continues to follow. Otherwise the reading position remains stable and a `有新内容` action appears. Text selection disables automatic following.
 - External revisions do not highlight changed paragraphs in the finished document.
-- The document-session sidebar places the collapsible `正在打开` section above the collapsible `最近打开` section in one scroll region.
+- The document-session sidebar places the collapsible `正在查看` section above the collapsible `最近查看` section in one scroll region.
 - Closing a document moves it to recent history without clearing its reading position. Reopening it returns it to the open-document set. Quitting Fuxian preserves the open-document set rather than closing it.
 - The default document theme uses a sans-serif UI, heading, and 15px body face, plus a monospace code face. Readers may switch the finished document body to the serif preset without changing application-shell typography.
 - Document typography settings include a serif or sans-serif body preset, body size, and line height. Application-shell typography remains fixed.
