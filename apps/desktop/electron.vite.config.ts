@@ -46,6 +46,7 @@ export default defineConfig({
           '@fuxian/shared-types',
           'builder-util-runtime',
           'electron-updater',
+          'parse5',
           'plantuml-encoder',
         ],
       }),

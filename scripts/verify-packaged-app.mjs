@@ -1,5 +1,6 @@
 import { extractFile, listPackage } from '@electron/asar';
 import { readdir, stat } from 'node:fs/promises';
+import { builtinModules } from 'node:module';
 import { join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -19,6 +20,16 @@ const collectFiles = async (directory) => {
 const normalizePath = (path) => path.split(sep).join('/');
 const normalizeArchivePath = (path) => path.replaceAll('\\', '/');
 const toArchiveEntryPath = (path) => path.slice(1).split('/').join(sep);
+const runtimeProvidedModules = new Set([
+  'electron',
+  ...builtinModules,
+  ...builtinModules.map((name) => `node:${name}`),
+]);
+
+export const findExternalRuntimeImports = (source) =>
+  [...source.matchAll(/^import\s+(?:(?:[^'"]+?)\s+from\s+)?["']([^"']+)["'];?\s*$/gm)]
+    .map((match) => match[1])
+    .filter((specifier) => !runtimeProvidedModules.has(specifier));
 
 export const verifyPackagedApp = async (outputDirectory) => {
   const root = resolve(outputDirectory);
@@ -87,6 +98,14 @@ export const verifyPackagedApp = async (outputDirectory) => {
     }
     if (/from ["']electron-updater["']|require\(["']electron-updater["']\)/.test(mainSource)) {
       errors.push(`${relative(root, archive)} leaves electron-updater as an external dependency`);
+    }
+    const externalRuntimeImports = findExternalRuntimeImports(mainSource);
+    if (externalRuntimeImports.length > 0) {
+      errors.push(
+        `${relative(root, archive)} leaves third-party runtime imports unpackaged: ${[
+          ...new Set(externalRuntimeImports),
+        ].join(', ')}`,
+      );
     }
     if (
       !rendererIndex.includes(
