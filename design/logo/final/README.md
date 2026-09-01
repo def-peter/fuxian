@@ -1,12 +1,13 @@
 # 浮现 Fuxian Logo
 
-正式标志由三层展开的彩色书页与繁体「見」融合而成，表达 Markdown 内容从源文件中展开，并以完成态文档被看见。项目使用圆角应用图标、透明图形和带“浮现”字标的横版组合三种标准物料。
+正式标志由三层展开的蓝色书页与繁体「見」融合而成，表达 Markdown 内容从源文件中展开，并以完成态文档被看见。项目使用圆角应用图标、透明图形和带“浮现”字标的横版组合三种标准物料。
 
 ## 设计规范
 
 - 标志内部固定使用繁体「見」，不可替换为简体「见」。
 - 不改变书页与字形的相对比例、间距和连接关系。
-- 保留明亮暖象牙、鲜明珊瑚橙、饱和青绿色和深石墨色的色系关系，不将主 Logo 改为低饱和或暗色版本。
+- 保留浅天蓝、明亮蓝、钴蓝和深石墨色的冷色层次；书页应轻盈通透，不得压暗或降低饱和度。
+- 「見」使用横向一致的石墨黑，仅保留克制、连续的纵向明暗变化，不得出现偏青竖笔或分区色块。
 - 保留书页与承载面上的均匀面性渐变；不要添加边缘高光、玻璃效果或重投影。
 - 最小常规界面尺寸为 `24px`；`16px` 仅用于 favicon 等受限场景。
 - 圆角承载面四周保留约 `4%` 的透明净空。
@@ -19,7 +20,7 @@
 1. **白底圆角应用图标**：用于操作系统应用图标、安装包、favicon 和项目首页。
 2. **透明底图形 Logo**：用于不需要品牌名称的界面、文档和视觉物料。
 3. **透明底图形 Logo + 本地化字标**：中文使用“浮现”，英文使用“Fuxian”；用于软件窗口左上角等品牌身份区域，字形不依赖运行系统。
-4. **Windows Markdown 文档图标**：竖向文件轮廓内组合浮现图形与 `M↓`，用于 `.md`、`.markdown` 文件关联；不得替代应用图标。
+4. **Markdown 文档图标**：竖向文件轮廓以 `M↓` 为中心，左下为正文横线，右下以蓝色书页贴角；分别提供 Windows 和 macOS 文件关联资源，不得替代应用图标。
 
 ## 文件
 
@@ -36,11 +37,13 @@
 | `lockup/en-US/fuxian-lockup-en-US-source.png`            | 英文透明横版组合母版                |
 | `lockup/en-US/fuxian-lockup-en-US-{height}h.png`         | 英文横版按高度 `24` 至 `512px` 导出 |
 | `file-icon/windows/fuxian-markdown-file-icon-source.png` | Windows Markdown 文档图标母版       |
-| `file-icon/windows/fuxian-markdown-file-icon-{size}.png` | 文档图标按 `16` 至 `256px` 导出     |
+| `file-icon/windows/fuxian-markdown-file-icon-{size}.png` | Windows 图标按 `16` 至 `256px` 导出 |
+| `file-icon/macos/fuxian-markdown-file-icon-source.png`   | macOS `1024px` Markdown 图标母版    |
+| `file-icon/macos/fuxian-markdown-file-icon-{size}.png`   | macOS 图标按 `16` 至 `1024px` 导出  |
 | `../alternatives/faceted-origami-v1/`                    | 备选的彩色折面书页方案              |
 | `../archive/modern-sans-lockup-v1/`                      | 上一版现代无衬线中文横版            |
 | `../archive/zcool-xiaowei-lockup-v2/`                    | 上一版 ZCOOL XiaoWei 中文横版       |
 | `../archive/dinglie-regular-lockup-v3/`                  | 上一版鼎猎宋刻体中文横版            |
 | `../archive/monochrome-book-jian-v1/`                    | 上一版灰阶矢量 Logo，可用于历史回溯 |
 
-Electron 运行时图标位于 `apps/desktop/resources/icon.png`；应用打包图标位于 `build/icon.png`、`build/icon.icns` 和 `build/icon.ico`。Windows 文件关联图标位于 `build/markdown-file.ico`，包含 `16`、`20`、`24`、`32`、`48`、`64`、`128` 和 `256px` 八个画面。
+Electron 运行时图标位于 `apps/desktop/resources/icon.png`；应用打包图标位于 `build/icon.png`、`build/icon.icns` 和 `build/icon.ico`。Windows 文件关联图标位于 `build/markdown-file.ico`，包含 `16`、`20`、`24`、`32`、`48`、`64`、`128` 和 `256px` 八个画面；macOS 文件关联图标位于 `build/markdown-file.icns`，包含标准与 Retina 完整 iconset。

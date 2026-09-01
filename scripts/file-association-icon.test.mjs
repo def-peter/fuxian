@@ -5,7 +5,8 @@ import { parse } from 'yaml';
 
 const rootUrl = new URL('../', import.meta.url);
 const configUrl = new URL('electron-builder.yml', rootUrl);
-const iconUrl = new URL('build/markdown-file.ico', rootUrl);
+const windowsIconUrl = new URL('build/markdown-file.ico', rootUrl);
+const macIconUrl = new URL('build/markdown-file.icns', rootUrl);
 
 const readIcoDirectory = (buffer) => {
   const reserved = buffer.readUInt16LE(0);
@@ -28,7 +29,23 @@ const readIcoDirectory = (buffer) => {
   return { reserved, type, count, images };
 };
 
-describe('Windows Markdown file association icon', () => {
+const readIcnsDirectory = (buffer) => {
+  const magic = buffer.toString('ascii', 0, 4);
+  const declaredSize = buffer.readUInt32BE(4);
+  const entries = [];
+  let offset = 8;
+
+  while (offset < buffer.length) {
+    const type = buffer.toString('ascii', offset, offset + 4);
+    const size = buffer.readUInt32BE(offset + 4);
+    entries.push({ offset, size, type });
+    offset += size;
+  }
+
+  return { declaredSize, entries, magic, parsedSize: offset };
+};
+
+describe('Markdown file association icons', () => {
   it('keeps application and document icons separate in the packaging config', async () => {
     const config = parse(await readFile(configUrl, 'utf8'));
 
@@ -47,12 +64,13 @@ describe('Windows Markdown file association icon', () => {
         ext: ['md', 'markdown'],
         name: 'Markdown 文档',
         role: 'Viewer',
+        icon: 'markdown-file.icns',
       },
     ]);
   });
 
   it('contains every Windows Explorer icon size', async () => {
-    const buffer = await readFile(iconUrl);
+    const buffer = await readFile(windowsIconUrl);
     const directory = readIcoDirectory(buffer);
 
     expect(directory.reserved).toBe(0);
@@ -77,6 +95,34 @@ describe('Windows Markdown file association icon', () => {
       expect(image.size).toBeGreaterThan(0);
       expect(image.offset).toBeGreaterThanOrEqual(6 + directory.count * 16);
       expect(image.offset + image.size).toBeLessThanOrEqual(buffer.length);
+    }
+  });
+
+  it('contains the complete macOS standard and Retina icon set', async () => {
+    const buffer = await readFile(macIconUrl);
+    const directory = readIcnsDirectory(buffer);
+
+    expect(directory.magic).toBe('icns');
+    expect(directory.declaredSize).toBe(buffer.length);
+    expect(directory.parsedSize).toBe(buffer.length);
+    expect(directory.entries.map(({ type }) => type)).toEqual(
+      expect.arrayContaining([
+        'ic04',
+        'ic05',
+        'ic07',
+        'ic08',
+        'ic09',
+        'ic10',
+        'ic11',
+        'ic12',
+        'ic13',
+        'ic14',
+      ]),
+    );
+
+    for (const entry of directory.entries) {
+      expect(entry.size).toBeGreaterThanOrEqual(8);
+      expect(entry.offset + entry.size).toBeLessThanOrEqual(buffer.length);
     }
   });
 });

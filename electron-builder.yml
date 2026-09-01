@@ -38,6 +38,7 @@ mac:
         - markdown
       name: Markdown 文档
       role: Viewer
+      icon: markdown-file.icns
   identity: null
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
