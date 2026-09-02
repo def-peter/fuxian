@@ -619,6 +619,7 @@ code {
 }
 
 .render-task-source[hidden],
+.render-task-skeleton[hidden],
 .render-task-output[hidden],
 .render-task-error[hidden] {
   display: none !important;
@@ -657,6 +658,70 @@ code {
 
 .diagram-render-task:focus {
   outline-color: color-mix(in srgb, var(--document-primary) 55%, transparent);
+}
+
+.render-task-skeleton {
+  position: relative;
+  width: 100%;
+  height: clamp(160px, 25vw, 240px);
+  overflow: hidden;
+  border: 1px solid var(--document-border);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--document-code) 72%, var(--document-background));
+}
+
+.render-task-skeleton::before,
+.render-task-skeleton::after {
+  position: absolute;
+  content: "";
+}
+
+.render-task-skeleton::before {
+  inset: 20% 12%;
+  border: 1px solid color-mix(in srgb, var(--document-border) 72%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 18%,
+      color-mix(in srgb, var(--document-border) 58%, transparent) 18% 19%,
+      transparent 19% 49%,
+      color-mix(in srgb, var(--document-border) 58%, transparent) 49% 50%,
+      transparent 50% 80%,
+      color-mix(in srgb, var(--document-border) 58%, transparent) 80% 81%,
+      transparent 81%
+    );
+}
+
+.render-task-skeleton::after {
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--document-raised) 65%, transparent),
+    transparent
+  );
+  animation: render-task-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes render-task-skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.diagram-render-task > .render-task-output:not([hidden]) {
+  animation: render-task-reveal 150ms ease-out;
+}
+
+@keyframes render-task-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .diagram-action-toolbar {
@@ -910,6 +975,11 @@ code {
     background: Canvas;
   }
 
+  .render-task-skeleton {
+    border-color: GrayText;
+    background: Canvas;
+  }
+
   blockquote.callout {
     border-color: CanvasText;
     color: CanvasText;
@@ -920,6 +990,13 @@ code {
   .diagram-action-button:disabled {
     border-color: GrayText;
     color: GrayText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .render-task-skeleton::after,
+  .diagram-render-task > .render-task-output:not([hidden]) {
+    animation: none;
   }
 }
 
@@ -1153,6 +1230,10 @@ svg {
 
   .render-task-retry-button {
     display: none;
+  }
+
+  .render-task-skeleton {
+    display: none !important;
   }
 
   blockquote.callout {

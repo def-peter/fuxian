@@ -53,6 +53,17 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.headings.map(({ text }) => text)).not.toContain('Footnotes');
   });
 
+  it('uses source-free pending skeletons for rendered visuals', () => {
+    const finishedDocument = renderMarkdown({
+      source: '```mermaid\nflowchart LR\n  A --> B\n```',
+    });
+
+    expect(finishedDocument.html).toContain('aria-busy="true"');
+    expect(finishedDocument.html).toContain('class="render-task-skeleton"');
+    expect(finishedDocument.html).toContain('class="render-task-source" hidden');
+    expect(finishedDocument.html).not.toContain('<code class="render-task-source">flowchart LR');
+  });
+
   it('normalizes all supported callout spellings without changing ordinary blockquotes', () => {
     const expectedTypes = {
       abstract: ['abstract', 'summary', 'tldr'],

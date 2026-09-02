@@ -590,6 +590,7 @@ const createRenderTaskNode = (task: DocumentRenderTask): Element => {
     type: 'element',
     tagName: inline ? 'span' : diagram ? 'figure' : 'div',
     properties: {
+      ariaBusy: diagram ? 'true' : undefined,
       ariaLabel:
         task.kind === 'infographic'
           ? 'AntV Infographic 信息图'
@@ -613,9 +614,22 @@ const createRenderTaskNode = (task: DocumentRenderTask): Element => {
       {
         type: 'element',
         tagName: 'code',
-        properties: { className: ['render-task-source'] },
+        properties: { className: ['render-task-source'], hidden: diagram || undefined },
         children: [{ type: 'text', value: task.source }],
       },
+      ...(diagram
+        ? [
+            {
+              type: 'element' as const,
+              tagName: 'div',
+              properties: {
+                ariaHidden: 'true',
+                className: ['render-task-skeleton'],
+              },
+              children: [],
+            },
+          ]
+        : []),
       {
         type: 'element',
         tagName: inline ? 'span' : 'div',

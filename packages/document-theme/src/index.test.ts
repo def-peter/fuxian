@@ -206,4 +206,18 @@ describe('document theme preferences', () => {
       /@media print[\s\S]*blockquote\.callout\s*\{[^}]*print-color-adjust: exact;/,
     );
   });
+
+  it('provides stable, reduced-motion-safe rendered visual skeletons excluded from print', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toMatch(
+      /\.render-task-skeleton\s*\{[^}]*height: clamp\(160px, 25vw, 240px\);[^}]*overflow: hidden;/s,
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.render-task-skeleton::after,[\s\S]*animation: none;/,
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*\.render-task-skeleton\s*\{[^}]*display: none !important;/,
+    );
+  });
 });

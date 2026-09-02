@@ -463,10 +463,13 @@ export function bindFinishedDocument(
     element.setAttribute('aria-busy', 'true');
     element.dataset.renderAttempt = `${attempt}`;
     const source = element.querySelector<HTMLElement>('.render-task-source');
+    const skeleton = element.querySelector<HTMLElement>('.render-task-skeleton');
     const output = element.querySelector<HTMLElement>('.render-task-output');
     const error = element.querySelector<HTMLElement>('.render-task-error');
-    if (source) source.hidden = false;
-    if (output) output.hidden = true;
+    const hasSnapshot = Boolean(output?.querySelector('svg'));
+    if (source) source.hidden = renderedVisualTaskKinds.has(task.kind);
+    if (skeleton) skeleton.hidden = hasSnapshot;
+    if (output) output.hidden = !hasSnapshot;
     if (error) error.hidden = true;
   };
 
@@ -486,6 +489,7 @@ export function bindFinishedDocument(
       output.replaceChildren(svg);
     }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
+    element.querySelector<HTMLElement>('.render-task-skeleton')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-error')?.setAttribute('hidden', '');
     const focusButton = element.querySelector<HTMLButtonElement>('[data-diagram-action="focus"]');
     if (focusButton) focusButton.disabled = false;
@@ -506,7 +510,9 @@ export function bindFinishedDocument(
       detail.textContent =
         status === 'timed-out' ? '渲染超时，请重试。' : conciseRenderError(error);
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
-    element.querySelector<HTMLElement>('.render-task-output')?.setAttribute('hidden', '');
+    element.querySelector<HTMLElement>('.render-task-skeleton')?.setAttribute('hidden', '');
+    const output = element.querySelector<HTMLElement>('.render-task-output');
+    if (output && !output.querySelector('svg')) output.hidden = true;
     const errorElement = element.querySelector<HTMLElement>('.render-task-error');
     if (errorElement) errorElement.hidden = false;
   };
@@ -844,7 +850,7 @@ export function bindFinishedDocument(
       if (!source) throw new TypeError('完成文档快照不可用。');
       const clone = source.cloneNode(true) as HTMLElement;
       for (const control of clone.querySelectorAll(
-        '.diagram-action-toolbar, .code-toolbar, .resource-retry-button, .render-task-retry-button',
+        '.diagram-action-toolbar, .code-toolbar, .resource-retry-button, .render-task-retry-button, .render-task-skeleton',
       )) {
         control.remove();
       }

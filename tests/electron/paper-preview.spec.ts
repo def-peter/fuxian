@@ -71,6 +71,7 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
     const paper = window.frameLocator('iframe[title="纸张预览"]');
     const pages = paper.locator('.pagedjs_page');
     await expect(window.getByText(/^\d+ 页$/)).toBeVisible({ timeout: 20_000 });
+    await expect(paper.locator('.render-task-skeleton')).toHaveCount(0);
     const screenPageCount = await pages.count();
     expect(screenPageCount).toBeGreaterThan(2);
     const fitScale = await paper.locator('html').evaluate((element) => ({

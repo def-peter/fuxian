@@ -74,6 +74,52 @@ test.afterEach(async () => {
   );
 });
 
+test('shows a stable visual skeleton without exposing source while PlantUML is pending', async () => {
+  test.setTimeout(60_000);
+  let finishRequest: (() => void) | undefined;
+  let requestStarted: (() => void) | undefined;
+  const pendingRequest = new Promise<void>((resolveStarted) => {
+    requestStarted = resolveStarted;
+  });
+  const serverUrl = await startServer((_request, response) => {
+    finishRequest = () => {
+      response.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+      response.end(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><text x="24" y="90">Ready diagram</text></svg>',
+      );
+    };
+    requestStarted?.();
+  });
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-plantuml-skeleton-'));
+  const sourcePath = join(directory, 'pending.md');
+  const preferencesPath = join(directory, 'preferences.json');
+  const sessionPath = join(directory, 'session.json');
+  await writeFile(
+    sourcePath,
+    '# Pending\n\n```plantuml\n@startuml\nAlice -> Bob: private source\n@enduml\n```',
+  );
+  await writeFile(preferencesPath, JSON.stringify(createPreferences(serverUrl)));
+  const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath);
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await pendingRequest;
+    const document = window.frameLocator('iframe[title="Finished document"]');
+    const task = document.locator('[data-render-task-kind="plantuml"]');
+    await expect(task).toHaveAttribute('aria-busy', 'true');
+    await expect(task.locator('.render-task-skeleton')).toBeVisible();
+    await expect(task.locator('.render-task-source')).toBeHidden();
+
+    finishRequest?.();
+    await expect(task.locator('.render-task-output svg')).toBeVisible();
+    await expect(task.locator('.render-task-skeleton')).toBeHidden();
+    await expect(task).toHaveAttribute('aria-busy', 'false');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('validates and saves a new server, cancels the old request, and redraws selectable SVG', async () => {
   test.setTimeout(60_000);
   let oldRequestStarted: (() => void) | undefined;
