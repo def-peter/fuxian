@@ -48,11 +48,12 @@ export const documentThemeCss = `
   --document-muted: #52605c;
   --document-border: #d8dfdd;
   --document-border-strong: #bac9c3;
-  --document-primary: #25684f;
-  --document-primary-hover: #174e3a;
+  --document-quote-border: #4e585d;
+  --document-primary: #2b67cd;
+  --document-primary-hover: #1f55b5;
   --document-link: #3f4b55;
   --document-link-hover: #25292d;
-  --document-selection: #c9dfd4;
+  --document-selection: #d0e7fc;
   --document-selection-current: #f3d77d;
   --document-subtle: #f8faf9;
   --document-raised: #ffffff;
@@ -130,11 +131,12 @@ export const documentThemeCss = `
   --document-muted: #aab5b1;
   --document-border: #3a4541;
   --document-border-strong: #596762;
-  --document-primary: #83bfa3;
-  --document-primary-hover: #a2cfba;
+  --document-quote-border: #aeb6bc;
+  --document-primary: #8dbcf3;
+  --document-primary-hover: #b7d8fa;
   --document-link: #c4cbd0;
   --document-link-hover: #f1f4f3;
-  --document-selection: #365f4e;
+  --document-selection: #294f7f;
   --document-selection-current: #776520;
   --document-subtle: #1b2220;
   --document-raised: #252c2a;
@@ -315,7 +317,9 @@ li + li {
 
 a {
   color: var(--document-link);
+  text-decoration-line: underline;
   text-decoration-color: var(--document-border-strong);
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
 }
@@ -335,7 +339,7 @@ a:focus-visible {
 blockquote {
   margin: 28px 0;
   padding: 2px 0 2px 22px;
-  border-left: 3px solid var(--document-primary);
+  border-left: 3px solid var(--document-quote-border);
   color: var(--document-muted);
 }
 

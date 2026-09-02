@@ -160,6 +160,8 @@ The operating system owns window controls and the application menu. The content 
 - Heading hierarchy relies on type size, weight, spacing, and restrained rules. It does not add automatic numbering, colored title blocks, or decorative pills.
 - Code uses a dedicated surface, tables use fine horizontal rules, quotations use a side rule, and diagrams remain unframed unless interaction or failure requires a boundary.
 - Tables use a neutral-gray heading surface and uniform body rows without zebra striping. Inline code uses a compact neutral-gray surface and border rather than the document accent color.
+- Links retain the same fine one-pixel underline in continuous reading, paper preview, and PDF output.
+- Document interaction accents use the Logo's cobalt-blue family for task controls, diagram focus, and text selection. Ordinary blockquotes use a dedicated graphite rule because they express content structure rather than interaction; semantic Callouts retain their family colors. Links remain neutral graphite.
 - While Chinese is the only interface language, the document-session header, start view, window title, and system menus use `浮现` without the English name. A future English locale will display `Fuxian`. The finished-document region shows only the active document's identity and actions.
 - The application shell uses cool-gray side regions, a cool-white document surface, one-pixel separators, approximately four-pixel control radii, and shadows only for menus, drawers, dialogs, and other overlays.
 - Readable text appears immediately. Formulas and diagrams use a restrained approximately 150 ms fade when real rendering completes; ordinary paragraphs do not perform staged entrance animation.

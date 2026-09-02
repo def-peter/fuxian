@@ -238,6 +238,45 @@ test('paper mode keeps wide table fragments inside the printable content width',
   }
 });
 
+test('paper mode preserves the finished-document link underline', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-link-'));
+  const sourcePath = join(directory, 'paper-link.md');
+  await writeFile(
+    sourcePath,
+    '# 纸张链接\n\n访问 [浮现项目主页](https://github.com/def-peter/fuxian) 查看详情。',
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const continuousLink = window
+      .frameLocator('iframe[title="Finished document"]')
+      .getByRole('link', { name: '浮现项目主页' });
+    await expect(continuousLink).toHaveCSS('text-decoration-line', 'underline');
+
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paperLink = window
+      .frameLocator('iframe[title="纸张预览"]')
+      .getByRole('link', { name: '浮现项目主页' });
+    await expect(paperLink).toBeVisible({ timeout: 20_000 });
+    await expect(paperLink).toHaveCSS('text-decoration-line', 'underline');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('paper mode scrolls with the mouse wheel', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-scroll-'));
   const sourcePath = join(directory, 'paper-scroll.md');

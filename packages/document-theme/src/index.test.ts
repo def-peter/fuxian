@@ -23,12 +23,39 @@ describe('document theme preferences', () => {
   it('uses dedicated neutral colors for finished-document links', () => {
     expect(documentThemeCss).toContain('--document-link: #3f4b55;');
     expect(documentThemeCss).toContain('--document-link-hover: #25292d;');
-    expect(documentThemeCss).toMatch(/a\s*\{[^}]*color: var\(--document-link\);/s);
+    expect(documentThemeCss).toMatch(
+      /a\s*\{[^}]*color: var\(--document-link\);[^}]*text-decoration-line: underline;[^}]*text-decoration-thickness: 1px;/s,
+    );
     expect(documentThemeCss).toMatch(
       /a:hover,\s*a:focus-visible\s*\{[^}]*color: var\(--document-link-hover\);/s,
     );
     expect(documentThemeCss).toMatch(
       /a:focus-visible\s*\{[^}]*outline: 2px solid color-mix\(in srgb, var\(--document-link\) 55%, transparent\);/s,
+    );
+  });
+
+  it('uses the logo blue family for document accents and selection', () => {
+    expect(documentThemeCss).toContain('--document-primary: #2b67cd;');
+    expect(documentThemeCss).toContain('--document-primary-hover: #1f55b5;');
+    expect(documentThemeCss).toContain('--document-selection: #d0e7fc;');
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-primary: #8dbcf3;[^}]*--document-primary-hover: #b7d8fa;[^}]*--document-selection: #294f7f;/s,
+    );
+    expect(documentThemeCss).toMatch(
+      /::selection\s*\{[^}]*background: var\(--document-selection\);/s,
+    );
+  });
+
+  it('uses a dedicated graphite token for ordinary blockquotes', () => {
+    expect(documentThemeCss).toContain('--document-quote-border: #4e585d;');
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-quote-border: #aeb6bc;/s,
+    );
+    expect(documentThemeCss).toMatch(
+      /blockquote\s*\{[^}]*border-left: 3px solid var\(--document-quote-border\);/s,
+    );
+    expect(documentThemeCss).toMatch(
+      /blockquote\.callout\s*\{[^}]*border-left: 3px solid var\(--callout-accent\);/s,
     );
   });
 
