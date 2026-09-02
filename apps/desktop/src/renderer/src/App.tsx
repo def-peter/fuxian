@@ -41,7 +41,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
 import { ContentOutline } from '@/content-outline';
 import {
   activateDocument,
@@ -79,7 +79,7 @@ import {
   type FindResult,
   type FinishedDocumentController,
 } from '@/finished-document';
-import { FuxianMark } from '@/fuxian-mark';
+import { FuxianAppIcon } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 import { PdfExportPanel } from '@/pdf-export-panel';
 import { PaperPreviewFrame } from '@/paper-preview-frame';
@@ -1317,6 +1317,7 @@ export function App(): React.JSX.Element {
   const documentSessionSidebar = (
     <DocumentSessionSidebar
       activeDocumentPath={session.activeDocumentPath}
+      appVersion={appUpdateStatus.currentVersion}
       isOpening={opening}
       onActivate={(path) => {
         setDocumentSessionSheetOpen(false);
@@ -1387,7 +1388,6 @@ export function App(): React.JSX.Element {
               </ResizablePanel>
               <ResizableHandle
                 aria-label="调整文档会话宽度"
-                className="bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring/50 data-[separator=active]:after:bg-ring/50"
                 disableDoubleClick
                 id="document-session-resize-handle"
                 onDoubleClick={() => {
@@ -1560,23 +1560,29 @@ export function App(): React.JSX.Element {
                   </div>
 
                   <div className="ml-4 flex shrink-0 items-center gap-1">
-                    <ToggleGroup
+                    <SegmentedControl
                       aria-label="文档显示模式"
                       onValueChange={(value) => {
                         if (value === 'continuous' || value === 'paper') changeViewMode(value);
                       }}
-                      size="sm"
                       type="single"
                       value={viewMode}
-                      variant="outline"
                     >
-                      <ToggleGroupItem aria-label="无界阅读" value="continuous">
+                      <SegmentedControlItem
+                        aria-label="无界阅读"
+                        className="min-w-11"
+                        value="continuous"
+                      >
                         无界
-                      </ToggleGroupItem>
-                      <ToggleGroupItem aria-label="纸张预览" value="paper">
+                      </SegmentedControlItem>
+                      <SegmentedControlItem
+                        aria-label="纸张预览"
+                        className="min-w-11"
+                        value="paper"
+                      >
                         纸张
-                      </ToggleGroupItem>
-                    </ToggleGroup>
+                      </SegmentedControlItem>
+                    </SegmentedControl>
                     {viewMode === 'continuous' ? (
                       <DocumentWidthPopover
                         onChange={(documentWidth) =>
@@ -1816,7 +1822,6 @@ export function App(): React.JSX.Element {
                     <>
                       <ResizableHandle
                         aria-label="调整内容目录宽度"
-                        className="bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring/50 data-[separator=active]:after:bg-ring/50"
                         disableDoubleClick
                         id="content-outline-resize-handle"
                         onDoubleClick={() => {
@@ -1946,7 +1951,7 @@ export function App(): React.JSX.Element {
                   </Alert>
                 ) : (
                   <section className="w-full max-w-xl" aria-labelledby="start-title">
-                    <FuxianMark className="mb-6 size-20" />
+                    <FuxianAppIcon className="mb-6 size-20" />
                     <h1 id="start-title" className="text-3xl font-semibold text-foreground">
                       浮现
                     </h1>

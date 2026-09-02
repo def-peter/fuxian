@@ -5,8 +5,37 @@ import { Popover as PopoverPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
-function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+function Popover({
+  defaultOpen = false,
+  onOpenChange,
+  open: controlledOpen,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = React.useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const closeWhenIframeReceivesFocus = (): void => {
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLIFrameElement) setOpen(false);
+      });
+    };
+    window.addEventListener('blur', closeWhenIframeReceivesFocus, true);
+    return () => window.removeEventListener('blur', closeWhenIframeReceivesFocus, true);
+  }, [open, setOpen]);
+
+  return (
+    <PopoverPrimitive.Root data-slot="popover" onOpenChange={setOpen} open={open} {...props} />
+  );
 }
 
 function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
@@ -26,7 +55,7 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          'z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border border-line-subtle bg-surface-overlay p-4 text-fg-primary shadow-md outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           className,
         )}
         {...props}
@@ -55,11 +84,7 @@ function PopoverTitle({ className, ...props }: React.ComponentProps<'h2'>) {
 
 function PopoverDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
-    <p
-      data-slot="popover-description"
-      className={cn('text-muted-foreground', className)}
-      {...props}
-    />
+    <p data-slot="popover-description" className={cn('text-fg-secondary', className)} {...props} />
   );
 }
 

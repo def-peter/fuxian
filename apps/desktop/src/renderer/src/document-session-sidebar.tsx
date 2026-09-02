@@ -21,11 +21,12 @@ import type {
   RecentDocument,
   UnavailableSessionDocument,
 } from '@/document-session';
-import { FuxianLockup } from '@/fuxian-mark';
+import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
 
 interface DocumentSessionSidebarProps {
   activeDocumentPath: string | undefined;
+  appVersion: string;
   isOpening: boolean;
   onActivate(path: string): void;
   onClose(path: string): void;
@@ -220,6 +221,7 @@ function SessionSection({ children, count, title }: SessionSectionProps): React.
 
 export function DocumentSessionSidebar({
   activeDocumentPath,
+  appVersion,
   isOpening,
   onActivate,
   onClose,
@@ -237,10 +239,13 @@ export function DocumentSessionSidebar({
   return (
     <aside
       aria-label="文档会话"
-      className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border-r bg-muted"
+      className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)_40px] overflow-hidden border-r bg-muted"
     >
       <header className="flex min-w-0 items-center gap-1 border-b bg-card px-2">
-        <FuxianLockup className="mr-auto h-7 w-auto" decorative={false} />
+        <div className="mr-auto flex min-w-0 items-center gap-2">
+          <FuxianMark className="size-7" />
+          <span className="truncate text-base font-semibold">浮现</span>
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">
@@ -265,27 +270,6 @@ export function DocumentSessionSidebar({
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={6}>
             添加文档
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label={updateAttention ? '设置，有可用更新' : '设置'}
-              onClick={onOpenSettings}
-              size="icon-sm"
-              variant="ghost"
-            >
-              {updateAttention === 'downloading' ? (
-                <Spinner aria-hidden="true" />
-              ) : updateAttention ? (
-                <CircleArrowUp aria-hidden="true" />
-              ) : (
-                <Settings aria-hidden="true" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={6}>
-            {updateAttention ? '有可用更新' : '设置'}
           </TooltipContent>
         </Tooltip>
       </header>
@@ -338,6 +322,26 @@ export function DocumentSessionSidebar({
           </SessionSection>
         </div>
       </ScrollArea>
+      <Button
+        aria-label={updateAttention ? '设置，有可用更新' : '设置'}
+        className="h-10 justify-start rounded-none border-t px-3 text-xs font-normal text-muted-foreground"
+        onClick={onOpenSettings}
+        variant="ghost"
+      >
+        {updateAttention === 'downloading' ? (
+          <Spinner aria-hidden="true" />
+        ) : updateAttention ? (
+          <CircleArrowUp aria-hidden="true" />
+        ) : (
+          <Settings aria-hidden="true" />
+        )}
+        <span>{updateAttention ? '有可用更新' : '设置'}</span>
+        {appVersion ? (
+          <span className="ml-auto tabular-nums text-muted-foreground" data-app-version="">
+            v{appVersion}
+          </span>
+        ) : null}
+      </Button>
     </aside>
   );
 }

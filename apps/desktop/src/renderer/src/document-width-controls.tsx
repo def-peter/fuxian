@@ -3,7 +3,7 @@ import {
   type DocumentWidthMode,
   type ReaderPreferences,
 } from '@fuxian/shared-types';
-import { Scaling } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -14,8 +14,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
 
 interface DocumentWidthControlsProps {
   onChange(documentWidth: ReaderPreferences['documentWidth']): void;
@@ -40,20 +40,19 @@ export function DocumentWidthControls({
 
   return (
     <div className="space-y-4">
-      <ToggleGroup
+      <SegmentedControl
         aria-label="文档宽度模式"
         className="w-full"
         onValueChange={selectMode}
         type="single"
         value={value.mode}
-        variant="outline"
       >
         {(Object.keys(widthModeLabels) as DocumentWidthMode[]).map((mode) => (
-          <ToggleGroupItem className="flex-1" key={mode} value={mode}>
+          <SegmentedControlItem className="flex-1" key={mode} value={mode}>
             {widthModeLabels[mode]}
-          </ToggleGroupItem>
+          </SegmentedControlItem>
         ))}
-      </ToggleGroup>
+      </SegmentedControl>
 
       {value.mode === 'custom' ? (
         <div className="space-y-2">
@@ -86,13 +85,22 @@ export function DocumentWidthPopover({
   onChange,
   value,
 }: DocumentWidthControlsProps): React.JSX.Element {
+  const triggerLabel =
+    value.mode === 'custom' ? `自定义 · ${value.customWidth}px` : widthModeLabels[value.mode];
+
   return (
     <Popover>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button aria-label="文档宽度" size="icon-sm" variant="ghost">
-              <Scaling aria-hidden="true" />
+            <Button
+              aria-label="文档宽度"
+              className="h-7 gap-1 px-2 text-xs font-normal text-muted-foreground"
+              size="sm"
+              variant="ghost"
+            >
+              <span>{triggerLabel}</span>
+              <ChevronDown aria-hidden="true" className="size-3" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>

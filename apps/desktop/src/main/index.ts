@@ -965,7 +965,7 @@ const createWindow = (): BrowserWindow => {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    title: '浮现',
+    title: '',
     webPreferences: {
       ...e2eWebPreferences,
       preload: join(currentDirectory, '../preload/index.cjs'),
@@ -975,6 +975,11 @@ const createWindow = (): BrowserWindow => {
     },
   });
   configureE2EWindow(window);
+
+  window.on('page-title-updated', (event) => {
+    event.preventDefault();
+    window.setTitle('');
+  });
 
   window.once('ready-to-show', () => {
     revealInteractiveWindow(window);

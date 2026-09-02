@@ -35,6 +35,28 @@ test('long document names, adaptive document width, and outline controls remain 
     const window = await electronApp.firstWindow();
     await window.setViewportSize({ height: 900, width: 1_440 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const settingsButton = window.getByRole('button', { name: '设置' });
+    const appVersion = await electronApp.evaluate(({ app }) => app.getVersion());
+    await expect(settingsButton.locator('[data-app-version]')).toHaveText(`v${appVersion}`);
+    const settingsBox = await settingsButton.evaluate((element) =>
+      element.getBoundingClientRect().toJSON(),
+    );
+    expect.soft(settingsBox.bottom).toBe(900);
+
+    const displayModeButtons = window.getByRole('radiogroup', { name: '文档显示模式' });
+    await expect(displayModeButtons).toBeVisible();
+    expect.soft((await displayModeButtons.boundingBox())?.height).toBeLessThanOrEqual(28);
+    const documentWidthTrigger = window.getByRole('button', { name: '文档宽度' });
+    await expect(documentWidthTrigger).toHaveText('自适应');
+    await documentWidthTrigger.click();
+    const documentWidthPopover = window.locator('[data-slot="popover-content"]');
+    await expect(documentWidthPopover).toBeVisible();
+    await window
+      .frameLocator('iframe[title="Finished document"]')
+      .locator('body')
+      .click({ position: { x: 20, y: 20 } });
+    await expect(documentWidthPopover).toBeHidden();
+
     const documentName = window.locator(
       'aside[aria-label="文档会话"] button[aria-current="page"] span',
     );

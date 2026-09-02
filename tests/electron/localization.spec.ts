@@ -26,6 +26,13 @@ test('uses Chinese application chrome while Chinese is the only locale', async (
   try {
     const window = await electronApp.firstWindow();
     await expect.poll(() => window.title()).toBe('浮现');
+    await expect
+      .poll(() =>
+        electronApp.evaluate(
+          ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getTitle() ?? null,
+        ),
+      )
+      .toBe('');
     await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
     await expect(window.getByText('Fuxian', { exact: false })).toHaveCount(0);
 

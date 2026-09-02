@@ -42,9 +42,10 @@ import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
-import { FuxianMark } from '@/fuxian-mark';
+import { FuxianAppIcon } from '@/fuxian-mark';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useAppUpdateStatus } from '@/use-app-update-status';
@@ -253,20 +254,26 @@ export function SettingsApp(): React.JSX.Element {
   };
 
   return (
-    <div className="grid h-full grid-rows-[52px_minmax(0,1fr)] bg-background">
-      <header className="flex items-center border-b px-5">
+    <div
+      className="grid h-full grid-rows-[52px_minmax(0,1fr)] bg-surface-shell"
+      data-settings-window
+    >
+      <header
+        className="flex items-center border-b border-line-subtle bg-surface-toolbar px-5"
+        data-settings-surface="header"
+      >
         <div>
           <h1 className="text-sm font-semibold">设置</h1>
-          <p className="text-xs text-muted-foreground">更改会自动保存并应用到所有文档</p>
+          <p className="text-xs text-fg-secondary">更改会自动保存并应用到所有文档</p>
         </div>
       </header>
 
       <div className="grid min-h-0 grid-cols-[132px_292px_minmax(0,1fr)]">
-        <nav aria-label="设置分区" className="border-r bg-muted p-2">
+        <nav aria-label="设置分区" className="border-r border-line-subtle bg-surface-sidebar p-2">
           {settingsSections.map(({ icon: Icon, id, label }) => (
             <Button
               aria-current={section === id ? 'page' : undefined}
-              className="mb-1 w-full justify-start"
+              className="mb-1 w-full justify-start aria-[current=page]:[&_svg]:text-focus"
               key={id}
               onClick={() => setSection(id)}
               size="sm"
@@ -278,13 +285,17 @@ export function SettingsApp(): React.JSX.Element {
           ))}
         </nav>
 
-        <main className="min-h-0 overflow-y-auto border-r px-5 py-6" aria-busy={!ready}>
+        <main
+          className="min-h-0 overflow-y-auto border-r border-line-subtle bg-surface-panel px-5 py-6"
+          aria-busy={!ready}
+          data-settings-surface="form"
+        >
           {section === 'about' ? (
             <section aria-labelledby="about-title">
               <h2 className="text-base font-semibold" id="about-title">
                 关于与更新
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-fg-secondary">
                 {appUpdateStatus.delivery === 'release-page'
                   ? '查看当前版本，有新版本时前往 GitHub Release 下载。'
                   : '查看当前版本，并在你准备好时下载和安装更新。'}
@@ -292,10 +303,10 @@ export function SettingsApp(): React.JSX.Element {
               <Separator className="my-5" />
 
               <div className="flex items-center gap-3">
-                <FuxianMark className="size-12" decorative={false} />
+                <FuxianAppIcon className="size-12" decorative={false} />
                 <div className="min-w-0">
                   <p className="font-semibold">浮现</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-fg-secondary">
                     版本 {appUpdateStatus.currentVersion || '--'}
                   </p>
                 </div>
@@ -311,10 +322,7 @@ export function SettingsApp(): React.JSX.Element {
                 ) : null}
 
                 {appUpdateStatus.phase === 'checking' ? (
-                  <div
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                    role="status"
-                  >
+                  <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
                     <Spinner />
                     正在检查更新...
                   </div>
@@ -345,13 +353,13 @@ export function SettingsApp(): React.JSX.Element {
                     {appUpdateStatus.releaseNotes ? (
                       <div>
                         <h3 className="text-sm font-medium">更新内容</h3>
-                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-fg-secondary">
                           {appUpdateStatus.releaseNotes}
                         </p>
                       </div>
                     ) : null}
                     {appUpdateStatus.message ? (
-                      <p className="text-sm text-muted-foreground">{appUpdateStatus.message}</p>
+                      <p className="text-sm text-fg-secondary">{appUpdateStatus.message}</p>
                     ) : null}
                     {appUpdateStatus.delivery === 'release-page' ? (
                       <Button onClick={openUpdateRelease} size="sm">
@@ -376,7 +384,7 @@ export function SettingsApp(): React.JSX.Element {
                       </output>
                     </div>
                     <Progress aria-label="更新下载进度" value={appUpdateStatus.percent ?? 0} />
-                    <p className="text-xs tabular-nums text-muted-foreground">
+                    <p className="text-xs tabular-nums text-fg-secondary">
                       {formatBytes(appUpdateStatus.transferred)} /{' '}
                       {formatBytes(appUpdateStatus.total)}
                     </p>
@@ -409,10 +417,7 @@ export function SettingsApp(): React.JSX.Element {
                 ) : null}
 
                 {appUpdateStatus.phase === 'installing' ? (
-                  <div
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                    role="status"
-                  >
+                  <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
                     <Spinner />
                     正在重启并安装更新...
                   </div>
@@ -450,25 +455,24 @@ export function SettingsApp(): React.JSX.Element {
               <h2 className="text-base font-semibold" id="appearance-title">
                 外观
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">选择应用和完成文档的明暗外观。</p>
+              <p className="mt-1 text-sm text-fg-secondary">选择应用和完成文档的明暗外观。</p>
               <Separator className="my-5" />
               <Field>
                 <FieldLabel>颜色模式</FieldLabel>
-                <ToggleGroup
+                <SegmentedControl
                   aria-label="颜色模式"
                   className="w-full"
                   onValueChange={selectAppearance}
                   type="single"
                   value={preferences.appearance}
-                  variant="outline"
                 >
                   {appearanceOptions.map(({ icon: Icon, label, value }) => (
-                    <ToggleGroupItem className="flex-1 px-2" key={value} value={value}>
+                    <SegmentedControlItem className="flex-1" key={value} value={value}>
                       <Icon aria-hidden="true" />
                       {label}
-                    </ToggleGroupItem>
+                    </SegmentedControlItem>
                   ))}
-                </ToggleGroup>
+                </SegmentedControl>
               </Field>
             </section>
           ) : null}
@@ -478,7 +482,7 @@ export function SettingsApp(): React.JSX.Element {
               <h2 className="text-base font-semibold" id="document-title">
                 文档
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">设置全局文档宽度与正文排版。</p>
+              <p className="mt-1 text-sm text-fg-secondary">设置全局文档宽度与正文排版。</p>
 
               <Separator className="my-5" />
               <Field>
@@ -495,13 +499,12 @@ export function SettingsApp(): React.JSX.Element {
               <Separator className="my-6" />
               <Field>
                 <FieldLabel>正文字体</FieldLabel>
-                <ToggleGroup
+                <SegmentedControl
                   aria-label="正文字体"
                   className="w-full"
                   onValueChange={selectBodyFamily}
                   type="single"
                   value={preferences.documentTypography.bodyFamily}
-                  variant="outline"
                 >
                   {(
                     [
@@ -509,12 +512,12 @@ export function SettingsApp(): React.JSX.Element {
                       ['sans-serif', '无衬线'],
                     ] as Array<[DocumentBodyFamily, string]>
                   ).map(([value, label]) => (
-                    <ToggleGroupItem className="flex-1" key={value} value={value}>
+                    <SegmentedControlItem className="flex-1" key={value} value={value}>
                       <Type aria-hidden="true" />
                       {label}
-                    </ToggleGroupItem>
+                    </SegmentedControlItem>
                   ))}
-                </ToggleGroup>
+                </SegmentedControl>
               </Field>
 
               <Field className="mt-6">
@@ -602,7 +605,7 @@ export function SettingsApp(): React.JSX.Element {
               <h2 className="text-base font-semibold" id="plantuml-title">
                 PlantUML
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-fg-secondary">
                 配置用于生成 PlantUML SVG 的公共、本地或私有服务。
               </p>
               <Separator className="my-5" />
@@ -670,7 +673,7 @@ export function SettingsApp(): React.JSX.Element {
                   {plantUmlValidation.status === 'saved' ? (
                     <div
                       aria-live="polite"
-                      className="flex items-center gap-1.5 text-sm text-primary"
+                      className="flex items-center gap-1.5 text-sm text-status-success"
                       role="status"
                     >
                       <CircleCheck aria-hidden="true" className="size-4" />
@@ -694,25 +697,27 @@ export function SettingsApp(): React.JSX.Element {
         {section === 'about' ? (
           <aside
             aria-label="关于浮现"
-            className="flex min-h-0 flex-col items-center justify-center border-l bg-muted/20 px-8 text-center"
+            className="flex min-h-0 flex-col items-center justify-center border-l border-line-subtle bg-surface-stage px-8 text-center"
+            data-settings-surface="preview"
           >
-            <FuxianMark className="size-24" decorative={false} />
+            <FuxianAppIcon className="size-24" decorative={false} />
             <h2 className="mt-5 text-lg font-semibold">浮现</h2>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 max-w-sm text-sm leading-6 text-fg-secondary">
               专注于 Markdown 成品文档阅读与 PDF 交付。
             </p>
           </aside>
         ) : (
           <aside
-            className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-muted/20"
+            className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-surface-stage"
             aria-label="实时预览"
+            data-settings-surface="preview"
           >
-            <div className="flex items-center border-b px-4">
-              <span className="text-xs font-medium text-muted-foreground">完成文档预览</span>
+            <div className="flex items-center border-b border-line-subtle px-4">
+              <span className="text-xs font-medium text-fg-secondary">完成文档预览</span>
             </div>
             <div className="min-h-0 p-3">
               <iframe
-                className="block h-full w-full border bg-card"
+                className="block h-full w-full border border-line-subtle bg-surface-document"
                 onLoad={handlePreviewLoad}
                 ref={previewFrame}
                 sandbox="allow-same-origin"
