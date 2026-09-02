@@ -34,7 +34,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "pnpm build && playwright test",
-    "test:e2e:release": "pnpm build && playwright test tests/electron/document-width-semantics.spec.ts tests/electron/infographic.spec.ts tests/electron/localization.spec.ts tests/electron/open-source-document.spec.ts tests/electron/plantuml.spec.ts tests/electron/software-update.spec.ts && playwright test tests/electron/pdf-export.spec.ts --grep @release",
+    "test:e2e:release": "pnpm build && playwright test tests/electron/default-app.spec.ts tests/electron/document-width-semantics.spec.ts tests/electron/infographic.spec.ts tests/electron/localization.spec.ts tests/electron/open-source-document.spec.ts tests/electron/plantuml.spec.ts tests/electron/software-update.spec.ts && playwright test tests/electron/pdf-export.spec.ts --grep @release",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
