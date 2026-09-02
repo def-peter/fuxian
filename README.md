@@ -31,6 +31,8 @@
 
 为了保证本地文档的安全性和 PDF 结果的稳定性，Vega-Lite 当前仅接受经过校验的 JSON 与内联数据；AntV Infographic 当前支持经过审核的官方静态模板。PlantUML 默认使用公共服务，也可以在设置中改为本地或私有服务；其源码会发送到所配置的服务。
 
+仓库中的 [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md) 是版本化的配套 AI Skill 源码，用于为浮现选择合适的图形能力并生成兼容代码块；它不是应用运行时配置。
+
 ## 阅读与交付
 
 - 将 Markdown 呈现为排版完整的成品文档，而不是始终停留在源码与预览之间。
