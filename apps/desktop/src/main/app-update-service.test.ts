@@ -132,6 +132,24 @@ describe('AppUpdateService', () => {
     expect(adapter.quitAndInstall).toHaveBeenCalledWith(false, true);
   });
 
+  it('coalesces concurrent install requests while the application settles dirty state', async () => {
+    const { adapter, beforeInstall, service } = createService();
+    adapter.emit('update-downloaded', { ...updateInfo(), downloadedFile: '/tmp/update.zip' });
+    let resolvePreparation: (() => void) | undefined;
+    beforeInstall.mockImplementationOnce(
+      () => new Promise<undefined>((resolve) => (resolvePreparation = () => resolve(undefined))),
+    );
+
+    const first = service.installUpdate();
+    const second = service.installUpdate();
+    resolvePreparation?.();
+
+    expect(first).toBe(second);
+    await expect(first).resolves.toMatchObject({ phase: 'installing' });
+    expect(beforeInstall).toHaveBeenCalledOnce();
+    expect(adapter.quitAndInstall).toHaveBeenCalledOnce();
+  });
+
   it('keeps the downloaded version available when install preparation fails', async () => {
     const { adapter, beforeInstall, service } = createService();
     adapter.emit('update-downloaded', { ...updateInfo(), downloadedFile: '/tmp/update.zip' });

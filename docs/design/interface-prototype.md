@@ -56,6 +56,13 @@ Loading --> Reading : 文件读取并完成首屏渲染
 Loading --> BlockingError : 文件读取或解析失败
 BlockingError --> Loading : 重试或打开其他文件
 BlockingError --> Empty : 取消
+Reading --> Editing : 打开 Markdown 源码
+Editing --> Saving : 显式保存
+Saving --> Editing : 保存成功
+Saving --> Editing : 保存失败
+Editing --> ExternalConflict : dirty 时检测到外部修改
+ExternalConflict --> Editing : 保留本地、采用磁盘版本或另存
+Editing --> Reading : 完成编辑或放弃修改
 Reading --> Loading : 当前文件被外部修改
 Reading --> Reading : 切换当前会话中的文档
 Reading --> Exporting : 导出 PDF
@@ -71,16 +78,19 @@ end note
 
 ## State Treatments
 
-| State            | Proposed treatment                                                                           |
-| ---------------- | -------------------------------------------------------------------------------------------- |
-| Empty            | One primary **Open Markdown** action and full-window drag target; no marketing content       |
-| Restoring        | Restore available documents and their reading positions without blocking startup             |
-| Recovery warning | Keep unavailable documents identifiable and offer locate, retry, or remove actions           |
-| Loading          | Preserve the shell and document geometry; show restrained progress in the document area      |
-| Reading          | Show the content outline by default, remember its collapsed state, and keep commands compact |
-| Inline error     | Replace failed media or diagrams with source-aware error content and a retry action          |
-| Blocking error   | Explain the file-level problem and offer retry or open-another-file actions                  |
-| Exporting        | Use a focused dialog with render stages, cancellation, and an explicit failure state         |
+| State             | Proposed treatment                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Empty             | One primary **Open Markdown** action and full-window drag target; no marketing content       |
+| Restoring         | Restore available documents and their reading positions without blocking startup             |
+| Recovery warning  | Keep unavailable documents identifiable and offer locate, retry, or remove actions           |
+| Loading           | Preserve the shell and document geometry; show restrained progress in the document area      |
+| Reading           | Show the content outline by default, remember its collapsed state, and keep commands compact |
+| Editing           | Replace the finished document with a source-only editor and expose dirty/save state          |
+| Saving            | Keep the editable buffer visible, disable duplicate saves, and report the result             |
+| External conflict | Preserve both local and disk versions until the reader chooses a resolution                  |
+| Inline error      | Replace failed media or diagrams with source-aware error content and a retry action          |
+| Blocking error    | Explain the file-level problem and offer retry or open-another-file actions                  |
+| Exporting         | Use a focused dialog with render stages, cancellation, and an explicit failure state         |
 
 ## Toolbar Contract
 
@@ -100,6 +110,11 @@ The operating system owns window controls and the application menu. The content 
 ## Confirmed Prototype Decisions
 
 - Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
+- Reading and source editing are mutually exclusive active-document modes. Source editing replaces the finished document rather than adding a split preview, and the toolbar provides a clear `阅读 / 源码` switch. Returning to reading uses the latest explicitly saved source.
+- Source editing uses an application-owned edit buffer with Markdown highlighting, line numbers, selection, undo/redo, indentation, and find/replace. `Cmd/Ctrl+S` is the primary save action; Fuxian does not silently autosave source documents.
+- A dirty indicator remains visible while the edit buffer differs from its save baseline. Switching or closing the document, quitting the application, and installing an update require the reader to save, discard, or cancel; a crash-recovery draft preserves interrupted work without claiming it was saved.
+- Clean edit buffers continue to accept stable external revisions. When an external revision arrives after local changes, Fuxian preserves both versions and asks the reader to keep the local buffer, adopt the disk version, or save the local version elsewhere; it never silently overwrites either side.
+- Reading position and source-editor selection are stored independently. Entering source editing does not reinterpret the reading scroll position as an editor position, and returning to reading restores the prior reading context where possible.
 - The content outline is open by default, can be collapsed, and remembers the user's choice.
 - The first review demonstrates one distinctive Fuxian document theme rather than a theme gallery.
 - Content appears progressively as real render tasks settle; diagrams and formulas must not delay readable text.

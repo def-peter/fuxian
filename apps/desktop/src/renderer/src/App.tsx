@@ -24,9 +24,10 @@ import {
   PanelRightOpen,
   Search,
   RefreshCw,
+  Save,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -89,11 +90,35 @@ import { useReaderPreferences } from '@/use-reader-preferences';
 import { useShellLayout } from '@/use-shell-layout';
 import { useAppUpdateStatus } from '@/use-app-update-status';
 import { ArticleStructureMapDialog } from '@/article-structure-map-dialog';
+import { ExternalConflictDialog, UnsavedChangesDialog } from '@/source-editing-dialogs';
+import {
+  adoptExternalSourceRevision,
+  beginSourceEditSave,
+  changeSourceEditBuffer,
+  completeSourceEditSave,
+  createSourceEditBuffer,
+  createSourceRecoveryDraft,
+  failSourceEditSave,
+  isSourceEditDirty,
+  keepLocalSourceEdit,
+  receiveExternalSourceRevision,
+  type SourceEditBuffer,
+} from '@/source-editing';
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 const defaultShellRegionWidth = 216;
 const renderPlantUml = createDesktopPlantUmlRenderer(window.fuxian);
+const SourceEditor = lazy(() => import('@/source-editor'));
 let externalFrameRevision = 0;
+
+type GuardedSourceAction =
+  | { kind: 'accept-open'; result: OpenSourceDocumentsResult }
+  | { kind: 'activate'; path: string }
+  | { kind: 'close'; path: string }
+  | { kind: 'close-window' }
+  | { kind: 'install-update' }
+  | { kind: 'quit' }
+  | { kind: 'read' };
 
 interface ToolbarTooltipProps {
   children: React.ReactElement;
@@ -218,6 +243,8 @@ export function App(): React.JSX.Element {
   const [paperPageCount, setPaperPageCount] = useState<number>();
   const [paperReadyRevisionId, setPaperReadyRevisionId] = useState<string>();
   const [paperPreviewFailure, setPaperPreviewFailure] = useState<string>();
+  const [sourceEdit, setSourceEdit] = useState<SourceEditBuffer>();
+  const [pendingSourceAction, setPendingSourceAction] = useState<GuardedSourceAction>();
   const pendingSystemOpenResults = useRef<OpenSourceDocumentsResult[]>([]);
   const restorationStatusRef = useRef(restorationStatus);
   const acceptOpenResultRef = useRef<(result: OpenSourceDocumentsResult) => void>(() => undefined);
@@ -241,6 +268,11 @@ export function App(): React.JSX.Element {
   const paperPreviewController = useRef<FinishedDocumentController | undefined>(undefined);
   const paperSnapshotRequest = useRef(0);
   const viewModeRef = useRef(viewMode);
+  const sourceEditRef = useRef<SourceEditBuffer | undefined>(undefined);
+  const pendingInstallResolution = useRef<
+    { reject(error: Error): void; resolve(): void } | undefined
+  >(undefined);
+  const requestSourceActionRef = useRef<(action: GuardedSourceAction) => void>(() => undefined);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
@@ -270,7 +302,8 @@ export function App(): React.JSX.Element {
     : { state: 'idle' as const };
   const documentSessionInline =
     shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
-  const contentOutlineInline = shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
+  const contentOutlineInline =
+    !sourceEdit && shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
   const contentOutlineActionLabel = contentOutlineInline
     ? '折叠内容目录'
     : shellLayout === 'wide'
@@ -283,6 +316,20 @@ export function App(): React.JSX.Element {
         : finishedDocumentController.current,
     [],
   );
+  const persistCurrentSourceDraft = useCallback(async (): Promise<void> => {
+    const buffer = sourceEditRef.current;
+    if (!buffer) return;
+    const draft = createSourceRecoveryDraft(buffer, Date.now());
+    if (draft) {
+      await window.fuxian.saveSourceRecoveryDraft(draft);
+    } else {
+      await window.fuxian.deleteSourceRecoveryDraft(buffer.path);
+    }
+  }, []);
+  const commitSourceEdit = useCallback((buffer: SourceEditBuffer | undefined): void => {
+    sourceEditRef.current = buffer;
+    setSourceEdit(buffer);
+  }, []);
 
   const updateShellPreferences = useCallback(
     (patch: Partial<typeof preferences.shell>): void => {
@@ -348,6 +395,15 @@ export function App(): React.JSX.Element {
 
   const beginExternalRevision = useCallback(
     (event: ExternalRevisionEvent): void => {
+      const currentEdit = sourceEditRef.current;
+      if (currentEdit?.path === event.path && event.result.status === 'available') {
+        const nextEdit = receiveExternalSourceRevision(currentEdit, event.result.document);
+        if (nextEdit !== currentEdit) {
+          sourceEditRef.current = nextEdit;
+          setSourceEdit(nextEdit);
+        }
+        if (nextEdit.status === 'conflict') return;
+      }
       const currentItem = sessionRef.current.openDocuments.find(
         (item) =>
           item.status !== 'unavailable' &&
@@ -425,9 +481,47 @@ export function App(): React.JSX.Element {
     [getReadingController],
   );
 
+  const saveActiveSourceEdit = useCallback(async (): Promise<boolean> => {
+    const buffer = sourceEditRef.current;
+    if (!buffer || !isSourceEditDirty(buffer) || buffer.status === 'saving') return true;
+    const saving = beginSourceEditSave(buffer);
+    commitSourceEdit(saving);
+    try {
+      const result = await window.fuxian.saveSourceDocument({
+        expectedSource: buffer.baselineSource,
+        path: buffer.path,
+        source: buffer.source,
+      });
+      if (result.status === 'conflict') {
+        commitSourceEdit(receiveExternalSourceRevision(buffer, result.document));
+        return false;
+      }
+      if (result.status === 'failed') {
+        commitSourceEdit(failSourceEditSave(buffer, result.message));
+        return false;
+      }
+      const saved = completeSourceEditSave(buffer, result.document);
+      commitSourceEdit(saved);
+      await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+      beginExternalRevision({
+        path: buffer.path,
+        result: { document: result.document, status: 'available' },
+        revision: 0,
+      });
+      return true;
+    } catch {
+      commitSourceEdit(failSourceEditSave(buffer, '应用暂时无法保存文档，请重试。'));
+      return false;
+    }
+  }, [beginExternalRevision, commitSourceEdit]);
+
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    sourceEditRef.current = sourceEdit;
+  }, [sourceEdit]);
 
   useEffect(() => {
     visibleFrameIdRef.current = visibleFrame?.id;
@@ -482,12 +576,11 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    void window.fuxian
-      .loadDocumentSession()
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
+    void (async () => {
+      try {
+        const result = await window.fuxian.loadDocumentSession();
+        const drafts = await window.fuxian.loadSourceRecoveryDrafts();
+        if (cancelled) return;
         const restored = result.openDocuments.map((item) => {
           if (item.status === 'unavailable') {
             return item;
@@ -506,18 +599,39 @@ export function App(): React.JSX.Element {
             };
           }
         });
-        setSession(createRestoredDocumentSession(result.session, restored, Date.now()));
-      })
-      .catch(() => {
+        let nextSession = createRestoredDocumentSession(result.session, restored, Date.now());
+        const recoveryDraft = drafts.find((draft) =>
+          nextSession.openDocuments.some(
+            (item) => item.status === 'available' && item.document.path === draft.path,
+          ),
+        );
+        if (recoveryDraft) {
+          const recoveryDocument = nextSession.openDocuments.find(
+            (item): item is SessionDocument =>
+              item.status === 'available' && item.document.path === recoveryDraft.path,
+          );
+          if (recoveryDocument) {
+            nextSession = activateDocument(nextSession, recoveryDraft.path);
+            const buffer = createSourceEditBuffer(recoveryDocument.document, recoveryDraft);
+            sourceEditRef.current = buffer;
+            setSourceEdit(buffer);
+            if (!isSourceEditDirty(buffer)) {
+              void window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+            }
+          }
+        }
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+      } catch {
         if (!cancelled) {
           setBlockingError('无法恢复上次文档会话。你仍可以重新打开文档。');
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setRestorationStatus('ready');
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -535,27 +649,20 @@ export function App(): React.JSX.Element {
   }, [restorationStatus, session]);
 
   useEffect(() => {
+    if (!sourceEdit || restorationStatus !== 'ready') return;
+    const saveTimer = window.setTimeout(() => {
+      void persistCurrentSourceDraft().catch(() => undefined);
+    }, 150);
+    return () => window.clearTimeout(saveTimer);
+  }, [persistCurrentSourceDraft, restorationStatus, sourceEdit]);
+
+  useEffect(() => {
     const saveBeforeUnload = (): void => {
       void window.fuxian.saveDocumentSession(createPersistedDocumentSession(sessionRef.current));
     };
     window.addEventListener('beforeunload', saveBeforeUnload);
     return () => window.removeEventListener('beforeunload', saveBeforeUnload);
   }, []);
-
-  useEffect(
-    () =>
-      window.fuxian.onPrepareAppUpdateInstall(async () => {
-        const activePath = sessionRef.current.activeDocumentPath;
-        const position = getReadingController()?.getReadingPosition();
-        const latestSession =
-          activePath && position
-            ? updateReadingPosition(sessionRef.current, activePath, position)
-            : sessionRef.current;
-        sessionRef.current = latestSession;
-        await window.fuxian.saveDocumentSession(createPersistedDocumentSession(latestSession));
-      }),
-    [getReadingController],
-  );
 
   useEffect(() => {
     const controllers = frameControllers.current;
@@ -661,7 +768,17 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent): void => {
       if (
+        sourceEditRef.current &&
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLocaleLowerCase() === 's'
+      ) {
+        event.preventDefault();
+        void saveActiveSourceEdit();
+        return;
+      }
+      if (
         activeDocument &&
+        !sourceEditRef.current &&
         (event.metaKey || event.ctrlKey) &&
         event.key.toLocaleLowerCase() === 'f'
       ) {
@@ -672,7 +789,7 @@ export function App(): React.JSX.Element {
 
     window.addEventListener('keydown', handleWindowKeyDown);
     return () => window.removeEventListener('keydown', handleWindowKeyDown);
-  }, [activeDocument, openFind]);
+  }, [activeDocument, openFind, saveActiveSourceEdit]);
 
   const resetActiveDocumentControls = (): void => {
     finishedDocumentController.current = undefined;
@@ -879,7 +996,7 @@ export function App(): React.JSX.Element {
       });
   };
 
-  const acceptOpenResult = (result: OpenSourceDocumentsResult): void => {
+  const performAcceptOpenResult = (result: OpenSourceDocumentsResult): void => {
     if (result.status === 'cancelled') {
       setOpening(false);
       return;
@@ -931,6 +1048,17 @@ export function App(): React.JSX.Element {
       return next;
     });
   };
+  const acceptOpenResult = (result: OpenSourceDocumentsResult): void => {
+    if (
+      result.status === 'opened' &&
+      isSourceEditDirty(sourceEditRef.current) &&
+      result.documents[0]?.path !== sourceEditRef.current?.path
+    ) {
+      requestSourceActionRef.current({ kind: 'accept-open', result });
+      return;
+    }
+    performAcceptOpenResult(result);
+  };
   acceptOpenResultRef.current = acceptOpenResult;
   restorationStatusRef.current = restorationStatus;
 
@@ -977,7 +1105,7 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const activateOpenDocument = (path: string): void => {
+  const performActivateOpenDocument = (path: string): void => {
     if (path !== session.activeDocumentPath) {
       const currentPath = session.activeDocumentPath;
       const position = getReadingController()?.getReadingPosition();
@@ -993,7 +1121,7 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const closeOpenDocument = (path: string): void => {
+  const performCloseOpenDocument = (path: string): void => {
     const closingDocument = session.openDocuments.find(
       (document): document is SessionDocument =>
         document.status === 'available' && document.document.path === path,
@@ -1034,6 +1162,195 @@ export function App(): React.JSX.Element {
       sessionRef.current = next;
       return next;
     });
+  };
+
+  const executeSourceAction = async (action: GuardedSourceAction): Promise<void> => {
+    setPendingSourceAction(undefined);
+    if (action.kind === 'accept-open') {
+      commitSourceEdit(undefined);
+      performAcceptOpenResult(action.result);
+      return;
+    }
+    if (action.kind === 'read') {
+      commitSourceEdit(undefined);
+      return;
+    }
+    if (action.kind === 'activate') {
+      commitSourceEdit(undefined);
+      performActivateOpenDocument(action.path);
+      return;
+    }
+    if (action.kind === 'close') {
+      if (sourceEditRef.current?.path === action.path) commitSourceEdit(undefined);
+      performCloseOpenDocument(action.path);
+      return;
+    }
+    await persistCurrentSourceDraft().catch(() => undefined);
+    const activePath = sessionRef.current.activeDocumentPath;
+    const position = getReadingController()?.getReadingPosition();
+    if (activePath && position) {
+      sessionRef.current = updateReadingPosition(sessionRef.current, activePath, position);
+      setSession(sessionRef.current);
+    }
+    await window.fuxian.saveDocumentSession(createPersistedDocumentSession(sessionRef.current));
+    if (action.kind === 'quit' || action.kind === 'close-window') {
+      commitSourceEdit(undefined);
+      window.fuxian.confirmAppClose();
+      return;
+    }
+    commitSourceEdit(undefined);
+    pendingInstallResolution.current?.resolve();
+    pendingInstallResolution.current = undefined;
+  };
+
+  const requestSourceAction = (action: GuardedSourceAction): void => {
+    const buffer = sourceEditRef.current;
+    const affectsBuffer =
+      action.kind === 'install-update' ||
+      action.kind === 'quit' ||
+      action.kind === 'close-window' ||
+      action.kind === 'read' ||
+      action.kind === 'accept-open' ||
+      (action.kind === 'activate' && action.path !== buffer?.path) ||
+      (action.kind === 'close' && action.path === buffer?.path);
+    if (affectsBuffer && isSourceEditDirty(buffer)) {
+      setPendingSourceAction(action);
+      return;
+    }
+    void executeSourceAction(action).catch(() => {
+      if (action.kind === 'install-update') {
+        pendingInstallResolution.current?.reject(new Error('无法保存当前文档会话。'));
+        pendingInstallResolution.current = undefined;
+      }
+    });
+  };
+  requestSourceActionRef.current = requestSourceAction;
+
+  useEffect(
+    () =>
+      window.fuxian.onAppCloseRequested((request) => {
+        requestSourceActionRef.current({ kind: request.kind });
+      }),
+    [],
+  );
+
+  useEffect(
+    () =>
+      window.fuxian.onPrepareAppUpdateInstall(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            pendingInstallResolution.current = { reject, resolve };
+            requestSourceActionRef.current({ kind: 'install-update' });
+          }),
+      ),
+    [],
+  );
+
+  const activateOpenDocument = (path: string): void => {
+    if (path === session.activeDocumentPath) return;
+    requestSourceAction({ kind: 'activate', path });
+  };
+
+  const closeOpenDocument = (path: string): void => {
+    requestSourceAction({ kind: 'close', path });
+  };
+
+  const enterSourceEditing = (): void => {
+    if (!activeDocument || sourceEditRef.current) return;
+    const position = getReadingController()?.getReadingPosition();
+    if (position) {
+      setSession((current) =>
+        updateReadingPosition(current, activeDocument.document.path, position),
+      );
+    }
+    resetActiveDocumentControls();
+    setArticleStructureMapOpen(false);
+    setContentOutlineSheetOpen(false);
+    commitSourceEdit(createSourceEditBuffer(activeDocument.document));
+  };
+
+  const cancelPendingSourceAction = (): void => {
+    if (pendingSourceAction?.kind === 'install-update') {
+      pendingInstallResolution.current?.reject(new Error('存在尚未保存的 Markdown 修改。'));
+      pendingInstallResolution.current = undefined;
+    }
+    setPendingSourceAction(undefined);
+  };
+
+  const discardSourceEditAndContinue = async (): Promise<void> => {
+    const buffer = sourceEditRef.current;
+    const action = pendingSourceAction;
+    if (!buffer || !action) return;
+    await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+    commitSourceEdit(undefined);
+    requestSourceAction(action);
+  };
+
+  const saveSourceEditAndContinue = async (): Promise<void> => {
+    const action = pendingSourceAction;
+    if (!action) return;
+    if (await saveActiveSourceEdit()) requestSourceAction(action);
+  };
+
+  const updateActiveSourceEdit = (
+    source: string,
+    selection: SourceEditBuffer['selection'],
+  ): void => {
+    const buffer = sourceEditRef.current;
+    if (!buffer || buffer.status === 'saving') return;
+    commitSourceEdit(changeSourceEditBuffer(buffer, source, selection));
+  };
+
+  const keepLocalAfterConflict = (): void => {
+    const buffer = sourceEditRef.current;
+    if (!buffer?.conflictDocument) return;
+    commitSourceEdit(keepLocalSourceEdit(buffer));
+  };
+
+  const adoptDiskAfterConflict = async (): Promise<void> => {
+    const buffer = sourceEditRef.current;
+    const diskDocument = buffer?.conflictDocument;
+    if (!buffer || !diskDocument) return;
+    commitSourceEdit(adoptExternalSourceRevision(buffer));
+    await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+    beginExternalRevision({
+      path: buffer.path,
+      result: { document: diskDocument, status: 'available' },
+      revision: 0,
+    });
+    if (pendingSourceAction) requestSourceAction(pendingSourceAction);
+  };
+
+  const saveConflictingSourceAs = async (): Promise<void> => {
+    const buffer = sourceEditRef.current;
+    if (!buffer?.conflictDocument || buffer.status === 'saving') return;
+    commitSourceEdit(beginSourceEditSave(buffer));
+    try {
+      const result = await window.fuxian.saveSourceDocumentAs({
+        source: buffer.source,
+        suggestedName: buffer.name,
+      });
+      if (result.status === 'cancelled') {
+        commitSourceEdit(buffer);
+        return;
+      }
+      if (result.status === 'failed') {
+        commitSourceEdit(failSourceEditSave(buffer, result.message));
+        return;
+      }
+      const finished = finishSourceDocument(result.document);
+      resetActiveDocumentControls();
+      setSession((current) => {
+        const next = addDocumentsToSession(current, [finished], Date.now());
+        sessionRef.current = next;
+        return next;
+      });
+      commitSourceEdit(completeSourceEditSave(buffer, result.document));
+      await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+      if (pendingSourceAction) requestSourceAction(pendingSourceAction);
+    } catch {
+      commitSourceEdit(failSourceEditSave(buffer, '应用暂时无法另存文档，请重试。'));
+    }
   };
 
   const reopenDocument = async (path: string): Promise<void> => {
@@ -1314,6 +1631,21 @@ export function App(): React.JSX.Element {
     appUpdateStatus.phase === 'downloading'
       ? appUpdateStatus.phase
       : undefined;
+  const pendingSourceActionDescription = pendingSourceAction
+    ? pendingSourceAction.kind === 'activate'
+      ? '切换文档'
+      : pendingSourceAction.kind === 'accept-open'
+        ? '打开其他文档'
+        : pendingSourceAction.kind === 'close'
+          ? '关闭文档'
+          : pendingSourceAction.kind === 'install-update'
+            ? '安装更新'
+            : pendingSourceAction.kind === 'quit'
+              ? '退出浮现'
+              : pendingSourceAction.kind === 'close-window'
+                ? '关闭窗口'
+                : '返回阅读模式'
+    : '';
   const documentSessionSidebar = (
     <DocumentSessionSidebar
       activeDocumentPath={session.activeDocumentPath}
@@ -1496,7 +1828,29 @@ export function App(): React.JSX.Element {
                     >
                       {activeDocument.document.name}
                     </span>
-                    {externalRevisionStatus.state === 'updating' ? (
+                    {sourceEdit ? (
+                      <span
+                        aria-live="polite"
+                        className={cn(
+                          'ml-2 inline-flex shrink-0 items-center gap-1 text-xs',
+                          sourceEdit.status === 'save-error' || sourceEdit.conflictDocument
+                            ? 'text-destructive'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {sourceEdit.status === 'saving' ? <Spinner aria-hidden="true" /> : null}
+                        {sourceEdit.conflictDocument
+                          ? '外部修改冲突'
+                          : sourceEdit.status === 'saving'
+                            ? '正在保存...'
+                            : isSourceEditDirty(sourceEdit)
+                              ? sourceEdit.recovered
+                                ? '已恢复草稿 · 未保存'
+                                : '未保存'
+                              : '已保存'}
+                      </span>
+                    ) : null}
+                    {!sourceEdit && externalRevisionStatus.state === 'updating' ? (
                       <span
                         aria-live="polite"
                         className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
@@ -1505,7 +1859,7 @@ export function App(): React.JSX.Element {
                         正在更新...
                       </span>
                     ) : null}
-                    {externalRevisionStatus.state === 'updated' ? (
+                    {!sourceEdit && externalRevisionStatus.state === 'updated' ? (
                       <span
                         aria-live="polite"
                         className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
@@ -1514,7 +1868,7 @@ export function App(): React.JSX.Element {
                         已更新 · {externalRevisionStatus.time}
                       </span>
                     ) : null}
-                    {externalRevisionStatus.state === 'new-content' ? (
+                    {!sourceEdit && externalRevisionStatus.state === 'new-content' ? (
                       <Button
                         className="ml-2 shrink-0"
                         onClick={showNewContent}
@@ -1525,7 +1879,7 @@ export function App(): React.JSX.Element {
                         有新内容
                       </Button>
                     ) : null}
-                    {externalRevisionStatus.state === 'failed' ? (
+                    {!sourceEdit && externalRevisionStatus.state === 'failed' ? (
                       <div
                         aria-live="assertive"
                         className="ml-2 flex shrink-0 items-center gap-1 text-xs text-destructive"
@@ -1559,160 +1913,205 @@ export function App(): React.JSX.Element {
                     ) : null}
                   </div>
 
-                  <div className="ml-4 flex shrink-0 items-center gap-1">
-                    <div
-                      className="mr-2 flex shrink-0 items-center gap-1"
-                      data-document-display-controls=""
+                  <div className="ml-2 flex shrink-0 items-center gap-1 min-[960px]:ml-4">
+                    <SegmentedControl
+                      aria-label="文档模式"
+                      className="mr-2"
+                      onValueChange={(value) => {
+                        if (value === 'source') enterSourceEditing();
+                        if (value === 'reading') requestSourceAction({ kind: 'read' });
+                      }}
+                      type="single"
+                      value={sourceEdit ? 'source' : 'reading'}
                     >
-                      <SegmentedControl
-                        aria-label="文档显示模式"
-                        onValueChange={(value) => {
-                          if (value === 'continuous' || value === 'paper') changeViewMode(value);
-                        }}
-                        type="single"
-                        value={viewMode}
-                      >
-                        <SegmentedControlItem
-                          aria-label="无界阅读"
-                          className="min-w-11"
-                          value="continuous"
-                        >
-                          无界
-                        </SegmentedControlItem>
-                        <SegmentedControlItem
-                          aria-label="纸张预览"
-                          className="min-w-11"
-                          value="paper"
-                        >
-                          纸张
-                        </SegmentedControlItem>
-                      </SegmentedControl>
-                      <div
-                        className="flex h-7 w-20 shrink-0 items-center"
-                        data-document-display-auxiliary=""
-                      >
-                        {viewMode === 'continuous' ? (
-                          <DocumentWidthPopover
-                            className="w-full justify-between"
-                            onChange={(documentWidth) =>
-                              updatePreferences({ ...preferences, documentWidth })
-                            }
-                            value={preferences.documentWidth}
-                          />
-                        ) : paperPageCount ? (
-                          <span className="w-full px-2 text-xs tabular-nums text-muted-foreground">
-                            {paperPageCount} 页
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <ToolbarTooltip label="导出 PDF">
-                      <Button
-                        aria-label="导出 PDF"
-                        disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
-                        onClick={() => void startPdfExport()}
-                        size="icon-sm"
-                        variant="ghost"
-                      >
-                        {pdfExportStarting ? (
-                          <Spinner aria-hidden="true" />
-                        ) : (
-                          <FileDown aria-hidden="true" />
-                        )}
-                      </Button>
-                    </ToolbarTooltip>
-                    {findOpen ? (
-                      <div
-                        aria-label="页内查找"
-                        className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
-                        role="search"
-                      >
-                        <Search aria-hidden="true" className="mr-2 size-4 text-muted-foreground" />
-                        <input
-                          aria-label="页内查找"
-                          className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
-                          onChange={(event) => setFindQuery(event.target.value)}
-                          onKeyDown={handleFindKeyDown}
-                          placeholder="查找"
-                          ref={findInput}
-                          type="text"
-                          value={findQuery}
-                        />
-                        <span
-                          aria-live="polite"
-                          className="min-w-12 px-1 text-center text-xs tabular-nums text-muted-foreground"
-                        >
-                          {findResult.current}/{findResult.total}
-                        </span>
-                        <ToolbarTooltip label="上一个匹配项">
-                          <Button
-                            aria-label="上一个匹配项"
-                            disabled={findResult.total === 0}
-                            onClick={showPreviousFindResult}
-                            size="icon-xs"
-                            variant="ghost"
-                          >
-                            <ChevronUp aria-hidden="true" />
-                          </Button>
-                        </ToolbarTooltip>
-                        <ToolbarTooltip label="下一个匹配项">
-                          <Button
-                            aria-label="下一个匹配项"
-                            disabled={findResult.total === 0}
-                            onClick={showNextFindResult}
-                            size="icon-xs"
-                            variant="ghost"
-                          >
-                            <ChevronDown aria-hidden="true" />
-                          </Button>
-                        </ToolbarTooltip>
-                        <ToolbarTooltip label="关闭查找">
-                          <Button
-                            aria-label="关闭查找"
-                            className="mx-1"
-                            onClick={closeFind}
-                            size="icon-xs"
-                            variant="ghost"
-                          >
-                            <X aria-hidden="true" />
-                          </Button>
-                        </ToolbarTooltip>
-                      </div>
-                    ) : (
-                      <ToolbarTooltip label="页内查找">
+                      <SegmentedControlItem aria-label="阅读成品文档" value="reading">
+                        阅读
+                      </SegmentedControlItem>
+                      <SegmentedControlItem aria-label="编辑 Markdown 源码" value="source">
+                        源码
+                      </SegmentedControlItem>
+                    </SegmentedControl>
+                    {sourceEdit ? (
+                      <ToolbarTooltip label="保存 Markdown">
                         <Button
-                          aria-label="页内查找"
-                          onClick={openFind}
+                          aria-label="保存 Markdown"
+                          disabled={
+                            !isSourceEditDirty(sourceEdit) ||
+                            sourceEdit.status === 'saving' ||
+                            Boolean(sourceEdit.conflictDocument)
+                          }
+                          onClick={() => void saveActiveSourceEdit()}
                           size="icon-sm"
                           variant="ghost"
                         >
-                          <Search aria-hidden="true" />
+                          {sourceEdit.status === 'saving' ? (
+                            <Spinner aria-hidden="true" />
+                          ) : (
+                            <Save aria-hidden="true" />
+                          )}
                         </Button>
                       </ToolbarTooltip>
-                    )}
-                    <ToolbarTooltip label={contentOutlineActionLabel}>
-                      <Button
-                        aria-label={contentOutlineActionLabel}
-                        onClick={() => {
-                          if (contentOutlineInline) {
-                            updateShellPreferences({ contentOutlineExpanded: false });
-                          } else if (shellLayout === 'wide') {
-                            updateShellPreferences({ contentOutlineExpanded: true });
-                          } else {
-                            setContentOutlineSheetOpen(true);
-                          }
-                        }}
-                        ref={contentOutlineTrigger}
-                        size="icon-sm"
-                        variant="ghost"
-                      >
-                        {contentOutlineInline ? (
-                          <PanelRightClose aria-hidden="true" />
+                    ) : (
+                      <>
+                        <div
+                          className="mr-2 flex shrink-0 items-center gap-1"
+                          data-document-display-controls=""
+                        >
+                          <SegmentedControl
+                            aria-label="文档显示模式"
+                            onValueChange={(value) => {
+                              if (value === 'continuous' || value === 'paper')
+                                changeViewMode(value);
+                            }}
+                            type="single"
+                            value={viewMode}
+                          >
+                            <SegmentedControlItem
+                              aria-label="无界阅读"
+                              className="min-w-11"
+                              value="continuous"
+                            >
+                              无界
+                            </SegmentedControlItem>
+                            <SegmentedControlItem
+                              aria-label="纸张预览"
+                              className="min-w-11"
+                              value="paper"
+                            >
+                              纸张
+                            </SegmentedControlItem>
+                          </SegmentedControl>
+                          <div
+                            className="flex h-7 w-20 shrink-0 items-center"
+                            data-document-display-auxiliary=""
+                          >
+                            {viewMode === 'continuous' ? (
+                              <DocumentWidthPopover
+                                className="w-full justify-between"
+                                onChange={(documentWidth) =>
+                                  updatePreferences({ ...preferences, documentWidth })
+                                }
+                                value={preferences.documentWidth}
+                              />
+                            ) : paperPageCount ? (
+                              <span className="w-full px-2 text-xs tabular-nums text-muted-foreground">
+                                {paperPageCount} 页
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <ToolbarTooltip label="导出 PDF">
+                          <Button
+                            aria-label="导出 PDF"
+                            disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
+                            onClick={() => void startPdfExport()}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            {pdfExportStarting ? (
+                              <Spinner aria-hidden="true" />
+                            ) : (
+                              <FileDown aria-hidden="true" />
+                            )}
+                          </Button>
+                        </ToolbarTooltip>
+                        {findOpen ? (
+                          <div
+                            aria-label="页内查找"
+                            className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
+                            role="search"
+                          >
+                            <Search
+                              aria-hidden="true"
+                              className="mr-2 size-4 text-muted-foreground"
+                            />
+                            <input
+                              aria-label="页内查找"
+                              className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
+                              onChange={(event) => setFindQuery(event.target.value)}
+                              onKeyDown={handleFindKeyDown}
+                              placeholder="查找"
+                              ref={findInput}
+                              type="text"
+                              value={findQuery}
+                            />
+                            <span
+                              aria-live="polite"
+                              className="min-w-12 px-1 text-center text-xs tabular-nums text-muted-foreground"
+                            >
+                              {findResult.current}/{findResult.total}
+                            </span>
+                            <ToolbarTooltip label="上一个匹配项">
+                              <Button
+                                aria-label="上一个匹配项"
+                                disabled={findResult.total === 0}
+                                onClick={showPreviousFindResult}
+                                size="icon-xs"
+                                variant="ghost"
+                              >
+                                <ChevronUp aria-hidden="true" />
+                              </Button>
+                            </ToolbarTooltip>
+                            <ToolbarTooltip label="下一个匹配项">
+                              <Button
+                                aria-label="下一个匹配项"
+                                disabled={findResult.total === 0}
+                                onClick={showNextFindResult}
+                                size="icon-xs"
+                                variant="ghost"
+                              >
+                                <ChevronDown aria-hidden="true" />
+                              </Button>
+                            </ToolbarTooltip>
+                            <ToolbarTooltip label="关闭查找">
+                              <Button
+                                aria-label="关闭查找"
+                                className="mx-1"
+                                onClick={closeFind}
+                                size="icon-xs"
+                                variant="ghost"
+                              >
+                                <X aria-hidden="true" />
+                              </Button>
+                            </ToolbarTooltip>
+                          </div>
                         ) : (
-                          <PanelRightOpen aria-hidden="true" />
+                          <ToolbarTooltip label="页内查找">
+                            <Button
+                              aria-label="页内查找"
+                              onClick={openFind}
+                              size="icon-sm"
+                              variant="ghost"
+                            >
+                              <Search aria-hidden="true" />
+                            </Button>
+                          </ToolbarTooltip>
                         )}
-                      </Button>
-                    </ToolbarTooltip>
+                        <ToolbarTooltip label={contentOutlineActionLabel}>
+                          <Button
+                            aria-label={contentOutlineActionLabel}
+                            onClick={() => {
+                              if (contentOutlineInline) {
+                                updateShellPreferences({ contentOutlineExpanded: false });
+                              } else if (shellLayout === 'wide') {
+                                updateShellPreferences({ contentOutlineExpanded: true });
+                              } else {
+                                setContentOutlineSheetOpen(true);
+                              }
+                            }}
+                            ref={contentOutlineTrigger}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            {contentOutlineInline ? (
+                              <PanelRightClose aria-hidden="true" />
+                            ) : (
+                              <PanelRightOpen aria-hidden="true" />
+                            )}
+                          </Button>
+                        </ToolbarTooltip>
+                      </>
+                    )}
                   </div>
                 </header>
 
@@ -1728,77 +2127,116 @@ export function App(): React.JSX.Element {
                     minSize={360}
                   >
                     <main
-                      className="relative grid h-full min-h-0 bg-background p-3"
-                      aria-label="完成文档阅读区"
-                      data-finished-document-region=""
+                      className={cn(
+                        'relative grid h-full min-h-0 bg-background',
+                        sourceEdit ? 'grid-cols-1 grid-rows-1' : 'p-3',
+                      )}
+                      aria-label={sourceEdit ? 'Markdown 源码编辑区' : '完成文档阅读区'}
+                      {...(sourceEdit
+                        ? { 'data-source-editor-region': '' }
+                        : { 'data-finished-document-region': '' })}
                     >
-                      {documentFrames.map((frame) => (
-                        <FinishedDocumentFrame
-                          documentWidth={preferences.documentWidth}
-                          draggingFiles={draggingFiles}
-                          frame={frame}
-                          key={frame.id}
-                          onLoad={handleFinishedDocumentLoad}
-                          onRemove={handleFinishedDocumentFrameRemove}
-                          visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
-                        />
-                      ))}
-                      {paperSnapshot &&
-                      paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
-                        <PaperPreviewFrame
-                          className={cn(
-                            'col-start-1 row-start-1 z-10',
-                            viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
-                            draggingFiles && 'pointer-events-none',
-                          )}
-                          key={activeDocument.document.path}
-                          onActiveHeadingChange={setActiveHeadingId}
-                          onControllerChange={(controller) => {
-                            paperPreviewController.current = controller;
-                            if (controller && viewModeRef.current === 'paper' && findOpen) {
-                              setFindResult(controller.find(findQuery));
+                      {sourceEdit ? (
+                        <>
+                          <Suspense
+                            fallback={
+                              <div className="flex items-center justify-center text-sm text-muted-foreground">
+                                <Spinner aria-hidden="true" />
+                                <span className="ml-2">正在准备源码编辑器...</span>
+                              </div>
                             }
-                          }}
-                          onFailure={setPaperPreviewFailure}
-                          onFindRequest={openFind}
-                          onFindResult={setFindResult}
-                          onFocusRenderedVisual={setFocusedDiagram}
-                          onInspectRenderedVisual={showDiagramSource}
-                          onReady={(pageCount, revisionId) => {
-                            if (revisionId !== paperSnapshot.revisionId) return;
-                            setPaperPageCount(pageCount);
-                            setPaperReadyRevisionId(revisionId);
-                            setPaperPreviewFailure(undefined);
-                          }}
-                          onReadingPositionChange={(position) => {
-                            if (viewModeRef.current !== 'paper') return;
-                            setSession((current) =>
-                              updateReadingPosition(
-                                current,
-                                activeDocument.document.path,
-                                position,
-                              ),
-                            );
-                          }}
-                          snapshot={paperSnapshot}
-                        />
-                      ) : null}
-                      {viewMode === 'paper' && paperPreviewFailure ? (
-                        <div
-                          aria-live="polite"
-                          className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
-                        >
-                          正在保留上一版纸张预览。{paperPreviewFailure}
-                        </div>
-                      ) : null}
-                      {pdfExportProgress ? (
-                        <PdfExportPanel
-                          key={pdfExportProgress.exportId}
-                          onCancel={cancelPdfExport}
-                          onRetry={() => void startPdfExport()}
-                          progress={pdfExportProgress}
-                        />
-                      ) : null}
+                          >
+                            <SourceEditor
+                              autoFocus
+                              onChange={updateActiveSourceEdit}
+                              onSave={() => void saveActiveSourceEdit()}
+                              readOnly={sourceEdit.status === 'saving'}
+                              selection={sourceEdit.selection}
+                              source={sourceEdit.source}
+                            />
+                          </Suspense>
+                          {sourceEdit.error ? (
+                            <Alert
+                              className="absolute right-4 bottom-4 max-w-sm"
+                              variant="destructive"
+                            >
+                              <AlertCircle aria-hidden="true" />
+                              <AlertTitle>保存失败</AlertTitle>
+                              <AlertDescription>{sourceEdit.error}</AlertDescription>
+                            </Alert>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          {documentFrames.map((frame) => (
+                            <FinishedDocumentFrame
+                              documentWidth={preferences.documentWidth}
+                              draggingFiles={draggingFiles}
+                              frame={frame}
+                              key={frame.id}
+                              onLoad={handleFinishedDocumentLoad}
+                              onRemove={handleFinishedDocumentFrameRemove}
+                              visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
+                            />
+                          ))}
+                          {paperSnapshot &&
+                          paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
+                            <PaperPreviewFrame
+                              className={cn(
+                                'col-start-1 row-start-1 z-10',
+                                viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
+                                draggingFiles && 'pointer-events-none',
+                              )}
+                              key={activeDocument.document.path}
+                              onActiveHeadingChange={setActiveHeadingId}
+                              onControllerChange={(controller) => {
+                                paperPreviewController.current = controller;
+                                if (controller && viewModeRef.current === 'paper' && findOpen) {
+                                  setFindResult(controller.find(findQuery));
+                                }
+                              }}
+                              onFailure={setPaperPreviewFailure}
+                              onFindRequest={openFind}
+                              onFindResult={setFindResult}
+                              onFocusRenderedVisual={setFocusedDiagram}
+                              onInspectRenderedVisual={showDiagramSource}
+                              onReady={(pageCount, revisionId) => {
+                                if (revisionId !== paperSnapshot.revisionId) return;
+                                setPaperPageCount(pageCount);
+                                setPaperReadyRevisionId(revisionId);
+                                setPaperPreviewFailure(undefined);
+                              }}
+                              onReadingPositionChange={(position) => {
+                                if (viewModeRef.current !== 'paper') return;
+                                setSession((current) =>
+                                  updateReadingPosition(
+                                    current,
+                                    activeDocument.document.path,
+                                    position,
+                                  ),
+                                );
+                              }}
+                              snapshot={paperSnapshot}
+                            />
+                          ) : null}
+                          {viewMode === 'paper' && paperPreviewFailure ? (
+                            <div
+                              aria-live="polite"
+                              className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
+                            >
+                              正在保留上一版纸张预览。{paperPreviewFailure}
+                            </div>
+                          ) : null}
+                          {pdfExportProgress ? (
+                            <PdfExportPanel
+                              key={pdfExportProgress.exportId}
+                              onCancel={cancelPdfExport}
+                              onRetry={() => void startPdfExport()}
+                              progress={pdfExportProgress}
+                            />
+                          ) : null}
+                        </>
+                      )}
                     </main>
                   </ResizablePanel>
                   {sourceDiagram && shellLayout === 'wide' ? (
@@ -1849,6 +2287,28 @@ export function App(): React.JSX.Element {
                     </>
                   ) : null}
                 </ResizablePanelGroup>
+                {sourceEdit && pendingSourceAction ? (
+                  <UnsavedChangesDialog
+                    actionDescription={pendingSourceActionDescription}
+                    {...(sourceEdit.error ? { error: sourceEdit.error } : {})}
+                    name={sourceEdit.name}
+                    onCancel={cancelPendingSourceAction}
+                    onDiscard={() => void discardSourceEditAndContinue()}
+                    onSave={() => void saveSourceEditAndContinue()}
+                    open={!sourceEdit.conflictDocument}
+                    saving={sourceEdit.status === 'saving'}
+                  />
+                ) : null}
+                {sourceEdit?.conflictDocument ? (
+                  <ExternalConflictDialog
+                    {...(sourceEdit.error ? { error: sourceEdit.error } : {})}
+                    name={sourceEdit.name}
+                    onAdoptDisk={() => void adoptDiskAfterConflict()}
+                    onKeepLocal={keepLocalAfterConflict}
+                    onSaveAs={() => void saveConflictingSourceAs()}
+                    saving={sourceEdit.status === 'saving'}
+                  />
+                ) : null}
                 <DiagramFocusDialog
                   copyText={window.fuxian.copyText}
                   diagram={focusedDiagram}
@@ -1864,7 +2324,7 @@ export function App(): React.JSX.Element {
                     open
                   />
                 ) : null}
-                {shellLayout !== 'wide' && activeDocument ? (
+                {!sourceEdit && shellLayout !== 'wide' && activeDocument ? (
                   <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
                     <SheetContent
                       className="w-72 max-w-[88vw] p-0"

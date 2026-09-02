@@ -133,6 +133,7 @@ export class AppUpdateService {
   private downloadPromise: Promise<AppUpdateStatus> | undefined;
   private downloadToken: CancellationToken | undefined;
   private initialized = false;
+  private installPromise: Promise<AppUpdateStatus> | undefined;
   private status: AppUpdateStatus;
 
   constructor(private readonly options: AppUpdateServiceOptions) {
@@ -269,9 +270,18 @@ export class AppUpdateService {
     return this.getStatus();
   }
 
-  async installUpdate(): Promise<AppUpdateStatus> {
-    if (this.options.delivery !== 'automatic-install') return this.getStatus();
-    if (this.status.phase !== 'downloaded') return this.getStatus();
+  installUpdate(): Promise<AppUpdateStatus> {
+    if (this.options.delivery !== 'automatic-install') return Promise.resolve(this.getStatus());
+    if (this.installPromise) return this.installPromise;
+    if (this.status.phase !== 'downloaded') return Promise.resolve(this.getStatus());
+    const operation = this.prepareAndInstallUpdate().finally(() => {
+      if (this.installPromise === operation) this.installPromise = undefined;
+    });
+    this.installPromise = operation;
+    return operation;
+  }
+
+  private async prepareAndInstallUpdate(): Promise<AppUpdateStatus> {
     try {
       await this.options.beforeInstall();
     } catch (error) {

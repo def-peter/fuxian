@@ -1,4 +1,7 @@
 export const desktopIpcChannels = {
+  appCloseConfirmed: 'fuxian:app:close-confirmed',
+  appCloseGuardReady: 'fuxian:app:close-guard-ready',
+  appCloseRequested: 'fuxian:app:close-requested',
   appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
   appUpdateCheck: 'fuxian:app-update:check',
   appUpdateDownload: 'fuxian:app-update:download',
@@ -30,6 +33,11 @@ export const desktopIpcChannels = {
   retrySourceDocument: 'fuxian:source-documents:retry',
   saveDocumentSession: 'fuxian:document-session:save',
   saveReaderPreferences: 'fuxian:reader-preferences:save',
+  deleteSourceRecoveryDraft: 'fuxian:source-editing:delete-recovery-draft',
+  loadSourceRecoveryDrafts: 'fuxian:source-editing:load-recovery-drafts',
+  saveSourceDocument: 'fuxian:source-editing:save-document',
+  saveSourceDocumentAs: 'fuxian:source-editing:save-document-as',
+  saveSourceRecoveryDraft: 'fuxian:source-editing:save-recovery-draft',
   settingsSectionRequested: 'fuxian:settings:section-requested',
   startPdfExport: 'fuxian:pdf-export:start',
   validatePlantUmlServer: 'fuxian:plantuml:validate-server',
@@ -304,6 +312,46 @@ export interface SourceDocumentData {
   source: string;
 }
 
+export interface SourceEditorSelection {
+  anchor: number;
+  head: number;
+}
+
+export interface AppCloseRequest {
+  kind: 'close-window' | 'quit';
+}
+
+export interface SourceRecoveryDraft {
+  baselineSource: string;
+  name: string;
+  path: string;
+  selection: SourceEditorSelection;
+  source: string;
+  updatedAt: number;
+  version: 1;
+}
+
+export interface SaveSourceDocumentRequest {
+  expectedSource: string;
+  path: string;
+  source: string;
+}
+
+export type SaveSourceDocumentResult =
+  | { document: SourceDocumentData; status: 'saved' }
+  | { document: SourceDocumentData; status: 'conflict' }
+  | { message: string; status: 'failed' };
+
+export interface SaveSourceDocumentAsRequest {
+  source: string;
+  suggestedName: string;
+}
+
+export type SaveSourceDocumentAsResult =
+  | { status: 'cancelled' }
+  | { document: SourceDocumentData; status: 'saved' }
+  | { message: string; status: 'failed' };
+
 export interface OpenDocumentWatchTarget {
   path: string;
   resourceUrls: string[];
@@ -434,9 +482,11 @@ export interface FuxianDesktopBridge {
   installAppUpdate(): Promise<AppUpdateStatus>;
   loadDocumentSession(): Promise<LoadDocumentSessionResult>;
   loadReaderPreferences(): Promise<ReaderPreferences>;
+  loadSourceRecoveryDrafts(): Promise<SourceRecoveryDraft[]>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
+  onAppCloseRequested(listener: (request: AppCloseRequest) => void): () => void;
   onAppUpdateStatusChanged(listener: (status: AppUpdateStatus) => void): () => void;
   onPdfExportProgress(listener: (progress: PdfExportProgress) => void): () => void;
   onSourceDocumentOpenRequested(listener: (result: OpenSourceDocumentsResult) => void): () => void;
@@ -449,8 +499,13 @@ export interface FuxianDesktopBridge {
   renderPlantUml(request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult>;
   reportPdfExportProgress(progress: PdfExportRenderProgress): void;
   retrySourceDocument(path: string): Promise<ReadSourceDocumentResult>;
+  confirmAppClose(): void;
+  deleteSourceRecoveryDraft(path: string): Promise<void>;
   saveDocumentSession(session: PersistedDocumentSession): Promise<void>;
   saveReaderPreferences(preferences: ReaderPreferences): Promise<ReaderPreferences>;
+  saveSourceDocument(request: SaveSourceDocumentRequest): Promise<SaveSourceDocumentResult>;
+  saveSourceDocumentAs(request: SaveSourceDocumentAsRequest): Promise<SaveSourceDocumentAsResult>;
+  saveSourceRecoveryDraft(draft: SourceRecoveryDraft): Promise<void>;
   signalPdfExportReady(signal: PdfExportReadySignal): void;
   startPdfExport(request: StartPdfExportRequest): Promise<StartPdfExportResult>;
   validatePlantUmlServer(serverUrl: string): Promise<PlantUmlServerValidationResult>;

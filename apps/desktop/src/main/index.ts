@@ -3,6 +3,7 @@ import {
   isSettingsSectionId,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
+  type AppCloseRequest,
   type AppUpdateDelivery,
   type AppUpdateInstallPreparationResult,
   type AppUpdateStatus,
@@ -20,7 +21,12 @@ import {
   type PlantUmlServerValidationResult,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
+  type SaveSourceDocumentAsRequest,
+  type SaveSourceDocumentAsResult,
+  type SaveSourceDocumentRequest,
+  type SaveSourceDocumentResult,
   type SourceDocumentData,
+  type SourceRecoveryDraft,
   type StartPdfExportRequest,
   type StartPdfExportResult,
   type SettingsSectionId,
@@ -58,6 +64,12 @@ import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator'
 import { extractSourceDocumentPaths } from './system-open';
 import { AppUpdateService } from './app-update-service';
 import { E2EAppUpdateAdapter, isE2EUpdateScenario } from './e2e-app-update-adapter';
+import {
+  isSourceRecoveryDraft,
+  JsonFileSourceRecoveryPersistence,
+  type SourceRecoveryPersistence,
+} from './source-recovery-persistence';
+import { saveExistingSourceDocument, saveSourceDocumentCopy } from './source-document-save';
 
 const { autoUpdater } = electronUpdater;
 
@@ -68,6 +80,10 @@ const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
 let settingsWindow: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
+let allowMainWindowClose = false;
+let appQuitRequested = false;
+let mainWindowCloseGuardReady = false;
+let pendingMainWindowCloseKind: AppCloseRequest['kind'] | undefined;
 let appUpdateService: AppUpdateService | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
@@ -85,6 +101,7 @@ const documentWatchCleanupRegistered = new Set<number>();
 type E2EWindowMode = 'hidden' | 'secondary' | 'visible';
 
 const isE2ERuntime = !app.isPackaged && process.env.NODE_ENV === 'test';
+const sourceCloseGuardEnabled = !isE2ERuntime || process.env.FUXIAN_E2E_SOURCE_CLOSE_GUARD === '1';
 const e2eWindowMode: E2EWindowMode = isE2ERuntime
   ? process.env.FUXIAN_E2E_WINDOW_MODE === 'secondary' ||
     process.env.FUXIAN_E2E_WINDOW_MODE === 'visible'
@@ -206,6 +223,22 @@ const chooseReplacementDocument = async (): Promise<string | undefined> => {
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
   return selection.canceled ? undefined : selection.filePaths[0];
+};
+
+const chooseSourceDocumentCopyPath = async (
+  owner: BrowserWindow,
+  suggestedName: string,
+): Promise<string | undefined> => {
+  const testDestination = process.env.FUXIAN_E2E_SAVE_SOURCE_DOCUMENT_AS;
+  if (!app.isPackaged && process.env.NODE_ENV === 'test' && testDestination) {
+    return testDestination;
+  }
+  const selection = await dialog.showSaveDialog(owner, {
+    title: '另存 Markdown',
+    defaultPath: suggestedName,
+    filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+  });
+  return selection.canceled ? undefined : selection.filePath;
 };
 
 const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocumentResult> => {
@@ -429,6 +462,7 @@ const requestDocumentSessionFlush = async (): Promise<void> => {
 const registerDesktopHandlers = (
   sessionPersistence: SessionPersistence,
   preferencesPersistence: PreferencesPersistence,
+  sourceRecoveryPersistence: SourceRecoveryPersistence,
   updateService: AppUpdateService,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
@@ -438,6 +472,20 @@ const registerDesktopHandlers = (
   ipcMain.handle(desktopIpcChannels.appUpdateCancelDownload, () => updateService.cancelDownload());
   ipcMain.handle(desktopIpcChannels.appUpdateInstall, () => updateService.installUpdate());
   ipcMain.handle(desktopIpcChannels.appUpdateOpenRelease, () => updateService.openReleasePage());
+  ipcMain.on(desktopIpcChannels.appCloseGuardReady, (event) => {
+    if (BrowserWindow.fromWebContents(event.sender) === mainWindow) {
+      mainWindowCloseGuardReady = true;
+    }
+  });
+  ipcMain.on(desktopIpcChannels.appCloseConfirmed, (event) => {
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner || owner !== mainWindow || owner.isDestroyed()) return;
+    const shouldQuit = pendingMainWindowCloseKind === 'quit';
+    pendingMainWindowCloseKind = undefined;
+    allowMainWindowClose = true;
+    if (shouldQuit) app.quit();
+    else owner.close();
+  });
   ipcMain.on(desktopIpcChannels.sourceDocumentOpenReceiverReady, (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner || owner !== mainWindow) return;
@@ -899,6 +947,87 @@ const registerDesktopHandlers = (
     await sessionPersistence.save(value);
   });
   ipcMain.handle(
+    desktopIpcChannels.loadSourceRecoveryDrafts,
+    async (): Promise<SourceRecoveryDraft[]> =>
+      (await sourceRecoveryPersistence.load()).filter((draft) =>
+        knownDocumentPaths.has(draft.path),
+      ),
+  );
+  ipcMain.handle(desktopIpcChannels.saveSourceRecoveryDraft, async (_event, value: unknown) => {
+    if (!isSourceRecoveryDraft(value) || !knownDocumentPaths.has(value.path)) {
+      throw new TypeError('Invalid or unauthorized source recovery draft.');
+    }
+    await sourceRecoveryPersistence.save(value);
+  });
+  ipcMain.handle(desktopIpcChannels.deleteSourceRecoveryDraft, async (_event, path: unknown) => {
+    if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
+      throw new TypeError('Invalid or unauthorized source recovery draft path.');
+    }
+    await sourceRecoveryPersistence.remove(path);
+  });
+  ipcMain.handle(
+    desktopIpcChannels.saveSourceDocument,
+    async (_event, value: unknown): Promise<SaveSourceDocumentResult> => {
+      const request = value as Partial<SaveSourceDocumentRequest> | undefined;
+      if (
+        !request ||
+        typeof request.path !== 'string' ||
+        !knownDocumentPaths.has(request.path) ||
+        typeof request.expectedSource !== 'string' ||
+        request.expectedSource.length > 10_000_000 ||
+        typeof request.source !== 'string' ||
+        request.source.length > 10_000_000
+      ) {
+        return { message: '保存请求无效或文档不属于当前会话。', status: 'failed' };
+      }
+      const result = await saveExistingSourceDocument(
+        request.path,
+        request.expectedSource,
+        request.source,
+      );
+      if (result.status === 'failed') return result;
+      if (result.status === 'conflict') {
+        const current = await readSourceDocument(request.path);
+        return current.status === 'available'
+          ? { document: current.document, status: 'conflict' }
+          : { message: current.message, status: 'failed' };
+      }
+      const saved = await readSourceDocument(result.path);
+      return saved.status === 'available'
+        ? { document: saved.document, status: 'saved' }
+        : { message: saved.message, status: 'failed' };
+    },
+  );
+  ipcMain.handle(
+    desktopIpcChannels.saveSourceDocumentAs,
+    async (event, value: unknown): Promise<SaveSourceDocumentAsResult> => {
+      const request = value as Partial<SaveSourceDocumentAsRequest> | undefined;
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      if (
+        !owner ||
+        !request ||
+        typeof request.source !== 'string' ||
+        request.source.length > 10_000_000 ||
+        typeof request.suggestedName !== 'string' ||
+        request.suggestedName.length < 1 ||
+        request.suggestedName.length > 512
+      ) {
+        return { message: '另存请求无效。', status: 'failed' };
+      }
+      const selectedPath = await chooseSourceDocumentCopyPath(owner, request.suggestedName);
+      if (!selectedPath) return { status: 'cancelled' };
+      const result = await saveSourceDocumentCopy(selectedPath, request.source);
+      if (result.status === 'failed') return result;
+      if (result.status === 'conflict') {
+        return { message: '目标文档在保存期间发生变化，请重新选择。', status: 'failed' };
+      }
+      const saved = await readSourceDocument(result.path);
+      return saved.status === 'available'
+        ? { document: saved.document, status: 'saved' }
+        : { message: saved.message, status: 'failed' };
+    },
+  );
+  ipcMain.handle(
     desktopIpcChannels.retrySourceDocument,
     async (_event, path: unknown): Promise<ReadSourceDocumentResult> => {
       if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
@@ -958,6 +1087,9 @@ const loadPdfExportWindow = (window: BrowserWindow, exportId: string): void => {
 };
 
 const createWindow = (): BrowserWindow => {
+  allowMainWindowClose = false;
+  mainWindowCloseGuardReady = false;
+  pendingMainWindowCloseKind = undefined;
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -984,10 +1116,30 @@ const createWindow = (): BrowserWindow => {
   window.once('ready-to-show', () => {
     revealInteractiveWindow(window);
   });
+  window.on('close', (event) => {
+    if (
+      !sourceCloseGuardEnabled ||
+      allowMainWindowClose ||
+      appUpdateService?.getStatus().phase === 'installing' ||
+      !mainWindowCloseGuardReady ||
+      window.webContents.isDestroyed()
+    ) {
+      return;
+    }
+    event.preventDefault();
+    pendingMainWindowCloseKind = appQuitRequested ? 'quit' : 'close-window';
+    appQuitRequested = false;
+    window.webContents.send(desktopIpcChannels.appCloseRequested, {
+      kind: pendingMainWindowCloseKind,
+    } satisfies AppCloseRequest);
+  });
   window.on('closed', () => {
     if (mainWindow === window) {
       mainWindow = undefined;
       sourceDocumentOpenReceiver = undefined;
+      mainWindowCloseGuardReady = false;
+      allowMainWindowClose = false;
+      pendingMainWindowCloseKind = undefined;
     }
   });
 
@@ -1209,6 +1361,10 @@ const createApplicationMenu = (): Menu => {
 
 app.setName('浮现');
 
+app.on('before-quit', () => {
+  if (!allowMainWindowClose) appQuitRequested = true;
+});
+
 if (!app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE) {
   app.setPath('userData', `${process.env.FUXIAN_E2E_SESSION_FILE}.user-data`);
 }
@@ -1243,6 +1399,12 @@ if (!hasSingleInstanceLock) {
       !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
         ? process.env.FUXIAN_E2E_PREFERENCES_FILE
         : join(app.getPath('userData'), 'reader-preferences.json');
+    const sourceRecoveryPath =
+      !app.isPackaged &&
+      process.env.NODE_ENV === 'test' &&
+      process.env.FUXIAN_E2E_SOURCE_DRAFTS_FILE
+        ? process.env.FUXIAN_E2E_SOURCE_DRAFTS_FILE
+        : join(app.getPath('userData'), 'source-recovery-drafts.json');
     const updateScenario = process.env.FUXIAN_E2E_UPDATE_SCENARIO;
     const e2eUpdateAdapter =
       isE2ERuntime && isE2EUpdateScenario(updateScenario)
@@ -1279,6 +1441,7 @@ if (!hasSingleInstanceLock) {
     registerDesktopHandlers(
       new JsonFileSessionPersistence(sessionPath),
       new JsonFilePreferencesPersistence(preferencesPath),
+      new JsonFileSourceRecoveryPersistence(sourceRecoveryPath),
       appUpdateService,
     );
     Menu.setApplicationMenu(createApplicationMenu());

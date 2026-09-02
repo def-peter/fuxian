@@ -5,7 +5,7 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -149,6 +149,60 @@ test('opens the matching GitHub Release for a manual macOS-style update', async 
 
     await expect.poll(() => readJsonIfAvailable(releaseMarkerPath)).toEqual({ version: '0.2.0' });
     await expect(settingsWindow.getByRole('button', { name: '下载更新' })).toHaveCount(0);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test('requires a decision about unsaved source changes before installing an update', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-source-'));
+  const installMarkerPath = join(temporaryDirectory, 'install.json');
+  const sourcePath = join(temporaryDirectory, 'guide.md');
+  await writeFile(sourcePath, '# Saved', 'utf8');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(temporaryDirectory, 'reader-preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(temporaryDirectory, 'document-session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SOURCE_DRAFTS_FILE: join(temporaryDirectory, 'source-recovery-drafts.json'),
+      FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarkerPath,
+      FUXIAN_E2E_UPDATE_SCENARIO: 'available',
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const readerWindow = await electronApp.firstWindow();
+    await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
+    await readerWindow.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    const editor = readerWindow.locator('.cm-content');
+    await editor.click();
+    await readerWindow.keyboard.press('ControlOrMeta+A');
+    await readerWindow.keyboard.insertText('# Unsaved');
+
+    await readerWindow.getByRole('button', { name: '设置，有可用更新' }).click();
+    const settingsWindow = await findSettingsWindow(electronApp);
+    await settingsWindow.getByRole('button', { name: '下载更新' }).click();
+    await expect(settingsWindow.getByText('更新已准备好')).toBeVisible();
+    await settingsWindow.getByRole('button', { name: '重启并更新' }).click();
+
+    await expect(readerWindow.getByRole('dialog')).toContainText('保存对“guide.md”的修改？');
+    await readerWindow.getByRole('button', { name: '取消', exact: true }).click();
+    await expect.poll(() => readJsonIfAvailable(installMarkerPath)).toBeUndefined();
+    await expect(settingsWindow.getByText('暂时无法重启安装，请稍后重试。')).toBeVisible();
+
+    await settingsWindow.getByRole('button', { name: '重启并更新' }).click();
+    await readerWindow.getByRole('button', { name: '不保存', exact: true }).click();
+    await expect
+      .poll(() => readJsonIfAvailable(installMarkerPath))
+      .toEqual({
+        installedVersion: '0.2.0',
+      });
+    await expect.poll(() => readFile(sourcePath, 'utf8')).toBe('# Saved');
   } finally {
     await electronApp.close();
     await rm(temporaryDirectory, { force: true, recursive: true });

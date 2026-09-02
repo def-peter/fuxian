@@ -2,6 +2,7 @@ import {
   desktopIpcChannels,
   isSettingsSectionId,
   normalizeReaderPreferences,
+  type AppCloseRequest,
   type AppUpdateInstallPreparationResult,
   type AppUpdateStatus,
   type ExternalRevisionEvent,
@@ -20,6 +21,11 @@ import {
   type PersistedDocumentSession,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
+  type SaveSourceDocumentAsRequest,
+  type SaveSourceDocumentAsResult,
+  type SaveSourceDocumentRequest,
+  type SaveSourceDocumentResult,
+  type SourceRecoveryDraft,
   type StartPdfExportRequest,
   type StartPdfExportResult,
   type SettingsSectionId,
@@ -47,6 +53,7 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.cancelPdfExport, exportId),
   cancelPlantUmlRender: (requestId: string): void =>
     ipcRenderer.send(desktopIpcChannels.cancelPlantUmlRender, requestId),
+  confirmAppClose: (): void => ipcRenderer.send(desktopIpcChannels.appCloseConfirmed),
   configureOpenDocumentWatches: async (request: OpenDocumentWatchesRequest): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.configureOpenDocumentWatches, request),
   checkForAppUpdates: async (): Promise<AppUpdateStatus> =>
@@ -65,6 +72,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.loadDocumentSession),
   loadReaderPreferences: async (): Promise<ReaderPreferences> =>
     ipcRenderer.invoke(desktopIpcChannels.loadReaderPreferences),
+  loadSourceRecoveryDrafts: async (): Promise<SourceRecoveryDraft[]> =>
+    ipcRenderer.invoke(desktopIpcChannels.loadSourceRecoveryDrafts),
   locateSourceDocument: async (path: string): Promise<LocateSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.locateSourceDocument, path),
   onReaderPreferencesChanged: (
@@ -91,6 +100,16 @@ const bridge: FuxianDesktopBridge = Object.freeze({
         desktopIpcChannels.externalRevisionChanged,
         handleExternalRevision,
       );
+  },
+  onAppCloseRequested: (listener: (request: AppCloseRequest) => void): (() => void) => {
+    const handleCloseRequested = (
+      _event: Electron.IpcRendererEvent,
+      request: AppCloseRequest,
+    ): void => listener(request);
+    ipcRenderer.on(desktopIpcChannels.appCloseRequested, handleCloseRequested);
+    ipcRenderer.send(desktopIpcChannels.appCloseGuardReady);
+    return () =>
+      ipcRenderer.removeListener(desktopIpcChannels.appCloseRequested, handleCloseRequested);
   },
   onAppUpdateStatusChanged: (listener: (status: AppUpdateStatus) => void): (() => void) => {
     const handleStatus = (_event: Electron.IpcRendererEvent, status: AppUpdateStatus): void =>
@@ -164,10 +183,22 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.send(desktopIpcChannels.reportPdfExportProgress, progress),
   retrySourceDocument: async (path: string): Promise<ReadSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.retrySourceDocument, path),
+  deleteSourceRecoveryDraft: async (path: string): Promise<void> =>
+    ipcRenderer.invoke(desktopIpcChannels.deleteSourceRecoveryDraft, path),
   saveDocumentSession: async (session: PersistedDocumentSession): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.saveDocumentSession, session),
   saveReaderPreferences: async (preferences: ReaderPreferences): Promise<ReaderPreferences> =>
     ipcRenderer.invoke(desktopIpcChannels.saveReaderPreferences, preferences),
+  saveSourceDocument: async (
+    request: SaveSourceDocumentRequest,
+  ): Promise<SaveSourceDocumentResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.saveSourceDocument, request),
+  saveSourceDocumentAs: async (
+    request: SaveSourceDocumentAsRequest,
+  ): Promise<SaveSourceDocumentAsResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.saveSourceDocumentAs, request),
+  saveSourceRecoveryDraft: async (draft: SourceRecoveryDraft): Promise<void> =>
+    ipcRenderer.invoke(desktopIpcChannels.saveSourceRecoveryDraft, draft),
   signalPdfExportReady: (signal: PdfExportReadySignal): void =>
     ipcRenderer.send(desktopIpcChannels.pdfExportReady, signal),
   startPdfExport: async (request: StartPdfExportRequest): Promise<StartPdfExportResult> =>

@@ -1,6 +1,6 @@
 # Fuxian
 
-Fuxian turns Markdown source documents into polished, trustworthy documents for reading and PDF delivery. It serves people who want the finished result without working directly with Markdown syntax.
+Fuxian turns Markdown source documents into polished, trustworthy documents for reading and PDF delivery. It primarily serves people who want the finished result, while allowing deliberate, lightweight source changes without becoming a general-purpose editor.
 
 ## Language
 
@@ -37,8 +37,24 @@ The restorable location reached by the user within a document. It is anchored to
 _Avoid_: Scroll position, progress percentage
 
 **External revision**:
-A stable change written to an open source document by another process while Fuxian is running. A burst of writes settles into one external revision rather than many user-visible updates.
-_Avoid_: Reload, edit conflict
+A stable change written to an open source document by another process while Fuxian is running. A burst of writes settles into one external revision rather than many user-visible updates; it is distinct from an external conflict with unsaved local work.
+_Avoid_: Reload
+
+**Source editing mode**:
+The active-document mode in which a reader works directly with Markdown source instead of the finished document. It remains scoped to one already-open source document and does not introduce projects, folders, or simultaneous preview.
+_Avoid_: Editor workspace, split preview
+
+**Edit buffer**:
+The active document's working source, selection, and save state while source editing mode is open. It may differ from both the last saved source and the latest external revision.
+_Avoid_: Finished document, source document
+
+**External conflict**:
+The state in which an external revision arrives after the edit buffer has unsaved local changes. Neither version is authoritative until the reader explicitly chooses how to resolve it.
+_Avoid_: Reload, update failure
+
+**Recovery draft**:
+An application-owned copy of an unsaved edit buffer retained only to recover interrupted work. It is not a saved source document and never replaces that document without an explicit reader action.
+_Avoid_: Autosave, source document
 
 **Finished document**:
 The reading and print representation produced from a source document, including typography, diagrams, formulas, code, tables, and images.
