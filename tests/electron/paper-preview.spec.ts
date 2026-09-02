@@ -164,6 +164,80 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
   }
 });
 
+test('paper mode keeps wide table fragments inside the printable content width', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-table-width-'));
+  const sourcePath = join(directory, 'paper-table-width.md');
+  const tableRows = Array.from(
+    { length: 12 },
+    (_, index) =>
+      `| ${index + 1} | DEMOZ-${8_705 + index} | 商品权重曝光因子 | 中英文 mixed content | 123456789012345 | \`inline-value-${index + 1}\` |`,
+  );
+  await writeFile(
+    sourcePath,
+    [
+      '# 多列表格纸张宽度',
+      '',
+      '| 序号 | 需求编号 | 指标名称 | 说明 | 长数字 | 行内代码 |',
+      '| ---: | --- | --- | --- | ---: | --- |',
+      ...tableRows,
+    ].join('\n'),
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const continuousTable = window
+      .frameLocator('iframe[title="Finished document"]')
+      .locator('table');
+    await expect(continuousTable).toBeVisible();
+    await expect(continuousTable).toHaveCSS('overflow-x', 'auto');
+
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    const tables = paper.locator('.pagedjs_page_content table');
+    await expect(tables.first()).toBeVisible({ timeout: 20_000 });
+
+    const geometries = await tables.evaluateAll((elements) =>
+      elements.map((element) => {
+        const table = element.getBoundingClientRect();
+        const content = element.closest('.pagedjs_page_content')?.getBoundingClientRect();
+        if (!content) throw new Error('Table fragment is not inside a Paged.js content box.');
+        return {
+          contentLeft: content.left,
+          contentRight: content.right,
+          tableLeft: table.left,
+          tableRight: table.right,
+          tableWidth: table.width,
+        };
+      }),
+    );
+
+    expect(geometries.length).toBeGreaterThan(1);
+    for (const geometry of geometries) {
+      expect(geometry.tableLeft).toBeGreaterThanOrEqual(geometry.contentLeft - 1);
+      expect(geometry.tableRight).toBeLessThanOrEqual(geometry.contentRight + 1);
+    }
+    expect(Math.max(...geometries.map(({ tableWidth }) => tableWidth))).toBeCloseTo(
+      Math.min(...geometries.map(({ tableWidth }) => tableWidth)),
+      0,
+    );
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('paper mode scrolls with the mouse wheel', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-scroll-'));
   const sourcePath = join(directory, 'paper-scroll.md');

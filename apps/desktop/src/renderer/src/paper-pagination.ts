@@ -31,6 +31,11 @@ table {
   overflow: visible;
 }
 
+th,
+td {
+  min-width: 0;
+}
+
 thead {
   display: table-header-group;
 }
