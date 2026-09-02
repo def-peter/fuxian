@@ -14,8 +14,6 @@
 
 <p align="center">
   <a href="https://github.com/def-peter/fuxian/releases/latest"><strong>下载最新版本</strong></a>
-  ·
-  <a href="https://github.com/def-peter/fuxian/issues">查看路线图</a>
 </p>
 
 > Fuxian is a reading-first Markdown desktop app for Windows and macOS. It turns Markdown from AI and other tools into rich, readable documents, with first-class rendering for Mermaid, PlantUML, Vega-Lite, and AntV Infographic.
