@@ -16,10 +16,15 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
+import { cn } from '@/lib/utils';
 
 interface DocumentWidthControlsProps {
   onChange(documentWidth: ReaderPreferences['documentWidth']): void;
   value: ReaderPreferences['documentWidth'];
+}
+
+interface DocumentWidthPopoverProps extends DocumentWidthControlsProps {
+  className?: string;
 }
 
 const widthModeLabels: Record<DocumentWidthMode, string> = {
@@ -82,11 +87,11 @@ export function DocumentWidthControls({
 }
 
 export function DocumentWidthPopover({
+  className,
   onChange,
   value,
-}: DocumentWidthControlsProps): React.JSX.Element {
-  const triggerLabel =
-    value.mode === 'custom' ? `自定义 · ${value.customWidth}px` : widthModeLabels[value.mode];
+}: DocumentWidthPopoverProps): React.JSX.Element {
+  const triggerLabel = widthModeLabels[value.mode];
 
   return (
     <Popover>
@@ -95,7 +100,7 @@ export function DocumentWidthPopover({
           <PopoverTrigger asChild>
             <Button
               aria-label="文档宽度"
-              className="h-7 gap-1 px-2 text-xs font-normal text-muted-foreground"
+              className={cn('h-7 gap-1 px-2 text-xs font-normal text-muted-foreground', className)}
               size="sm"
               variant="ghost"
             >

@@ -68,6 +68,11 @@ describe('document theme preferences', () => {
     expect(documentThemeCss).not.toContain('tbody tr:nth-child(even)');
   });
 
+  it('keeps table rows compact without reducing horizontal breathing room', () => {
+    expect(documentThemeCss).toMatch(/table\s*\{[^}]*line-height: 1\.5;/s);
+    expect(documentThemeCss).toMatch(/th,\s*td\s*\{[^}]*padding: 8px 12px;/s);
+  });
+
   it('uses neutral inline-code surfaces independent from document borders', () => {
     expect(documentThemeCss).toContain('--document-inline-code: #f0f1f2;');
     expect(documentThemeCss).toContain('--document-inline-code-border: #e4e6e8;');

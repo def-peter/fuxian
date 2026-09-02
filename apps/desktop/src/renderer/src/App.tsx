@@ -1560,41 +1560,52 @@ export function App(): React.JSX.Element {
                   </div>
 
                   <div className="ml-4 flex shrink-0 items-center gap-1">
-                    <SegmentedControl
-                      aria-label="文档显示模式"
-                      onValueChange={(value) => {
-                        if (value === 'continuous' || value === 'paper') changeViewMode(value);
-                      }}
-                      type="single"
-                      value={viewMode}
+                    <div
+                      className="mr-2 flex shrink-0 items-center gap-1"
+                      data-document-display-controls=""
                     >
-                      <SegmentedControlItem
-                        aria-label="无界阅读"
-                        className="min-w-11"
-                        value="continuous"
+                      <SegmentedControl
+                        aria-label="文档显示模式"
+                        onValueChange={(value) => {
+                          if (value === 'continuous' || value === 'paper') changeViewMode(value);
+                        }}
+                        type="single"
+                        value={viewMode}
                       >
-                        无界
-                      </SegmentedControlItem>
-                      <SegmentedControlItem
-                        aria-label="纸张预览"
-                        className="min-w-11"
-                        value="paper"
+                        <SegmentedControlItem
+                          aria-label="无界阅读"
+                          className="min-w-11"
+                          value="continuous"
+                        >
+                          无界
+                        </SegmentedControlItem>
+                        <SegmentedControlItem
+                          aria-label="纸张预览"
+                          className="min-w-11"
+                          value="paper"
+                        >
+                          纸张
+                        </SegmentedControlItem>
+                      </SegmentedControl>
+                      <div
+                        className="flex h-7 w-20 shrink-0 items-center"
+                        data-document-display-auxiliary=""
                       >
-                        纸张
-                      </SegmentedControlItem>
-                    </SegmentedControl>
-                    {viewMode === 'continuous' ? (
-                      <DocumentWidthPopover
-                        onChange={(documentWidth) =>
-                          updatePreferences({ ...preferences, documentWidth })
-                        }
-                        value={preferences.documentWidth}
-                      />
-                    ) : paperPageCount ? (
-                      <span className="px-1 text-xs tabular-nums text-muted-foreground">
-                        {paperPageCount} 页
-                      </span>
-                    ) : null}
+                        {viewMode === 'continuous' ? (
+                          <DocumentWidthPopover
+                            className="w-full justify-between"
+                            onChange={(documentWidth) =>
+                              updatePreferences({ ...preferences, documentWidth })
+                            }
+                            value={preferences.documentWidth}
+                          />
+                        ) : paperPageCount ? (
+                          <span className="w-full px-2 text-xs tabular-nums text-muted-foreground">
+                            {paperPageCount} 页
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                     <ToolbarTooltip label="导出 PDF">
                       <Button
                         aria-label="导出 PDF"

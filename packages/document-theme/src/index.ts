@@ -510,13 +510,13 @@ table {
   border-collapse: collapse;
   font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 th,
 td {
   min-width: 120px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--document-border);
   text-align: left;
   vertical-align: top;
