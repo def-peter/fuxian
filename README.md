@@ -4,12 +4,12 @@
 
 <h1 align="center">浮现 (Fuxian)</h1>
 
-<p align="center"><strong>让技术图表真正浮现在 Markdown 中。</strong></p>
+<p align="center"><strong>让内容精彩浮现，让 Markdown 值得阅读。</strong></p>
 
 <p align="center">
   面向 Windows 和 macOS 的 Markdown 成品文档工具。<br />
-  在一份文档中统一呈现 Mermaid、PlantUML、Vega-Lite 与 AntV Infographic，<br />
-  将代码、公式、图表和信息图交付为适合阅读、演示与 PDF 输出的成品。
+  Markdown 在背后，文字、表格、代码、公式、图表与信息图以丰富易读的方式浮现在眼前。<br />
+  无论内容来自 AI 还是其他工具，都能呈现为适合阅读、演示与 PDF 输出的成品文档。
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <a href="https://github.com/def-peter/fuxian/issues">查看路线图</a>
 </p>
 
-> Fuxian is a reading-first Markdown desktop app for Windows and macOS. It renders Mermaid, PlantUML, Vega-Lite, and AntV Infographic as selectable SVG content in polished documents with reliable PDF delivery.
+> Fuxian is a reading-first Markdown desktop app for Windows and macOS. It turns Markdown from AI and other tools into rich, readable documents, with first-class rendering for Mermaid, PlantUML, Vega-Lite, and AntV Infographic.
 
 ## 技术可视化
 

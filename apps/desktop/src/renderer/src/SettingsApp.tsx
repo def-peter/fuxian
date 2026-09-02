@@ -703,7 +703,7 @@ export function SettingsApp(): React.JSX.Element {
             <FuxianAppIcon className="size-24" decorative={false} />
             <h2 className="mt-5 text-lg font-semibold">浮现</h2>
             <p className="mt-2 max-w-sm text-sm leading-6 text-fg-secondary">
-              专注于 Markdown 成品文档阅读与 PDF 交付。
+              让内容精彩浮现，让 Markdown 值得阅读。
             </p>
           </aside>
         ) : (
