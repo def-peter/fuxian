@@ -56,8 +56,9 @@ export const documentThemeCss = `
   --document-selection-current: #f3d77d;
   --document-subtle: #f8faf9;
   --document-raised: #ffffff;
-  --document-table-heading: #f0f4f2;
-  --document-inline-code: #f3f6f5;
+  --document-table-heading: #f0f1f2;
+  --document-inline-code: #f0f1f2;
+  --document-inline-code-border: #e4e6e8;
   --document-error: #74372f;
   --document-error-border: #cbaea8;
   --document-error-background: #fbf7f6;
@@ -137,8 +138,9 @@ export const documentThemeCss = `
   --document-selection-current: #776520;
   --document-subtle: #1b2220;
   --document-raised: #252c2a;
-  --document-table-heading: #252e2b;
-  --document-inline-code: #252e2b;
+  --document-table-heading: #25282c;
+  --document-inline-code: #25282c;
+  --document-inline-code-border: #3a3f44;
   --document-error: #f0aaa0;
   --document-error-border: #8d5149;
   --document-error-background: #2b201f;
@@ -523,10 +525,6 @@ th {
   font-weight: 650;
 }
 
-tbody tr:nth-child(even) {
-  background: var(--document-subtle);
-}
-
 .contains-task-list {
   padding-left: 4px;
   list-style: none;
@@ -548,7 +546,7 @@ code {
 
 :not(pre) > code {
   padding: 2px 5px;
-  border: 1px solid var(--document-border);
+  border: 1px solid var(--document-inline-code-border);
   border-radius: 3px;
   color: var(--document-foreground);
   background: var(--document-inline-code);

@@ -32,6 +32,26 @@ describe('document theme preferences', () => {
     );
   });
 
+  it('uses a neutral table heading without zebra-striped body rows', () => {
+    expect(documentThemeCss).toContain('--document-table-heading: #f0f1f2;');
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-table-heading: #25282c;/s,
+    );
+    expect(documentThemeCss).toMatch(/th\s*\{[^}]*background: var\(--document-table-heading\);/s);
+    expect(documentThemeCss).not.toContain('tbody tr:nth-child(even)');
+  });
+
+  it('uses neutral inline-code surfaces independent from document borders', () => {
+    expect(documentThemeCss).toContain('--document-inline-code: #f0f1f2;');
+    expect(documentThemeCss).toContain('--document-inline-code-border: #e4e6e8;');
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-inline-code: #25282c;[^}]*--document-inline-code-border: #3a3f44;/s,
+    );
+    expect(documentThemeCss).toMatch(
+      /:not\(pre\) > code\s*\{[^}]*border: 1px solid var\(--document-inline-code-border\);[^}]*background: var\(--document-inline-code\);/s,
+    );
+  });
+
   it('creates one document-level width and typography variable set', () => {
     expect(getDocumentThemeVariables(preferences)).toEqual({
       '--document-body-font':
