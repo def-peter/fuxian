@@ -81,7 +81,12 @@ test('adapts the reader shell without losing independent region preferences', as
     const shell = window.locator('[data-session-root]');
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
     await expect(shell).toHaveAttribute('data-shell-layout', 'wide');
-    await expect(window.getByRole('complementary', { name: '文档会话' })).toBeVisible();
+    const documentSession = window.getByRole('complementary', { name: '文档会话' });
+    await expect(documentSession).toBeVisible();
+    const desktopHeaderActions = documentSession.locator('header').getByRole('button');
+    await expect(desktopHeaderActions).toHaveCount(2);
+    await expect(desktopHeaderActions.nth(0)).toHaveAccessibleName('打开文档');
+    await expect(desktopHeaderActions.nth(1)).toHaveAccessibleName('收起文档会话');
     await expect(window.getByRole('complementary', { name: '内容目录' })).toBeVisible();
     await expect(finishedDocument.getByRole('heading', { name: '响应式阅读器' })).toBeVisible();
 
@@ -125,9 +130,14 @@ test('adapts the reader shell without losing independent region preferences', as
     await expect(window.getByRole('complementary', { name: '文档会话' })).toHaveCount(0);
     await expect(window.getByRole('button', { name: '打开文档会话' })).toBeVisible();
     await window.getByRole('button', { name: '打开文档会话' }).click();
-    await expect(
-      window.getByRole('dialog').getByRole('complementary', { name: '文档会话' }),
-    ).toBeVisible();
+    const documentSessionDrawer = window
+      .getByRole('dialog')
+      .getByRole('complementary', { name: '文档会话' });
+    await expect(documentSessionDrawer).toBeVisible();
+    const drawerHeaderActions = documentSessionDrawer.locator('header').getByRole('button');
+    await expect(drawerHeaderActions).toHaveCount(2);
+    await expect(drawerHeaderActions.nth(0)).toHaveAccessibleName('打开文档');
+    await expect(drawerHeaderActions.nth(1)).toHaveAccessibleName('收起文档会话');
     await expect(window.getByRole('dialog')).toHaveCSS('width', '320px');
     await window.getByRole('button', { name: '收起文档会话' }).click();
     await expect(window.getByRole('dialog')).toHaveCount(0);

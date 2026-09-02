@@ -276,7 +276,7 @@ test('a reader can manage multiple open and recent documents without duplicates'
       finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
     ).toBeVisible();
 
-    await window.getByRole('button', { name: '打开其他文档' }).click();
+    await session.getByRole('button', { name: '打开文档' }).click();
     await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveCount(1);
     await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveCount(1);
     await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(

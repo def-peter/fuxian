@@ -37,6 +37,13 @@ test('tooltips stay clear of file actions and use one global treatment', async (
     await documentButton.hover();
     const fileTooltip = window.getByRole('tooltip', { exact: true, name: sourcePath });
     await expect(fileTooltip).toContainText(sourcePath);
+    await expect
+      .poll(() =>
+        fileTooltip.evaluate((tooltip) =>
+          tooltip.parentElement ? getComputedStyle(tooltip.parentElement).pointerEvents : null,
+        ),
+      )
+      .toBe('none');
     const sharedTooltipClass = await fileTooltip.getAttribute('class');
     const [fileTooltipBox, closeButtonBox] = await Promise.all([
       fileTooltip.boundingBox(),

@@ -248,18 +248,8 @@ export function DocumentSessionSidebar({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">
-              <PanelLeftClose aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={6}>
-            收起文档会话
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
-              aria-label="添加文档"
+              aria-label="打开文档"
               disabled={isOpening}
               onClick={onOpen}
               size="icon-sm"
@@ -268,8 +258,18 @@ export function DocumentSessionSidebar({
               <FolderOpen aria-hidden="true" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={6}>
-            添加文档
+          <TooltipContent align="end" side="bottom" sideOffset={6}>
+            打开文档
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">
+              <PanelLeftClose aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent align="end" side="bottom" sideOffset={6}>
+            收起文档会话
           </TooltipContent>
         </Tooltip>
       </header>

@@ -4,6 +4,7 @@ import {
   expect,
   test,
   type ElectronApplication,
+  type Locator,
   type Page,
 } from '@playwright/test';
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -73,6 +74,16 @@ const getSettingsWindow = async (electronApp: ElectronApplication): Promise<Page
   return settingsWindow;
 };
 
+const waitForLayerReady = async (layer: Locator): Promise<void> => {
+  await expect
+    .poll(() =>
+      layer.evaluate((element) =>
+        element.getAnimations().every((animation) => animation.playState === 'finished'),
+      ),
+    )
+    .toBe(true);
+};
+
 test('supports the core reader workflow with keyboard and assistive semantics', async () => {
   test.setTimeout(90_000);
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-accessibility-'));
@@ -108,8 +119,12 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     const readerWindow = await electronApp.firstWindow();
     await readerWindow.setViewportSize({ height: 768, width: 1_024 });
 
-    const addDocument = readerWindow.getByRole('button', { name: '添加文档' });
-    await addDocument.focus();
+    const openDocument = readerWindow.getByRole('button', { name: '打开文档' });
+    await openDocument.focus();
+    await readerWindow.keyboard.press('Tab');
+    await expect(readerWindow.getByRole('button', { name: '收起文档会话' })).toBeFocused();
+    await readerWindow.keyboard.press('Shift+Tab');
+    await expect(openDocument).toBeFocused();
     await readerWindow.keyboard.press('Enter');
 
     const frame = readerWindow.locator('iframe[title="Finished document"]');
@@ -122,7 +137,9 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     await readerWindow.keyboard.press('Enter');
     const outlineDialog = readerWindow.getByRole('dialog');
     await expect(outlineDialog.getByRole('complementary', { name: '内容目录' })).toBeVisible();
-    await readerWindow.keyboard.press('Escape');
+    await expect(outlineDialog).toBeFocused();
+    await waitForLayerReady(outlineDialog);
+    await outlineDialog.press('Escape');
     await expect(outlineDialog).toHaveCount(0);
     await expect(outlineTrigger).toBeFocused();
 
@@ -133,7 +150,7 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     await findInput.fill('content');
     await readerWindow.keyboard.press('Enter');
     await expect(readerWindow.getByRole('search', { name: '页内查找' })).toContainText('2/2');
-    await readerWindow.keyboard.press('Escape');
+    await findInput.press('Escape');
     await expect(readerWindow.getByRole('search', { name: '页内查找' })).toHaveCount(0);
     await expect(frame).toBeFocused();
 
@@ -145,7 +162,8 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     const sourceDialog = readerWindow.getByRole('dialog');
     await expect(sourceDialog.getByRole('complementary', { name: '图表源码' })).toBeVisible();
     await expect(sourceDialog.getByLabel('Mermaid 图表源码')).toBeVisible();
-    await readerWindow.keyboard.press('Escape');
+    await waitForLayerReady(sourceDialog);
+    await sourceDialog.press('Escape');
     await expect(sourceDialog).toHaveCount(0);
     await expect(sourceAction).toBeFocused();
 
@@ -162,7 +180,8 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     await expect
       .poll(() => canvas.locator(':scope > div').getAttribute('style'))
       .not.toBe(transformBeforePan);
-    await readerWindow.keyboard.press('Escape');
+    await waitForLayerReady(focusDialog);
+    await canvas.press('Escape');
     await expect(focusDialog).toHaveCount(0);
     await expect(focusAction).toBeFocused();
 

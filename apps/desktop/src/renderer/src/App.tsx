@@ -1679,17 +1679,6 @@ export function App(): React.JSX.Element {
                         </Button>
                       </ToolbarTooltip>
                     )}
-                    <Button
-                      aria-label="打开其他文档"
-                      className="max-[1199px]:w-8 max-[1199px]:px-0"
-                      disabled={opening}
-                      onClick={() => void openSourceDocuments()}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <FolderOpen aria-hidden="true" />
-                      <span className="max-[1199px]:sr-only">打开其他文档</span>
-                    </Button>
                     <ToolbarTooltip label={contentOutlineActionLabel}>
                       <Button
                         aria-label={contentOutlineActionLabel}

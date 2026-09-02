@@ -189,6 +189,10 @@
   button {
     letter-spacing: 0;
   }
+
+  [data-radix-popper-content-wrapper]:has(> [data-slot='tooltip-content']) {
+    pointer-events: none;
+  }
 }
 
 .article-structure-map.markmap {
