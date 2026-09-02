@@ -54,7 +54,10 @@ export function ContentOutline({
     });
   };
 
-  const renderNode = (node: ContentOutlineNode): React.JSX.Element => {
+  const renderNode = (
+    node: ContentOutlineNode,
+    ancestorDepths: number[] = [],
+  ): React.JSX.Element => {
     const isExpanded = visibleExpandedHeadings.has(node.heading.id);
     const hasDeeperChildren = node.children.some((child) => child.heading.depth > 3);
     const visibleChildren = node.children.filter((child) => child.heading.depth <= 3 || isExpanded);
@@ -63,10 +66,20 @@ export function ContentOutline({
     return (
       <li key={node.heading.id}>
         <div
-          className="group flex min-h-8 items-center border-l-2 border-transparent pr-2 data-[active=true]:bg-selected"
+          className="group relative flex min-h-8 items-center border-l-2 border-transparent pr-2 data-[active=true]:bg-selected"
           data-active={isActive || undefined}
+          data-outline-depth={node.heading.depth}
           style={{ paddingLeft: `${10 + Math.min(node.heading.depth - 1, 4) * 14}px` }}
         >
+          {ancestorDepths.map((depth) => (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 w-px bg-line-subtle forced-colors:hidden"
+              data-outline-guide=""
+              key={depth}
+              style={{ left: `${16 + Math.min(depth - 1, 4) * 14}px` }}
+            />
+          ))}
           {hasDeeperChildren ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -108,7 +121,11 @@ export function ContentOutline({
           </Tooltip>
         </div>
         {visibleChildren.length > 0 ? (
-          <ul>{visibleChildren.map((child) => renderNode(child))}</ul>
+          <ul>
+            {visibleChildren.map((child) =>
+              renderNode(child, [...ancestorDepths, node.heading.depth]),
+            )}
+          </ul>
         ) : null}
       </li>
     );
