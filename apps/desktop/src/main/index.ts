@@ -10,6 +10,7 @@ import {
   type ExternalRevisionEvent,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
+  type MarkdownDefaultAppState,
   type OpenSourceDocumentsResult,
   type OpenDocumentWatchesRequest,
   type PdfExportPayload,
@@ -70,6 +71,10 @@ import {
   type SourceRecoveryPersistence,
 } from './source-recovery-persistence';
 import { saveExistingSourceDocument, saveSourceDocumentCopy } from './source-document-save';
+import {
+  createMarkdownDefaultAppService,
+  type MarkdownDefaultAppService,
+} from './markdown-default-app';
 
 const { autoUpdater } = electronUpdater;
 
@@ -464,6 +469,7 @@ const registerDesktopHandlers = (
   preferencesPersistence: PreferencesPersistence,
   sourceRecoveryPersistence: SourceRecoveryPersistence,
   updateService: AppUpdateService,
+  markdownDefaultAppService: MarkdownDefaultAppService,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
   ipcMain.handle(desktopIpcChannels.appUpdateGetStatus, () => updateService.getStatus());
@@ -472,6 +478,12 @@ const registerDesktopHandlers = (
   ipcMain.handle(desktopIpcChannels.appUpdateCancelDownload, () => updateService.cancelDownload());
   ipcMain.handle(desktopIpcChannels.appUpdateInstall, () => updateService.installUpdate());
   ipcMain.handle(desktopIpcChannels.appUpdateOpenRelease, () => updateService.openReleasePage());
+  ipcMain.handle(desktopIpcChannels.getMarkdownDefaultAppStatus, () =>
+    markdownDefaultAppService.getStatus(),
+  );
+  ipcMain.handle(desktopIpcChannels.openMarkdownDefaultAppSettings, () =>
+    markdownDefaultAppService.openSettings(),
+  );
   ipcMain.on(desktopIpcChannels.appCloseGuardReady, (event) => {
     if (BrowserWindow.fromWebContents(event.sender) === mainWindow) {
       mainWindowCloseGuardReady = true;
@@ -1438,11 +1450,37 @@ if (!hasSingleInstanceLock) {
         (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')),
     });
     appUpdateService.initialize();
+    const testDefaultAppState = (
+      ['default', 'not-default', 'partial', 'unavailable'] as const
+    ).find(
+      (state): state is MarkdownDefaultAppState =>
+        state === process.env.FUXIAN_E2E_DEFAULT_APP_STATUS,
+    );
+    const markdownDefaultAppService = createMarkdownDefaultAppService({
+      executablePath: process.execPath,
+      isPackaged: app.isPackaged,
+      openExternal: (url) => shell.openExternal(url),
+      platform: process.platform,
+      revealFile: (path) => shell.showItemInFolder(path),
+      showMacGuidance: async () => {
+        await dialog.showMessageBox({
+          buttons: ['知道了'],
+          detail:
+            '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“浮现”，再点击“全部更改”。系统确认后返回浮现。',
+          message: '将浮现设为 Markdown 默认应用',
+          title: 'Markdown 默认应用',
+          type: 'info',
+        });
+      },
+      temporaryDirectory: app.getPath('temp'),
+      ...(isE2ERuntime && testDefaultAppState ? { testState: testDefaultAppState } : {}),
+    });
     registerDesktopHandlers(
       new JsonFileSessionPersistence(sessionPath),
       new JsonFilePreferencesPersistence(preferencesPath),
       new JsonFileSourceRecoveryPersistence(sourceRecoveryPath),
       appUpdateService,
+      markdownDefaultAppService,
     );
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();

@@ -7,12 +7,15 @@ import {
   type AppearancePreference,
   type CodeHighlightTheme,
   type DocumentBodyFamily,
+  type MarkdownDefaultAppStatus,
   type ReaderPreferences,
   type SettingsSectionId,
 } from '@fuxian/shared-types';
 import {
   CircleArrowUp,
+  CircleAlert,
   CircleCheck,
+  CircleMinus,
   Download,
   ExternalLink,
   FileText,
@@ -22,6 +25,7 @@ import {
   Network,
   RefreshCw,
   RotateCcw,
+  Settings2,
   Sun,
   Type,
 } from 'lucide-react';
@@ -93,6 +97,7 @@ const settingsSections: Array<{
   id: SettingsSectionId;
   label: string;
 }> = [
+  { icon: Settings2, id: 'general', label: '通用' },
   { icon: Sun, id: 'appearance', label: '外观' },
   { icon: FileText, id: 'document', label: '文档' },
   { icon: Network, id: 'plantuml', label: 'PlantUML' },
@@ -167,6 +172,9 @@ export function SettingsApp(): React.JSX.Element {
   const [plantUmlValidation, setPlantUmlValidation] = useState<PlantUmlValidationState>({
     status: 'idle',
   });
+  const [defaultAppStatus, setDefaultAppStatus] = useState<MarkdownDefaultAppStatus>();
+  const [defaultAppLoading, setDefaultAppLoading] = useState(false);
+  const [defaultAppActionMessage, setDefaultAppActionMessage] = useState<string>();
   const previewFrame = useRef<HTMLIFrameElement>(null);
   const documentTheme = useMemo(
     () => toDocumentThemePreferences(preferences, resolvedAppearance),
@@ -182,6 +190,28 @@ export function SettingsApp(): React.JSX.Element {
   }, [documentTheme]);
 
   useEffect(() => window.fuxian.onSettingsSectionRequested(setSection), []);
+
+  useEffect(() => {
+    if (section !== 'general') return;
+    let active = true;
+    const refresh = (): void => {
+      setDefaultAppLoading(true);
+      void window.fuxian
+        .getMarkdownDefaultAppStatus()
+        .then((status) => {
+          if (active) setDefaultAppStatus(status);
+        })
+        .finally(() => {
+          if (active) setDefaultAppLoading(false);
+        });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refresh);
+    };
+  }, [section]);
 
   const handlePreviewLoad = (): void => {
     const frameDocument = previewFrame.current?.contentDocument;
@@ -253,6 +283,21 @@ export function SettingsApp(): React.JSX.Element {
     void window.fuxian.openAppUpdateRelease();
   };
 
+  const openMarkdownDefaultAppSettings = (): void => {
+    setDefaultAppActionMessage(undefined);
+    void window.fuxian.openMarkdownDefaultAppSettings().then((result) => {
+      setDefaultAppActionMessage(result.message);
+    });
+  };
+
+  const refreshMarkdownDefaultAppStatus = (): void => {
+    setDefaultAppLoading(true);
+    void window.fuxian
+      .getMarkdownDefaultAppStatus()
+      .then(setDefaultAppStatus)
+      .finally(() => setDefaultAppLoading(false));
+  };
+
   return (
     <div
       className="grid h-full grid-rows-[52px_minmax(0,1fr)] bg-surface-shell"
@@ -290,6 +335,86 @@ export function SettingsApp(): React.JSX.Element {
           aria-busy={!ready}
           data-settings-surface="form"
         >
+          {section === 'general' ? (
+            <section aria-labelledby="general-title">
+              <h2 className="text-base font-semibold" id="general-title">
+                通用
+              </h2>
+              <p className="mt-1 text-sm text-fg-secondary">管理浮现与操作系统的集成。</p>
+              <Separator className="my-5" />
+
+              <Field>
+                <FieldTitle>Markdown 默认应用</FieldTitle>
+                <FieldDescription>
+                  分别检查 .md 与
+                  .markdown。浮现只会在你明确操作后打开系统设置，不会静默更改文件关联。
+                </FieldDescription>
+                <div aria-live="polite" className="mt-3 flex flex-col gap-3">
+                  {defaultAppLoading && !defaultAppStatus ? (
+                    <div
+                      className="flex items-center gap-2 text-sm text-fg-secondary"
+                      role="status"
+                    >
+                      <Spinner />
+                      正在检查系统设置...
+                    </div>
+                  ) : null}
+                  {defaultAppStatus ? (
+                    <Alert>
+                      {defaultAppStatus.state === 'default' ? (
+                        <CircleCheck aria-hidden="true" />
+                      ) : defaultAppStatus.state === 'partial' ? (
+                        <CircleMinus aria-hidden="true" />
+                      ) : (
+                        <CircleAlert aria-hidden="true" />
+                      )}
+                      <AlertTitle>
+                        {defaultAppStatus.state === 'default'
+                          ? '已是默认应用'
+                          : defaultAppStatus.state === 'partial'
+                            ? '部分关联'
+                            : defaultAppStatus.state === 'not-default'
+                              ? '不是默认应用'
+                              : '无法检测'}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {defaultAppStatus.state === 'default'
+                          ? '.md 与 .markdown 均由浮现默认打开。'
+                          : defaultAppStatus.state === 'partial'
+                            ? `.md：${defaultAppStatus.md ? '浮现' : '其他应用'}；.markdown：${defaultAppStatus.markdown ? '浮现' : '其他应用'}。`
+                            : defaultAppStatus.state === 'not-default'
+                              ? '.md 与 .markdown 当前均由其他应用默认打开。'
+                              : (defaultAppStatus.message ?? '当前环境无法读取文件关联。')}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {defaultAppStatus &&
+                    defaultAppStatus.state !== 'default' &&
+                    defaultAppStatus.state !== 'unavailable' ? (
+                      <Button onClick={openMarkdownDefaultAppSettings} size="sm">
+                        <ExternalLink data-icon="inline-start" />
+                        设为 Markdown 默认应用
+                      </Button>
+                    ) : null}
+                    <Button
+                      disabled={defaultAppLoading}
+                      onClick={refreshMarkdownDefaultAppStatus}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <RefreshCw data-icon="inline-start" />
+                      刷新状态
+                    </Button>
+                  </div>
+                  {defaultAppActionMessage ? (
+                    <p className="text-xs leading-5 text-fg-secondary">{defaultAppActionMessage}</p>
+                  ) : null}
+                </div>
+              </Field>
+            </section>
+          ) : null}
+
           {section === 'about' ? (
             <section aria-labelledby="about-title">
               <h2 className="text-base font-semibold" id="about-title">

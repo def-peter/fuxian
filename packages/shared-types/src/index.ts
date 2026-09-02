@@ -17,11 +17,13 @@ export const desktopIpcChannels = {
   configureOpenDocumentWatches: 'fuxian:source-documents:configure-open-watches',
   externalRevisionChanged: 'fuxian:source-documents:external-revision',
   getPdfExportPayload: 'fuxian:pdf-export:get-payload',
+  getMarkdownDefaultAppStatus: 'fuxian:default-app:get-status',
   loadDocumentSession: 'fuxian:document-session:load',
   loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
   openSettings: 'fuxian:settings:open',
+  openMarkdownDefaultAppSettings: 'fuxian:default-app:open-settings',
   openSourceDocuments: 'fuxian:source-documents:open',
   sourceDocumentOpenRequested: 'fuxian:source-documents:open-requested',
   sourceDocumentOpenReceiverReady: 'fuxian:source-documents:open-receiver-ready',
@@ -72,10 +74,27 @@ export interface AppUpdateStatus {
   transferred?: number | undefined;
 }
 
-export type SettingsSectionId = 'about' | 'appearance' | 'document' | 'plantuml';
+export type SettingsSectionId = 'about' | 'appearance' | 'document' | 'general' | 'plantuml';
 
 export const isSettingsSectionId = (value: unknown): value is SettingsSectionId =>
-  value === 'about' || value === 'appearance' || value === 'document' || value === 'plantuml';
+  value === 'about' ||
+  value === 'appearance' ||
+  value === 'document' ||
+  value === 'general' ||
+  value === 'plantuml';
+
+export type MarkdownDefaultAppState = 'default' | 'not-default' | 'partial' | 'unavailable';
+
+export interface MarkdownDefaultAppStatus {
+  markdown: boolean | null;
+  md: boolean | null;
+  message?: string | undefined;
+  platform: 'macos' | 'unsupported' | 'windows';
+  state: MarkdownDefaultAppState;
+}
+
+export type OpenMarkdownDefaultAppSettingsResult =
+  { message: string; status: 'opened' } | { message: string; status: 'unavailable' };
 
 export interface AppUpdateInstallPreparationResult {
   message?: string | undefined;
@@ -477,6 +496,7 @@ export interface FuxianDesktopBridge {
   configureOpenDocumentWatches(request: OpenDocumentWatchesRequest): Promise<void>;
   copyText(text: string): Promise<void>;
   getPdfExportPayload(exportId: string): Promise<PdfExportPayload>;
+  getMarkdownDefaultAppStatus(): Promise<MarkdownDefaultAppStatus>;
   getAppUpdateStatus(): Promise<AppUpdateStatus>;
   downloadAppUpdate(): Promise<AppUpdateStatus>;
   installAppUpdate(): Promise<AppUpdateStatus>;
@@ -495,6 +515,7 @@ export interface FuxianDesktopBridge {
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
   openAppUpdateRelease(): Promise<AppUpdateStatus>;
   openSettings(section?: SettingsSectionId): Promise<void>;
+  openMarkdownDefaultAppSettings(): Promise<OpenMarkdownDefaultAppSettingsResult>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
   renderPlantUml(request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult>;
   reportPdfExportProgress(progress: PdfExportRenderProgress): void;

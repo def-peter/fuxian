@@ -9,8 +9,10 @@ import {
   type FuxianDesktopBridge,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
+  type MarkdownDefaultAppStatus,
   type OpenSourceDocumentsResult,
   type OpenDocumentWatchesRequest,
+  type OpenMarkdownDefaultAppSettingsResult,
   type PdfExportPayload,
   type PdfExportProgress,
   type PdfExportReadySignal,
@@ -62,6 +64,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.copyText, text),
   getPdfExportPayload: async (exportId: string): Promise<PdfExportPayload> =>
     ipcRenderer.invoke(desktopIpcChannels.getPdfExportPayload, exportId),
+  getMarkdownDefaultAppStatus: async (): Promise<MarkdownDefaultAppStatus> =>
+    ipcRenderer.invoke(desktopIpcChannels.getMarkdownDefaultAppStatus),
   getAppUpdateStatus: async (): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateGetStatus),
   downloadAppUpdate: async (): Promise<AppUpdateStatus> =>
@@ -175,6 +179,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.appUpdateOpenRelease),
   openSettings: async (section?: SettingsSectionId): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.openSettings, section),
+  openMarkdownDefaultAppSettings: async (): Promise<OpenMarkdownDefaultAppSettingsResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.openMarkdownDefaultAppSettings),
   openSourceDocuments: async (): Promise<OpenSourceDocumentsResult> =>
     ipcRenderer.invoke(desktopIpcChannels.openSourceDocuments),
   renderPlantUml: async (request: PlantUmlRenderRequest): Promise<PlantUmlRenderResult> =>

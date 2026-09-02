@@ -153,7 +153,7 @@ The operating system owns window controls and the application menu. The content 
 - Switching to an inactive document whose latest render is incomplete shows its last successful version immediately with `正在更新...` until the latest version is ready.
 - Opening a closed document during external writes shows its cached successful version with `正在同步最新内容...` when available, or a stable loading skeleton otherwise. The first settled revision replaces that state atomically.
 - Opening diagram source temporarily replaces the right-side content outline with a wider source drawer. Closing the drawer restores the content outline without changing document position.
-- Settings use a separate desktop window with appearance, document, PlantUML, and “关于与更新” sections.
+- Settings use a separate desktop window with general, appearance, document, PlantUML, and “关于与更新” sections. General settings report `.md` and `.markdown` default-app status separately and only open the operating system's confirmation workflow after an explicit user action; the state refreshes when the window regains focus.
 - Packaged Windows and macOS builds check the stable update channel after a short non-blocking startup delay. Development builds show that updates are unavailable instead of contacting the production feed.
 - The Help menu opens “关于与更新” and starts a manual check. Manual checks distinguish checking, current, available, and failed states; background checks do not interrupt reading.
 - Available updates show the target version and plain-text release notes. Download begins only after explicit confirmation, remains cancellable, and reports progress while the reader stays usable.

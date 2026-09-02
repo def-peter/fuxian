@@ -649,7 +649,17 @@ test('the content outline navigates nested headings and can be collapsed', async
     await window.keyboard.press('Escape');
 
     await outline.getByRole('button', { name: /展开“这是一个.+”下的深层标题/ }).click();
-    await expect(outline.getByRole('button', { exact: true, name: '深层标题' })).toBeVisible();
+    const deepHeading = outline.getByRole('button', { exact: true, name: '深层标题' });
+    await expect(deepHeading).toBeVisible();
+    const deepHeadingRow = deepHeading.locator('xpath=..');
+    await expect(deepHeadingRow.locator('[data-outline-guide]')).toHaveCount(3);
+    expect(
+      await deepHeadingRow
+        .locator('[data-outline-guide]')
+        .evaluateAll((guides) =>
+          guides.map((guide) => Number.parseFloat(getComputedStyle(guide).left)),
+        ),
+    ).toEqual([16, 30, 44]);
 
     await outline.getByRole('button', { name: '本地资源' }).click();
     await expect

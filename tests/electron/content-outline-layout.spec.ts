@@ -72,15 +72,6 @@ test('content outline balances gutters without reserving empty disclosure slots'
         .getByRole('button', { name: '可展开章节' })
         .locator('xpath=..');
       await expect(secondLevelRow.locator('[data-outline-guide]')).toHaveCount(1);
-      await outline.getByRole('button', { name: /展开“可展开章节”下的深层标题/ }).click();
-      const skippedLevelRow = outline.getByRole('button', { name: '深层标题' }).locator('xpath=..');
-      await expect(skippedLevelRow.locator('[data-outline-guide]')).toHaveCount(2);
-      const guideOffsets = await skippedLevelRow
-        .locator('[data-outline-guide]')
-        .evaluateAll((guides) =>
-          guides.map((guide) => Number.parseFloat(getComputedStyle(guide).left)),
-        );
-      expect.soft(guideOffsets).toEqual([16, 30]);
     };
 
     const inlineOutline = window.getByRole('complementary', { name: '内容目录' });
