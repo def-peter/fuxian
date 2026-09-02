@@ -57,7 +57,6 @@ describe('Markdown file association icons', () => {
         name: 'Markdown 文档',
         description: 'Markdown 源文档',
         icon: 'markdown-file.ico',
-        progId: 'Fuxian.Markdown',
       },
     ]);
     expect(config.mac.fileAssociations).toEqual([

@@ -9,7 +9,6 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const executeFile = promisify(execFile);
-const windowsMarkdownProgId = 'Fuxian.Markdown';
 const markdownExtensions = ['md', 'markdown'] as const;
 
 type SupportedPlatform = 'darwin' | 'win32';
@@ -50,11 +49,17 @@ const testStatus = (
   ...(state === 'unavailable' ? { message: '测试适配器模拟当前环境无法检测。' } : {}),
 });
 
-const queryWindowsAssociation = async (extension: (typeof markdownExtensions)[number]) => {
+const queryWindowsAssociation = async (
+  extension: (typeof markdownExtensions)[number],
+  executablePath: string,
+) => {
   const registryPath = `HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.${extension}\\UserChoice`;
   const script = [
     `$choice = Get-ItemProperty -LiteralPath '${registryPath}' -Name ProgId -ErrorAction SilentlyContinue`,
-    `if ($null -ne $choice) { [Console]::Out.Write($choice.ProgId) }`,
+    '$progId = $choice.ProgId',
+    `if ([string]::IsNullOrWhiteSpace($progId)) { $progId = (Get-ItemProperty -LiteralPath 'Registry::HKEY_CLASSES_ROOT\\.${extension}' -ErrorAction SilentlyContinue).'(default)' }`,
+    "$command = if ([string]::IsNullOrWhiteSpace($progId)) { '' } else { (Get-ItemProperty -LiteralPath ('Registry::HKEY_CLASSES_ROOT\\' + $progId + '\\shell\\open\\command') -ErrorAction SilentlyContinue).'(default)' }",
+    `[Console]::Out.Write(([PSCustomObject]@{ command = $command; progId = $progId } | ConvertTo-Json -Compress))`,
   ].join('; ');
   const { stdout } = await executeFile('powershell.exe', [
     '-NoLogo',
@@ -63,7 +68,14 @@ const queryWindowsAssociation = async (extension: (typeof markdownExtensions)[nu
     '-Command',
     script,
   ]);
-  return stdout.trim().toLocaleLowerCase() === windowsMarkdownProgId.toLocaleLowerCase();
+  const association = JSON.parse(stdout) as { command?: unknown; progId?: unknown };
+  if (typeof association.command !== 'string' || typeof association.progId !== 'string') {
+    return false;
+  }
+  const command = association.command.toLocaleLowerCase();
+  return (
+    association.progId === 'Markdown 文档' && command.includes(executablePath.toLocaleLowerCase())
+  );
 };
 
 const appleScriptArguments = (path: string): string[] => [
@@ -152,8 +164,8 @@ export const createMarkdownDefaultAppService = (
         const associations =
           supportedPlatform === 'win32'
             ? {
-                md: await queryWindowsAssociation('md'),
-                markdown: await queryWindowsAssociation('markdown'),
+                md: await queryWindowsAssociation('md', dependencies.executablePath),
+                markdown: await queryWindowsAssociation('markdown', dependencies.executablePath),
               }
             : await queryMacAssociations(
                 dependencies.executablePath,
@@ -209,5 +221,3 @@ export const createMarkdownDefaultAppService = (
     },
   };
 };
-
-export { windowsMarkdownProgId };
