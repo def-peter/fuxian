@@ -661,52 +661,95 @@ code {
 }
 
 .render-task-skeleton {
-  position: relative;
+  display: grid;
+  place-items: center;
   width: 100%;
   height: clamp(160px, 25vw, 240px);
   overflow: hidden;
-  border: 1px solid var(--document-border);
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--document-code) 72%, var(--document-background));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--document-code) 28%, var(--document-background));
 }
 
-.render-task-skeleton::before,
-.render-task-skeleton::after {
+.render-task-skeleton-diagram {
+  position: relative;
+  width: min(72%, 520px);
+  height: min(58%, 132px);
+}
+
+.render-task-skeleton-diagram::before,
+.render-task-skeleton-diagram::after,
+.render-task-skeleton-node-child::before {
   position: absolute;
   content: "";
+  background: color-mix(in srgb, var(--document-border) 52%, transparent);
 }
 
-.render-task-skeleton::before {
-  inset: 20% 12%;
-  border: 1px solid color-mix(in srgb, var(--document-border) 72%, transparent);
-  background:
-    linear-gradient(
-      90deg,
-      transparent 0 18%,
-      color-mix(in srgb, var(--document-border) 58%, transparent) 18% 19%,
-      transparent 19% 49%,
-      color-mix(in srgb, var(--document-border) 58%, transparent) 49% 50%,
-      transparent 50% 80%,
-      color-mix(in srgb, var(--document-border) 58%, transparent) 80% 81%,
-      transparent 81%
-    );
+.render-task-skeleton-diagram::before {
+  top: 28%;
+  left: 50%;
+  width: 1px;
+  height: 30%;
 }
 
-.render-task-skeleton::after {
-  inset: 0;
-  transform: translateX(-100%);
+.render-task-skeleton-diagram::after {
+  top: 58%;
+  left: 11%;
+  width: 78%;
+  height: 1px;
+}
+
+.render-task-skeleton-node {
+  position: absolute;
+  z-index: 1;
+  height: 18px;
+  border-radius: 3px;
   background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--document-raised) 65%, transparent),
-    transparent
+    100deg,
+    color-mix(in srgb, var(--document-border) 62%, var(--document-background)) 35%,
+    color-mix(in srgb, var(--document-raised) 82%, var(--document-background)) 50%,
+    color-mix(in srgb, var(--document-border) 62%, var(--document-background)) 65%
   );
-  animation: render-task-skeleton-shimmer 1.6s ease-in-out infinite;
+  background-size: 300% 100%;
+  animation: render-task-skeleton-shimmer 2.2s ease-in-out infinite;
+}
+
+.render-task-skeleton-node-root {
+  top: 8%;
+  left: 34%;
+  width: 32%;
+}
+
+.render-task-skeleton-node-child {
+  bottom: 5%;
+  width: 22%;
+}
+
+.render-task-skeleton-node-child::before {
+  bottom: 100%;
+  left: 50%;
+  width: 1px;
+  height: calc(37% + 16px);
+}
+
+.render-task-skeleton-node-left {
+  left: 0;
+}
+
+.render-task-skeleton-node-middle {
+  left: 39%;
+}
+
+.render-task-skeleton-node-right {
+  right: 0;
 }
 
 @keyframes render-task-skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
   to {
-    transform: translateX(100%);
+    background-position: 0 0;
   }
 }
 
@@ -976,8 +1019,18 @@ code {
   }
 
   .render-task-skeleton {
-    border-color: GrayText;
     background: Canvas;
+  }
+
+  .render-task-skeleton-node {
+    border: 1px solid GrayText;
+    background: Canvas;
+  }
+
+  .render-task-skeleton-diagram::before,
+  .render-task-skeleton-diagram::after,
+  .render-task-skeleton-node-child::before {
+    background: GrayText;
   }
 
   blockquote.callout {
@@ -994,7 +1047,7 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .render-task-skeleton::after,
+  .render-task-skeleton-node,
   .diagram-render-task > .render-task-output:not([hidden]) {
     animation: none;
   }

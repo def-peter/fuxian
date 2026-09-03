@@ -60,6 +60,10 @@ describe('renderMarkdown', () => {
 
     expect(finishedDocument.html).toContain('aria-busy="true"');
     expect(finishedDocument.html).toContain('class="render-task-skeleton"');
+    expect(finishedDocument.html).toContain('class="render-task-skeleton-diagram"');
+    expect(finishedDocument.html).toContain(
+      'class="render-task-skeleton-node render-task-skeleton-node-root"',
+    );
     expect(finishedDocument.html).toContain('class="render-task-source" hidden');
     expect(finishedDocument.html).not.toContain('<code class="render-task-source">flowchart LR');
   });

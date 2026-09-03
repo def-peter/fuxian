@@ -211,10 +211,12 @@ describe('document theme preferences', () => {
     const css = createDocumentThemeCss(preferences);
 
     expect(css).toMatch(
-      /\.render-task-skeleton\s*\{[^}]*height: clamp\(160px, 25vw, 240px\);[^}]*overflow: hidden;/s,
+      /\.render-task-skeleton\s*\{[^}]*height: clamp\(160px, 25vw, 240px\);[^}]*background: color-mix/s,
     );
+    expect(css).toContain('.render-task-skeleton-node-root');
+    expect(css).toContain('animation: render-task-skeleton-shimmer 2.2s ease-in-out infinite;');
     expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.render-task-skeleton::after,[\s\S]*animation: none;/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.render-task-skeleton-node,[\s\S]*animation: none;/,
     );
     expect(css).toMatch(
       /@media print[\s\S]*\.render-task-skeleton\s*\{[^}]*display: none !important;/,

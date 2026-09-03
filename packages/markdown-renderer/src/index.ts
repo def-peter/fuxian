@@ -626,7 +626,35 @@ const createRenderTaskNode = (task: DocumentRenderTask): Element => {
                 ariaHidden: 'true',
                 className: ['render-task-skeleton'],
               },
-              children: [],
+              children: [
+                {
+                  type: 'element' as const,
+                  tagName: 'div',
+                  properties: { className: ['render-task-skeleton-diagram'] },
+                  children: [
+                    {
+                      type: 'element' as const,
+                      tagName: 'span',
+                      properties: {
+                        className: ['render-task-skeleton-node', 'render-task-skeleton-node-root'],
+                      },
+                      children: [],
+                    },
+                    ...['left', 'middle', 'right'].map((position) => ({
+                      type: 'element' as const,
+                      tagName: 'span',
+                      properties: {
+                        className: [
+                          'render-task-skeleton-node',
+                          'render-task-skeleton-node-child',
+                          `render-task-skeleton-node-${position}`,
+                        ],
+                      },
+                      children: [],
+                    })),
+                  ],
+                },
+              ],
             },
           ]
         : []),
