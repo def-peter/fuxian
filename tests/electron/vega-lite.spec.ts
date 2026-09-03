@@ -39,6 +39,127 @@ const vegaBlock = (values: Array<{ category: string; value: number }>): string =
     '```',
   ].join('\n');
 
+test('keeps display math and Vega-Lite labels inside their rendered bounds', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-render-overflow-'));
+  const overflowSourcePath = join(directory, 'render-overflow.md');
+  await writeFile(
+    overflowSourcePath,
+    [
+      '# Render overflow',
+      '',
+      '$$',
+      String.raw`\mathrm{Completion\ Rate} = \frac{\mathrm{Completed\ Sessions}}{\mathrm{Valid\ Reading\ Sessions}} \times 100\%`,
+      '$$',
+      '',
+      '```vega-lite',
+      JSON.stringify({
+        data: {
+          values: [
+            { avg_q: 0.732695, country: 'KE', metric: '曝光价值密度' },
+            { avg_q: 0.358593, country: 'UG', metric: '曝光价值密度' },
+            { avg_q: 0.697454, country: 'KE', metric: '支付订单曝光代理比率' },
+            { avg_q: 0.238457, country: 'UG', metric: '支付订单曝光代理比率' },
+            { avg_q: 0.713163, country: 'KE', metric: '支付用户曝光用户代理比率' },
+            { avg_q: 0.206911, country: 'UG', metric: '支付用户曝光用户代理比率' },
+            { avg_q: 0.590332, country: 'KE', metric: '曝光点击率' },
+            { avg_q: 0.49676, country: 'UG', metric: '曝光点击率' },
+            { avg_q: 0.640729, country: 'KE', metric: '独立曝光点击率' },
+            { avg_q: 0.489058, country: 'UG', metric: '独立曝光点击率' },
+          ],
+        },
+        encoding: {
+          color: {
+            field: 'country',
+            scale: { domain: ['KE', 'UG'], range: ['#1677FF', '#FA8C16'] },
+            title: '国家',
+            type: 'nominal',
+          },
+          x: {
+            axis: { labelAngle: -25, labelLimit: 150 },
+            field: 'metric',
+            sort: [
+              '曝光价值密度',
+              '支付订单曝光代理比率',
+              '支付用户曝光用户代理比率',
+              '曝光点击率',
+              '独立曝光点击率',
+            ],
+            title: null,
+            type: 'nominal',
+          },
+          xOffset: { field: 'country' },
+          y: {
+            field: 'avg_q',
+            scale: { domain: [0, 1] },
+            title: 'q 均值',
+            type: 'quantitative',
+          },
+        },
+        height: 280,
+        mark: { tooltip: true, type: 'bar' },
+        width: 520,
+      }),
+      '```',
+    ].join('\n'),
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: overflowSourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const mathOutput = finishedDocument.locator(
+      '[data-render-task-kind="math-display"] > .render-task-output',
+    );
+    const vegaSvg = finishedDocument.locator(
+      '[data-render-task-kind="vega-lite"] > .render-task-output > svg',
+    );
+    await expect(mathOutput.locator('math[display="block"]')).toBeVisible();
+    await expect(vegaSvg).toBeVisible();
+
+    const mathGeometry = await mathOutput.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      scrollHeight: element.scrollHeight,
+    }));
+    expect.soft(mathGeometry.overflowY).toBe('hidden');
+    expect.soft(mathGeometry.scrollHeight).toBeLessThanOrEqual(mathGeometry.clientHeight);
+
+    const overflowingLabels = await vegaSvg.locator('text').evaluateAll(
+      (labels, svg) => {
+        const svgBounds = svg.getBoundingClientRect();
+        return labels.flatMap((label) => {
+          const bounds = label.getBoundingClientRect();
+          const overflow = {
+            bottom: bounds.bottom - svgBounds.bottom,
+            left: svgBounds.left - bounds.left,
+            right: bounds.right - svgBounds.right,
+            top: svgBounds.top - bounds.top,
+          };
+          return Object.values(overflow).some((amount) => amount > 0.5)
+            ? [{ overflow, text: label.textContent }]
+            : [];
+        });
+      },
+      await vegaSvg.elementHandle(),
+    );
+    expect(overflowingLabels).toEqual([]);
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('waits for a Vega-Lite snapshot when PDF export starts immediately', async () => {
   test.setTimeout(45_000);
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-lite-export-'));

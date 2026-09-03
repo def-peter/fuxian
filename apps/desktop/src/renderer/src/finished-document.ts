@@ -259,6 +259,61 @@ const normalizePlantUmlSvgSize = (svg: SVGElement): void => {
   }
 };
 
+const normalizeVegaLiteSvgBounds = (svg: SVGSVGElement): void => {
+  const viewBox = svg.viewBox.baseVal;
+  if (viewBox.width <= 0 || viewBox.height <= 0) return;
+  const originalViewBox = {
+    height: viewBox.height,
+    width: viewBox.width,
+    x: viewBox.x,
+    y: viewBox.y,
+  };
+
+  let contentBounds: DOMRect;
+  try {
+    contentBounds = svg.getBBox();
+  } catch {
+    return;
+  }
+
+  const overflowThreshold = 0.5;
+  const safetyPadding = 2;
+  const viewBoxRight = originalViewBox.x + originalViewBox.width;
+  const viewBoxBottom = originalViewBox.y + originalViewBox.height;
+  const contentRight = contentBounds.x + contentBounds.width;
+  const contentBottom = contentBounds.y + contentBounds.height;
+  const nextX =
+    contentBounds.x < originalViewBox.x - overflowThreshold
+      ? contentBounds.x - safetyPadding
+      : originalViewBox.x;
+  const nextY =
+    contentBounds.y < originalViewBox.y - overflowThreshold
+      ? contentBounds.y - safetyPadding
+      : originalViewBox.y;
+  const nextRight =
+    contentRight > viewBoxRight + overflowThreshold ? contentRight + safetyPadding : viewBoxRight;
+  const nextBottom =
+    contentBottom > viewBoxBottom + overflowThreshold
+      ? contentBottom + safetyPadding
+      : viewBoxBottom;
+  const nextWidth = nextRight - nextX;
+  const nextHeight = nextBottom - nextY;
+  if (
+    nextX === originalViewBox.x &&
+    nextY === originalViewBox.y &&
+    nextWidth === originalViewBox.width &&
+    nextHeight === originalViewBox.height
+  ) {
+    return;
+  }
+
+  const width = numericSvgLength(svg.getAttribute('width'));
+  const height = numericSvgLength(svg.getAttribute('height'));
+  svg.setAttribute('viewBox', `${nextX} ${nextY} ${nextWidth} ${nextHeight}`);
+  if (width) svg.setAttribute('width', `${(width * nextWidth) / originalViewBox.width}`);
+  if (height) svg.setAttribute('height', `${(height * nextHeight) / originalViewBox.height}`);
+};
+
 const conciseRenderError = (error: string): string => {
   const firstLine =
     error
@@ -486,7 +541,9 @@ export function bindFinishedDocument(
     } else {
       const svg = sanitizeRenderedVisualSvg(frameDocument, result.svg, task.kind);
       if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
+      output.hidden = false;
       output.replaceChildren(svg);
+      if (task.kind === 'vega-lite') normalizeVegaLiteSvgBounds(svg as SVGSVGElement);
     }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-skeleton')?.setAttribute('hidden', '');

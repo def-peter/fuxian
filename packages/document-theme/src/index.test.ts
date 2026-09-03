@@ -165,6 +165,15 @@ describe('document theme preferences', () => {
     expect(css).not.toMatch(/(?:^|\n)p\s*\{[^}]*animation:/);
   });
 
+  it('keeps display formulas horizontally scrollable without a vertical scrollbar', () => {
+    const css = createDocumentThemeCss(preferences);
+
+    expect(css).toMatch(
+      /\.math-render-task:not\(\.math-render-task-inline\) > \.render-task-output\s*\{[^}]*padding-block: 2px;[^}]*overflow-x: auto;[^}]*overflow-y: hidden;/s,
+    );
+    expect(css).toMatch(/\.diagram-render-task > \.render-task-output\s*\{[^}]*overflow: auto;/s);
+  });
+
   it('keeps compact diagram controls in their own row above the graphic', () => {
     const css = createDocumentThemeCss(preferences);
 

@@ -854,7 +854,14 @@ code {
   line-height: 1.65;
 }
 
-.math-render-task:not(.math-render-task-inline) > .render-task-output,
+.math-render-task:not(.math-render-task-inline) > .render-task-output {
+  width: 100%;
+  padding-block: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
 .diagram-render-task > .render-task-output {
   width: 100%;
   overflow: auto;
