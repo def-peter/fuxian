@@ -73,6 +73,8 @@ import {
 import { saveExistingSourceDocument, saveSourceDocumentCopy } from './source-document-save';
 import {
   createMarkdownDefaultAppService,
+  macDefaultApplicationHelperName,
+  runMacDefaultApplicationHelper,
   type MarkdownDefaultAppService,
 } from './markdown-default-app';
 
@@ -1503,6 +1505,12 @@ if (!hasSingleInstanceLock) {
       openExternal: (url) => shell.openExternal(url),
       platform: process.platform,
       revealFile: (path) => shell.showItemInFolder(path),
+      setMacDefaultApplications: (applicationPath, documentPaths) =>
+        runMacDefaultApplicationHelper(
+          join(process.resourcesPath, macDefaultApplicationHelperName),
+          applicationPath,
+          documentPaths,
+        ),
       showMacGuidance: async () => {
         await dialog.showMessageBox({
           buttons: ['知道了'],

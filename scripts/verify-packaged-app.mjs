@@ -1,10 +1,13 @@
 import { extractFile, listPackage } from '@electron/asar';
+import { execFile } from 'node:child_process';
 import { readdir, stat } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
-import { join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 const maxInstallerSizeBytes = 180 * 1024 * 1024;
+const executeFile = promisify(execFile);
 
 const collectFiles = async (directory) => {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -31,6 +34,11 @@ export const findExternalRuntimeImports = (source) =>
     .map((match) => match[1])
     .filter((specifier) => !runtimeProvidedModules.has(specifier));
 
+export const hasRequiredMacHelperArchitectures = (architectures) => {
+  const values = new Set(architectures.trim().split(/\s+/u));
+  return values.has('x86_64') && values.has('arm64');
+};
+
 export const verifyPackagedApp = async (outputDirectory) => {
   const root = resolve(outputDirectory);
   const files = await collectFiles(root);
@@ -50,6 +58,24 @@ export const verifyPackagedApp = async (outputDirectory) => {
   }
 
   for (const archive of archives) {
+    const archivePath = normalizePath(relative(root, archive));
+    if (archivePath.includes('.app/Contents/Resources/app.asar')) {
+      const helper = join(dirname(archive), 'fuxian-default-app-helper');
+      try {
+        const helperStat = await stat(helper);
+        if ((helperStat.mode & 0o111) === 0) {
+          errors.push(`${relative(root, helper)} is not executable`);
+        }
+        if (process.platform === 'darwin') {
+          const { stdout } = await executeFile('lipo', ['-archs', helper]);
+          if (!hasRequiredMacHelperArchitectures(stdout)) {
+            errors.push(`${relative(root, helper)} does not support x86_64 and arm64`);
+          }
+        }
+      } catch {
+        errors.push(`${relative(root, helper)} is missing or invalid`);
+      }
+    }
     const entries = listPackage(archive).map(normalizeArchivePath);
     if (entries.some((path) => path.startsWith('/node_modules/electron/'))) {
       errors.push(`${relative(root, archive)} contains the Electron development dependency`);

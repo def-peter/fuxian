@@ -283,19 +283,20 @@ export function SettingsApp(): React.JSX.Element {
     void window.fuxian.openAppUpdateRelease();
   };
 
-  const openMarkdownDefaultAppSettings = (): void => {
-    setDefaultAppActionMessage(undefined);
-    void window.fuxian.openMarkdownDefaultAppSettings().then((result) => {
-      setDefaultAppActionMessage(result.message);
-    });
-  };
-
   const refreshMarkdownDefaultAppStatus = (): void => {
     setDefaultAppLoading(true);
     void window.fuxian
       .getMarkdownDefaultAppStatus()
       .then(setDefaultAppStatus)
       .finally(() => setDefaultAppLoading(false));
+  };
+
+  const openMarkdownDefaultAppSettings = (): void => {
+    setDefaultAppActionMessage(undefined);
+    void window.fuxian.openMarkdownDefaultAppSettings().then((result) => {
+      setDefaultAppActionMessage(result.message);
+      if (result.status === 'opened') refreshMarkdownDefaultAppStatus();
+    });
   };
 
   return (

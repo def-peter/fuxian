@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 
 const executeFile = promisify(execFile);
 const markdownExtensions = ['md', 'markdown'] as const;
+export const macDefaultApplicationHelperName = 'fuxian-default-app-helper';
 const windowsDefaultAppRegistrationName = 'Fuxian';
 const windowsMarkdownProgId = 'Fuxian.Markdown';
 
@@ -21,6 +22,10 @@ export interface MarkdownDefaultAppDependencies {
   openExternal(url: string): Promise<void>;
   platform: NodeJS.Platform;
   revealFile(path: string): void;
+  setMacDefaultApplications?(
+    applicationPath: string,
+    documentPaths: readonly string[],
+  ): Promise<void>;
   showMacGuidance(): Promise<void>;
   temporaryDirectory: string;
   testState?: MarkdownDefaultAppState | undefined;
@@ -140,6 +145,14 @@ const queryWindowsAssociations = async (): Promise<{ markdown: boolean; md: bool
   return parseWindowsAssociationQuery(stdout);
 };
 
+export const runMacDefaultApplicationHelper = async (
+  helperPath: string,
+  applicationPath: string,
+  documentPaths: readonly string[],
+): Promise<void> => {
+  await executeFile(helperPath, [applicationPath, ...documentPaths]);
+};
+
 const appleScriptArguments = (path: string): string[] => [
   '-e',
   'on run argv',
@@ -154,12 +167,14 @@ const appleScriptArguments = (path: string): string[] => [
   path,
 ];
 
-const queryMacAssociations = async (
-  executablePath: string,
+const macApplicationBundlePath = (executablePath: string): string =>
+  dirname(dirname(dirname(executablePath)));
+
+const withMacProbeFiles = async <Result>(
   temporaryDirectory: string,
-): Promise<{ markdown: boolean; md: boolean }> => {
+  operation: (files: Record<(typeof markdownExtensions)[number], string>) => Promise<Result>,
+): Promise<Result> => {
   const directory = await mkdtemp(join(temporaryDirectory, 'fuxian-default-app-'));
-  const appBundlePath = dirname(dirname(dirname(executablePath)));
   try {
     const files = Object.fromEntries(
       await Promise.all(
@@ -170,6 +185,18 @@ const queryMacAssociations = async (
         }),
       ),
     ) as Record<(typeof markdownExtensions)[number], string>;
+    return await operation(files);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+};
+
+const queryMacAssociations = async (
+  executablePath: string,
+  temporaryDirectory: string,
+): Promise<{ markdown: boolean; md: boolean }> => {
+  const appBundlePath = macApplicationBundlePath(executablePath);
+  return withMacProbeFiles(temporaryDirectory, async (files) => {
     const expected = await realpath(appBundlePath);
     const results = await Promise.all(
       markdownExtensions.map(async (extension) => {
@@ -183,9 +210,7 @@ const queryMacAssociations = async (
       }),
     );
     return { md: results[0]!, markdown: results[1]! };
-  } finally {
-    await rm(directory, { force: true, recursive: true });
-  }
+  });
 };
 
 const unavailableStatus = (
@@ -267,12 +292,30 @@ export const createMarkdownDefaultAppService = (
           };
         }
         if (dependencies.platform === 'darwin') {
+          try {
+            const setMacDefaultApplications = dependencies.setMacDefaultApplications;
+            if (!setMacDefaultApplications) {
+              throw new Error('The packaged macOS helper is unavailable.');
+            }
+            await withMacProbeFiles(dependencies.temporaryDirectory, async (files) => {
+              await setMacDefaultApplications(
+                macApplicationBundlePath(dependencies.executablePath),
+                markdownExtensions.map((extension) => files[extension]),
+              );
+            });
+            return {
+              message: '已将浮现设为 .md 与 .markdown 的默认应用。',
+              status: 'opened',
+            };
+          } catch {
+            // Finder remains a supported fallback when macOS declines the direct request.
+          }
           const guidePath = join(dependencies.temporaryDirectory, '浮现默认应用设置.md');
           await writeFile(guidePath, '# 浮现 Markdown 默认应用设置\n');
           dependencies.revealFile(guidePath);
           await dependencies.showMacGuidance();
           return {
-            message: '已在访达中显示示例文档，完成“全部更改”后返回浮现即可刷新状态。',
+            message: '系统未能直接完成设置，已在访达中显示示例文档，可通过“显示简介”继续设置。',
             status: 'opened',
           };
         }

@@ -117,4 +117,59 @@ describe('Markdown default application service', () => {
       status: 'opened',
     });
   });
+
+  it('sets both Markdown associations directly on macOS after an explicit request', async () => {
+    const revealFile = vi.fn();
+    const setMacDefaultApplications = vi.fn().mockImplementation(async (_appPath, paths) => {
+      expect(paths.map((path: string) => path.split('.').at(-1))).toEqual(['md', 'markdown']);
+    });
+    const showMacGuidance = vi.fn();
+    const service = createMarkdownDefaultAppService({
+      executablePath: '/Applications/浮现.app/Contents/MacOS/浮现',
+      isPackaged: true,
+      openExternal: vi.fn(),
+      platform: 'darwin',
+      revealFile,
+      setMacDefaultApplications,
+      showMacGuidance,
+      temporaryDirectory: '/tmp',
+    });
+
+    await expect(service.openSettings()).resolves.toEqual({
+      message: '已将浮现设为 .md 与 .markdown 的默认应用。',
+      status: 'opened',
+    });
+    expect(setMacDefaultApplications).toHaveBeenCalledWith(
+      '/Applications/浮现.app',
+      expect.arrayContaining([
+        expect.stringMatching(/\.md$/u),
+        expect.stringMatching(/\.markdown$/u),
+      ]),
+    );
+    expect(revealFile).not.toHaveBeenCalled();
+    expect(showMacGuidance).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Finder guidance when the native macOS request fails', async () => {
+    const revealFile = vi.fn();
+    const setMacDefaultApplications = vi.fn().mockRejectedValue(new Error('denied'));
+    const showMacGuidance = vi.fn().mockResolvedValue(undefined);
+    const service = createMarkdownDefaultAppService({
+      executablePath: '/Applications/浮现.app/Contents/MacOS/浮现',
+      isPackaged: true,
+      openExternal: vi.fn(),
+      platform: 'darwin',
+      revealFile,
+      setMacDefaultApplications,
+      showMacGuidance,
+      temporaryDirectory: '/tmp',
+    });
+
+    await expect(service.openSettings()).resolves.toEqual({
+      message: '系统未能直接完成设置，已在访达中显示示例文档，可通过“显示简介”继续设置。',
+      status: 'opened',
+    });
+    expect(revealFile).toHaveBeenCalledWith('/tmp/浮现默认应用设置.md');
+    expect(showMacGuidance).toHaveBeenCalledOnce();
+  });
 });

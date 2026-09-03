@@ -4,6 +4,7 @@ electronVersion: 44.0.0
 directories:
   buildResources: build
   output: release
+afterPack: ./scripts/after-pack.mjs
 files:
   - apps/desktop/out/**/*
   - apps/desktop/resources/**/*
