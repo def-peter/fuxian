@@ -84,12 +84,12 @@ test('long document names, adaptive document width, and outline controls remain 
     expect.soft(documentWidths.body).toBeGreaterThanOrEqual(iframeWidth - 8);
     expect.soft(documentWidths.heading?.width).toBeGreaterThanOrEqual(iframeWidth - 112);
 
-    const outline = window.getByRole('complementary', { name: '内容目录' });
+    const outline = window.getByRole('complementary', { name: '大纲' });
     const outlineBox = await outline.evaluate((element) =>
       element.getBoundingClientRect().toJSON(),
     );
     const toggleBox = await window
-      .getByRole('button', { name: '折叠内容目录' })
+      .getByRole('button', { name: '隐藏大纲' })
       .evaluate((element) => element.getBoundingClientRect().toJSON());
     expect.soft(toggleBox.x).toBeGreaterThanOrEqual(outlineBox.x - toggleBox.width - 24);
   } finally {

@@ -160,6 +160,17 @@ test('document display controls stay fixed across width, pagination, and viewpor
     await page.setViewportSize({ height: 900, width: 1_440 });
     await page.getByRole('button', { name: '打开 Markdown' }).click();
 
+    const [searchButton, editButton, exportButton] = await Promise.all([
+      page.getByRole('button', { name: '页内查找' }).boundingBox(),
+      page.getByRole('button', { name: '进入编辑模式' }).boundingBox(),
+      page.getByRole('button', { name: '导出 PDF' }).boundingBox(),
+    ]);
+    if (!searchButton || !editButton || !exportButton) {
+      throw new Error('无法读取搜索、编辑或导出按钮的位置。');
+    }
+    expect(searchButton.x).toBeLessThan(editButton.x);
+    expect(editButton.x).toBeLessThan(exportButton.x);
+
     const adaptive = await readToolbarGeometry(page);
     expect(adaptive.auxiliaryWidth).toBeCloseTo(80, 0);
     expect(adaptive.commandGap).toBeGreaterThanOrEqual(10);

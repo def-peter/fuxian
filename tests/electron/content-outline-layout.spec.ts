@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
-const longHeading = '这是一个用于验证内容目录右侧留白和省略号行为的很长很长的标题';
+const longHeading = '这是一个用于验证大纲右侧留白和省略号行为的很长很长的标题';
 
 test('content outline balances gutters without reserving empty disclosure slots', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-outline-layout-'));
@@ -74,15 +74,15 @@ test('content outline balances gutters without reserving empty disclosure slots'
       await expect(secondLevelRow.locator('[data-outline-guide]')).toHaveCount(1);
     };
 
-    const inlineOutline = window.getByRole('complementary', { name: '内容目录' });
+    const inlineOutline = window.getByRole('complementary', { name: '大纲' });
     await expect(inlineOutline).toHaveCSS('width', '216px');
     await inspectOutline(inlineOutline);
 
     await window.setViewportSize({ height: 768, width: 1_024 });
-    await window.getByRole('button', { name: '打开内容目录' }).click();
+    await window.getByRole('button', { name: '显示大纲' }).click();
     const drawer = window.getByRole('dialog');
     await expect(drawer).toHaveCSS('width', '288px');
-    await inspectOutline(drawer.getByRole('complementary', { name: '内容目录' }));
+    await inspectOutline(drawer.getByRole('complementary', { name: '大纲' }));
   } finally {
     await electronApp.close();
     await rm(directory, { force: true, recursive: true });

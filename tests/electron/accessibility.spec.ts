@@ -132,11 +132,11 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     await expect(finishedDocument.getByRole('heading', { name: 'Keyboard reader' })).toBeVisible();
     await expectNoHighImpactViolations(readerWindow);
 
-    const outlineTrigger = readerWindow.getByRole('button', { name: '打开内容目录' });
+    const outlineTrigger = readerWindow.getByRole('button', { name: '显示大纲' });
     await outlineTrigger.focus();
     await readerWindow.keyboard.press('Enter');
     const outlineDialog = readerWindow.getByRole('dialog');
-    await expect(outlineDialog.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect(outlineDialog.getByRole('complementary', { name: '大纲' })).toBeVisible();
     await expect(outlineDialog).toBeFocused();
     await waitForLayerReady(outlineDialog);
     await outlineDialog.press('Escape');

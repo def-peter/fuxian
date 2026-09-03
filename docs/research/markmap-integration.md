@@ -2,7 +2,7 @@
 
 > 调研日期：2026-08-28。资料仅采用 Markmap 官方文档、官方仓库、API 文档与 npm 官方包元数据；源码基于提交 `99fc93e6efd4a1df01260232d818fb57955d71df`。
 >
-> 决策状态：本文记录的正文 `markmap` fence 方案已被 [ADR 0010](../adr/0010-derive-article-structure-map-from-content-outline.md) 取代。Fuxian 不再解析正文 Markmap，而是按需把内容目录标题树直接渲染为文章结构图。以下内容仅保留为被否决方案的研究记录。
+> 决策状态：本文记录的正文 `markmap` fence 方案已被 [ADR 0010](../adr/0010-derive-article-structure-map-from-content-outline.md) 取代。Fuxian 不再解析正文 Markmap，而是按需把大纲标题树直接渲染为文章大纲图。以下内容仅保留为被否决方案的研究记录。
 
 ## 结论
 

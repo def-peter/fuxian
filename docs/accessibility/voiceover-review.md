@@ -9,7 +9,7 @@ Document: a local Markdown fixture containing headings, prose, and Mermaid
 Passed the core read-only workflow with VoiceOver enabled and keyboard input only. No unnamed controls, lost focus, or blocked actions were observed.
 
 - Opened a Markdown file from **打开文档** and reached the current document item, which exposed its filename and current-page state.
-- Opened and dismissed **内容目录**, navigated headings, and returned focus to the outline trigger.
+- Opened and dismissed **大纲**, navigated headings, and returned focus to the outline trigger.
 - Opened **页内查找** with `Command+F`, moved between results, heard the live result count, and returned focus to the finished-document frame on `Escape`.
 - Reached the diagram toolbar actions **查看图表源码** and **全屏查看图表**. Both layers exposed a name and description, trapped focus when modal, closed with `Escape`, and returned focus to the originating diagram action.
 - Used the full-screen canvas with keyboard zoom, pan, and reset commands.

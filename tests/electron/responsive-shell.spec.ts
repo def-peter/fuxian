@@ -87,14 +87,14 @@ test('adapts the reader shell without losing independent region preferences', as
     await expect(desktopHeaderActions).toHaveCount(2);
     await expect(desktopHeaderActions.nth(0)).toHaveAccessibleName('打开文档');
     await expect(desktopHeaderActions.nth(1)).toHaveAccessibleName('收起文档会话');
-    await expect(window.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect(window.getByRole('complementary', { name: '大纲' })).toBeVisible();
     await expect(finishedDocument.getByRole('heading', { name: '响应式阅读器' })).toBeVisible();
 
     await resizeWindow(window, { height: 768, width: 1_024 });
     await expect(shell).toHaveAttribute('data-shell-layout', 'medium');
     await expect(window.getByRole('complementary', { name: '文档会话' })).toBeVisible();
-    await expect(window.getByRole('complementary', { name: '内容目录' })).toHaveCount(0);
-    await expect(window.getByRole('button', { name: '打开内容目录' })).toBeVisible();
+    await expect(window.getByRole('complementary', { name: '大纲' })).toHaveCount(0);
+    await expect(window.getByRole('button', { name: '显示大纲' })).toBeVisible();
     await expect
       .poll(async () => {
         const preferences = JSON.parse(await readFile(preferencesFilePath, 'utf8')) as {
@@ -104,9 +104,9 @@ test('adapts the reader shell without losing independent region preferences', as
       })
       .toBe(true);
 
-    await window.getByRole('button', { name: '打开内容目录' }).click();
+    await window.getByRole('button', { name: '显示大纲' }).click();
     const outlineDrawer = window.getByRole('dialog').getByRole('complementary', {
-      name: '内容目录',
+      name: '大纲',
     });
     await expect(outlineDrawer).toBeVisible();
     await expect(window.getByRole('dialog')).toHaveCSS('width', '288px');
@@ -163,10 +163,10 @@ test('adapts the reader shell without losing independent region preferences', as
 
     await resizeWindow(window, { height: 900, width: 1_440 });
     await expect(shell).toHaveAttribute('data-shell-layout', 'wide');
-    await expect(window.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect(window.getByRole('complementary', { name: '大纲' })).toBeVisible();
 
-    await window.getByRole('button', { name: '折叠内容目录' }).click();
-    await expect(window.getByRole('complementary', { name: '内容目录' })).toHaveCount(0);
+    await window.getByRole('button', { name: '隐藏大纲' }).click();
+    await expect(window.getByRole('complementary', { name: '大纲' })).toHaveCount(0);
     await window.getByRole('button', { name: '收起文档会话' }).click();
     await expect(window.getByRole('complementary', { name: '文档会话' })).toHaveCount(0);
     await expect

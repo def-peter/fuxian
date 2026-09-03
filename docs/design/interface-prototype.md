@@ -101,16 +101,16 @@ Left side:
 
 Right side:
 
-1. Find in document.
-2. Export PDF.
-3. Overflow menu for theme, PlantUML Server settings, and lower-frequency commands.
+1. Continuous/paper display mode and document width.
+2. Find in document, enter editing, and export PDF, in that order.
+3. Content outline and lower-frequency commands.
 
 The operating system owns window controls and the application menu. The content layout should remain consistent across macOS and Windows.
 
 ## Confirmed Prototype Decisions
 
-- Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
-- Reading and source editing are mutually exclusive active-document modes. Source editing replaces the finished document rather than adding a split preview, and the toolbar provides a clear `阅读 / 源码` switch. Returning to reading uses the latest explicitly saved source.
+- Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`, with `连续阅读` and `A4 分页预览` tooltips respectively; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
+- Reading and source editing are mutually exclusive active-document modes. Source editing replaces the finished document rather than adding a split preview. The toolbar uses one icon action with the tooltip `进入编辑模式` while reading and `进入阅读模式` while editing, instead of another segmented control. Returning to reading uses the latest explicitly saved source.
 - An explicitly saved local revision becomes the reading revision immediately; diagram or media failures remain inline in that revision. A failed external revision may retain the previous successful finished document, but source editing still opens the latest disk source.
 - Source editing uses an application-owned edit buffer with Markdown highlighting, line numbers, selection, undo/redo, indentation, and find/replace. `Cmd/Ctrl+S` is the primary save action; Fuxian does not silently autosave source documents.
 - A dirty indicator remains visible while the edit buffer differs from its save baseline. Switching or closing the document, quitting the application, and installing an update require the reader to save, discard, or cancel; a crash-recovery draft preserves interrupted work without claiming it was saved.

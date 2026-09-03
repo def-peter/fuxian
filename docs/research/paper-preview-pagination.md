@@ -64,7 +64,7 @@ Electron 调用固定为 A4、背景开启、CSS page size 优先，并显式把
 
 1. 同一 fixture 覆盖中文字体、图片、长表格/代码、KaTeX 与四类图表；完成异步结算后页数连续两次一致。
 2. 连续/纸张切换、external revision 与排版设置变更都按 heading + ref 恢复位置，旧 revision 永不覆盖新结果。
-3. 内容目录锚点、全文查找、高亮、跨页选择、复制、外链、图表源码和全屏操作保持可用。
+3. 大纲锚点、全文查找、高亮、跨页选择、复制、外链、图表源码和全屏操作保持可用。
 4. macOS/Windows Electron E2E 中 screen page count 等于 PDF page count，并逐页渲染验证关键元素与末尾内容。
 5. CSP、iframe sandbox、无网络分页、打包后的脚本加载和 100+ 页文档性能通过；分页失败保留上一成功版本并给出可重试错误。
 

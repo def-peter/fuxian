@@ -58,7 +58,7 @@ test('downloads an available update and flushes the reading session before insta
     await readerWindow.setViewportSize({ height: 900, width: 1_440 });
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
     await readerWindow
-      .getByRole('complementary', { name: '内容目录' })
+      .getByRole('complementary', { name: '大纲' })
       .getByRole('button', { name: '本地资源' })
       .click();
     const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
@@ -178,7 +178,7 @@ test('requires a decision about unsaved source changes before installing an upda
   try {
     const readerWindow = await electronApp.firstWindow();
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
-    await readerWindow.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await readerWindow.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = readerWindow.locator('.cm-content');
     await editor.click();
     await readerWindow.keyboard.press('ControlOrMeta+A');

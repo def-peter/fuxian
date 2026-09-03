@@ -80,7 +80,7 @@ test('restores open-document order, active document, and reading position after 
     const session = window.getByRole('complementary', { name: '文档会话' });
     await session.getByRole('button', { exact: true, name: 'showcase.md' }).click();
     await window
-      .getByRole('complementary', { name: '内容目录' })
+      .getByRole('complementary', { name: '大纲' })
       .getByRole('button', { name: '本地资源' })
       .click();
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
@@ -623,7 +623,7 @@ test('the content outline navigates nested headings and can be collapsed', async
     await window.setViewportSize({ height: 900, width: 1_440 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
-    const outline = window.getByRole('complementary', { name: '内容目录' });
+    const outline = window.getByRole('complementary', { name: '大纲' });
     const session = window.getByRole('complementary', { name: '文档会话' });
     const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
     await expect(outline).toBeVisible();
@@ -674,9 +674,9 @@ test('the content outline navigates nested headings and can be collapsed', async
       'location',
     );
 
-    await window.getByRole('button', { name: '折叠内容目录' }).click();
+    await window.getByRole('button', { name: '隐藏大纲' }).click();
     await expect(outline).toHaveCount(0);
-    await expect(window.getByRole('button', { name: '展开内容目录' })).toBeVisible();
+    await expect(window.getByRole('button', { name: '显示大纲' })).toBeVisible();
   } finally {
     await electronApp.close();
   }

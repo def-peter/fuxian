@@ -245,7 +245,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     await sourceAction.press('Enter');
     const sourceDrawer = readerWindow.getByRole('complementary', { name: '图表源码' });
     await expect(sourceDrawer).toBeVisible();
-    await expect(readerWindow.getByRole('complementary', { name: '内容目录' })).toHaveCount(0);
+    await expect(readerWindow.getByRole('complementary', { name: '大纲' })).toHaveCount(0);
     await sourceDrawer.getByRole('button', { name: '复制源码' }).click();
     await expect
       .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
@@ -255,7 +255,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
       .poll(() => electronApp.evaluate(({ clipboard }) => clipboard.readText()))
       .toContain('Switched diagram');
     await sourceDrawer.getByRole('button', { name: '关闭图表源码' }).click();
-    await expect(readerWindow.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect(readerWindow.getByRole('complementary', { name: '大纲' })).toBeVisible();
     await expect
       .poll(() => diagramHeading.evaluate((heading) => heading.getBoundingClientRect().top))
       .toBeCloseTo(headingPositionBeforeDrawer, 0);

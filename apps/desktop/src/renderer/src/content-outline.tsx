@@ -134,14 +134,14 @@ export function ContentOutline({
   return (
     <aside
       className="grid h-full min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
-      aria-label="内容目录"
+      aria-label="大纲"
     >
       <header className="flex items-center justify-between border-b px-3">
-        <h2 className="text-xs font-semibold text-foreground">内容目录</h2>
+        <h2 className="text-xs font-semibold text-foreground">大纲</h2>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="查看文章结构图"
+              aria-label="查看大纲图"
               disabled={headings.length === 0}
               onClick={onOpenStructureMap}
               size="icon-xs"
@@ -151,7 +151,7 @@ export function ContentOutline({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={6}>
-            文章结构图
+            查看大纲图
           </TooltipContent>
         </Tooltip>
       </header>

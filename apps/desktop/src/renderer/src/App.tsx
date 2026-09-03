@@ -13,6 +13,7 @@ import type { LayoutChangedMeta, PanelImperativeHandle } from 'react-resizable-p
 import {
   AlertCircle,
   ArrowDown,
+  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -22,6 +23,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
   Search,
   RefreshCw,
   Save,
@@ -124,12 +126,19 @@ type GuardedSourceAction =
 interface ToolbarTooltipProps {
   children: React.ReactElement;
   label: string;
+  wrapTrigger?: boolean;
 }
 
-function ToolbarTooltip({ children, label }: ToolbarTooltipProps): React.JSX.Element {
+function ToolbarTooltip({
+  children,
+  label,
+  wrapTrigger = false,
+}: ToolbarTooltipProps): React.JSX.Element {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        {wrapTrigger ? <span className="inline-flex">{children}</span> : children}
+      </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6}>
         {label}
       </TooltipContent>
@@ -306,11 +315,7 @@ export function App(): React.JSX.Element {
     shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
   const contentOutlineInline =
     !sourceEdit && shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
-  const contentOutlineActionLabel = contentOutlineInline
-    ? '折叠内容目录'
-    : shellLayout === 'wide'
-      ? '展开内容目录'
-      : '打开内容目录';
+  const contentOutlineActionLabel = contentOutlineInline ? '隐藏大纲' : '显示大纲';
   const getReadingController = useCallback(
     (): FinishedDocumentController | undefined =>
       viewModeRef.current === 'paper'
@@ -1975,43 +1980,38 @@ export function App(): React.JSX.Element {
                   </div>
 
                   <div className="ml-2 flex shrink-0 items-center gap-1 min-[960px]:ml-4">
-                    <SegmentedControl
-                      aria-label="文档模式"
-                      className="mr-2"
-                      onValueChange={(value) => {
-                        if (value === 'source') enterSourceEditing();
-                        if (value === 'reading') requestSourceAction({ kind: 'read' });
-                      }}
-                      type="single"
-                      value={sourceEdit ? 'source' : 'reading'}
-                    >
-                      <SegmentedControlItem aria-label="阅读成品文档" value="reading">
-                        阅读
-                      </SegmentedControlItem>
-                      <SegmentedControlItem aria-label="编辑 Markdown 源码" value="source">
-                        源码
-                      </SegmentedControlItem>
-                    </SegmentedControl>
                     {sourceEdit ? (
-                      <ToolbarTooltip label="保存 Markdown">
-                        <Button
-                          aria-label="保存 Markdown"
-                          disabled={
-                            !isSourceEditDirty(sourceEdit) ||
-                            sourceEdit.status === 'saving' ||
-                            Boolean(sourceEdit.conflictDocument)
-                          }
-                          onClick={() => void saveActiveSourceEdit()}
-                          size="icon-sm"
-                          variant="ghost"
-                        >
-                          {sourceEdit.status === 'saving' ? (
-                            <Spinner aria-hidden="true" />
-                          ) : (
-                            <Save aria-hidden="true" />
-                          )}
-                        </Button>
-                      </ToolbarTooltip>
+                      <>
+                        <ToolbarTooltip label="进入阅读模式">
+                          <Button
+                            aria-label="进入阅读模式"
+                            onClick={() => requestSourceAction({ kind: 'read' })}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            <BookOpen aria-hidden="true" />
+                          </Button>
+                        </ToolbarTooltip>
+                        <ToolbarTooltip label="保存 Markdown">
+                          <Button
+                            aria-label="保存 Markdown"
+                            disabled={
+                              !isSourceEditDirty(sourceEdit) ||
+                              sourceEdit.status === 'saving' ||
+                              Boolean(sourceEdit.conflictDocument)
+                            }
+                            onClick={() => void saveActiveSourceEdit()}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            {sourceEdit.status === 'saving' ? (
+                              <Spinner aria-hidden="true" />
+                            ) : (
+                              <Save aria-hidden="true" />
+                            )}
+                          </Button>
+                        </ToolbarTooltip>
+                      </>
                     ) : (
                       <>
                         <div
@@ -2027,20 +2027,24 @@ export function App(): React.JSX.Element {
                             type="single"
                             value={viewMode}
                           >
-                            <SegmentedControlItem
-                              aria-label="无界阅读"
-                              className="min-w-11"
-                              value="continuous"
-                            >
-                              无界
-                            </SegmentedControlItem>
-                            <SegmentedControlItem
-                              aria-label="纸张预览"
-                              className="min-w-11"
-                              value="paper"
-                            >
-                              纸张
-                            </SegmentedControlItem>
+                            <ToolbarTooltip label="连续阅读" wrapTrigger>
+                              <SegmentedControlItem
+                                aria-label="无界阅读"
+                                className="min-w-11"
+                                value="continuous"
+                              >
+                                无界
+                              </SegmentedControlItem>
+                            </ToolbarTooltip>
+                            <ToolbarTooltip label="A4 分页预览" wrapTrigger>
+                              <SegmentedControlItem
+                                aria-label="纸张预览"
+                                className="min-w-11"
+                                value="paper"
+                              >
+                                纸张
+                              </SegmentedControlItem>
+                            </ToolbarTooltip>
                           </SegmentedControl>
                           <div
                             className="flex h-7 w-20 shrink-0 items-center"
@@ -2061,21 +2065,6 @@ export function App(): React.JSX.Element {
                             ) : null}
                           </div>
                         </div>
-                        <ToolbarTooltip label="导出 PDF">
-                          <Button
-                            aria-label="导出 PDF"
-                            disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
-                            onClick={() => void startPdfExport()}
-                            size="icon-sm"
-                            variant="ghost"
-                          >
-                            {pdfExportStarting ? (
-                              <Spinner aria-hidden="true" />
-                            ) : (
-                              <FileDown aria-hidden="true" />
-                            )}
-                          </Button>
-                        </ToolbarTooltip>
                         {findOpen ? (
                           <div
                             aria-label="页内查找"
@@ -2148,6 +2137,31 @@ export function App(): React.JSX.Element {
                             </Button>
                           </ToolbarTooltip>
                         )}
+                        <ToolbarTooltip label="进入编辑模式">
+                          <Button
+                            aria-label="进入编辑模式"
+                            onClick={enterSourceEditing}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            <Pencil aria-hidden="true" />
+                          </Button>
+                        </ToolbarTooltip>
+                        <ToolbarTooltip label="导出 PDF">
+                          <Button
+                            aria-label="导出 PDF"
+                            disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
+                            onClick={() => void startPdfExport()}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            {pdfExportStarting ? (
+                              <Spinner aria-hidden="true" />
+                            ) : (
+                              <FileDown aria-hidden="true" />
+                            )}
+                          </Button>
+                        </ToolbarTooltip>
                         <ToolbarTooltip label={contentOutlineActionLabel}>
                           <Button
                             aria-label={contentOutlineActionLabel}
@@ -2320,7 +2334,7 @@ export function App(): React.JSX.Element {
                   ) : contentOutlineInline ? (
                     <>
                       <ResizableHandle
-                        aria-label="调整内容目录宽度"
+                        aria-label="调整大纲宽度"
                         disableDoubleClick
                         id="content-outline-resize-handle"
                         onDoubleClick={() => {
@@ -2400,7 +2414,7 @@ export function App(): React.JSX.Element {
                       ref={contentOutlineSheet}
                       showCloseButton={false}
                     >
-                      <SheetTitle className="sr-only">内容目录</SheetTitle>
+                      <SheetTitle className="sr-only">大纲</SheetTitle>
                       <SheetDescription className="sr-only">
                         浏览并跳转到当前文档中的标题。
                       </SheetDescription>

@@ -59,16 +59,31 @@ test('tooltips stay clear of file actions and use one global treatment', async (
     await closeButton.hover({ timeout: 2_000 });
     await expect(fileTooltip).toBeHidden();
 
-    const assertGlobalTooltip = async (buttonName: string, tooltipText: string): Promise<void> => {
-      const button = window.getByRole('button', { name: buttonName });
-      await expect(button).not.toHaveAttribute('title');
-      await button.hover();
+    await expect(window.getByRole('radio', { name: '无界阅读' })).toHaveAttribute(
+      'data-state',
+      'on',
+    );
+
+    const assertGlobalTooltip = async (
+      controlName: string,
+      tooltipText: string,
+      role: 'button' | 'radio' = 'button',
+    ): Promise<void> => {
+      const control =
+        role === 'button'
+          ? window.getByRole('button', { name: controlName })
+          : window.getByRole('radio', { name: controlName });
+      await expect(control).not.toHaveAttribute('title');
+      await control.hover();
       const tooltip = window.getByRole('tooltip', { exact: true, name: tooltipText });
       await expect(tooltip).toHaveText(tooltipText);
       await expect(tooltip).toHaveAttribute('class', sharedTooltipClass ?? '');
     };
 
     await assertGlobalTooltip('文档宽度', '文档宽度');
+    await assertGlobalTooltip('无界阅读', '连续阅读', 'radio');
+    await assertGlobalTooltip('纸张预览', 'A4 分页预览', 'radio');
+    await assertGlobalTooltip('进入编辑模式', '进入编辑模式');
     await assertGlobalTooltip('导出 PDF', '导出 PDF');
   } finally {
     await electronApp.close();

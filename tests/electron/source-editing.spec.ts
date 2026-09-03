@@ -31,7 +31,7 @@ test('edits and explicitly saves Markdown before returning to the finished docum
     const page = await electronApp.firstWindow();
     await page.setViewportSize({ height: 800, width: 1_200 });
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     await expect(editor).toBeVisible();
     await editor.click();
@@ -43,7 +43,7 @@ test('edits and explicitly saves Markdown before returning to the finished docum
     await expect(page.getByText('已保存', { exact: true })).toBeVisible();
     await expect.poll(() => readFile(sourcePath, 'utf8')).toBe('# Edited\n\nLocal text.');
 
-    await page.getByRole('radio', { name: '阅读成品文档' }).click();
+    await page.getByRole('button', { name: '进入阅读模式' }).click();
     await expect(
       page.frameLocator('iframe[title="Finished document"]').getByRole('heading', {
         name: 'Edited',
@@ -95,12 +95,12 @@ test('shows an explicitly saved revision with an inline diagram failure', async 
       finishedDocument.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     await editor.click();
     await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.insertText(invalidSource);
-    await page.getByRole('radio', { name: '阅读成品文档' }).click();
+    await page.getByRole('button', { name: '进入阅读模式' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
     await expect.poll(() => readFile(sourcePath, 'utf8')).toBe(invalidSource);
 
@@ -113,7 +113,7 @@ test('shows an explicitly saved revision with an inline diagram failure', async 
     await expect(failedDiagram.getByText('无法呈现图表')).toBeVisible();
     await expect(page.getByText('更新失败', { exact: true })).toHaveCount(0);
 
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     expect(await editor.innerText()).toContain('this is not valid mermaid syntax !!!');
   } finally {
     await electronApp.close();
@@ -165,11 +165,11 @@ test('edits the latest external source while retaining controls on the prior fin
     await expect(page.getByText('更新失败', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(finishedDocument.getByRole('heading', { name: 'Valid revision' })).toBeVisible();
 
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     expect(await editor.innerText()).toContain('this is not valid mermaid syntax !!!');
 
-    await page.getByRole('radio', { name: '阅读成品文档' }).click();
+    await page.getByRole('button', { name: '进入阅读模式' }).click();
     await finishedDocument.getByRole('button', { name: '查看图表源码' }).click();
     await expect(page.getByLabel('Mermaid 图表源码')).toContainText('flowchart LR');
   } finally {
@@ -201,7 +201,7 @@ test('guards document switching and preserves both sides of an external conflict
     const page = await electronApp.firstWindow();
     await page.setViewportSize({ height: 800, width: 1_200 });
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     await editor.click();
     await page.keyboard.press('ControlOrMeta+A');
@@ -315,7 +315,7 @@ test('guards closing the main window while source changes are unsaved', async ()
   try {
     const page = await electronApp.firstWindow();
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     await editor.click();
     await page.keyboard.press('ControlOrMeta+A');
@@ -364,7 +364,7 @@ test('guards application quit and exits only after the reader confirms', async (
   try {
     const page = await electronApp.firstWindow();
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
     const editor = page.locator('.cm-content');
     await editor.click();
     await page.keyboard.press('ControlOrMeta+A');

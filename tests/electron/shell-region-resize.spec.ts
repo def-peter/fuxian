@@ -78,15 +78,15 @@ test('resizes, persists, and restores independent inline shell-region widths', a
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     await expect(window.getByRole('separator', { name: '调整文档会话宽度' })).toBeVisible();
-    await expect(window.getByRole('separator', { name: '调整内容目录宽度' })).toBeVisible();
+    await expect(window.getByRole('separator', { name: '调整大纲宽度' })).toBeVisible();
     expect(await regionWidth(window, '文档会话')).toBe(216);
-    expect(await regionWidth(window, '内容目录')).toBe(216);
+    expect(await regionWidth(window, '大纲')).toBe(216);
 
     const verticalGeometry = await window.evaluate(() => {
       const root = document.querySelector<HTMLElement>('[data-session-root]')!;
       const toolbar = document.querySelector<HTMLElement>('[data-reader-toolbar]')!;
       const readingRegion = document.querySelector<HTMLElement>('[data-finished-document-region]')!;
-      const outline = document.querySelector<HTMLElement>('aside[aria-label="内容目录"]')!;
+      const outline = document.querySelector<HTMLElement>('aside[aria-label="大纲"]')!;
       return {
         outlineBottom: outline.getBoundingClientRect().bottom,
         outlineHeight: outline.getBoundingClientRect().height,
@@ -104,9 +104,9 @@ test('resizes, persists, and restores independent inline shell-region widths', a
     expect(verticalGeometry.outlineBottom).toBe(verticalGeometry.rootBottom);
 
     await resizeFromSeparator(window, '调整文档会话宽度', 72);
-    await resizeFromSeparator(window, '调整内容目录宽度', -56);
+    await resizeFromSeparator(window, '调整大纲宽度', -56);
     const documentSessionWidth = await regionWidth(window, '文档会话');
-    const contentOutlineWidth = await regionWidth(window, '内容目录');
+    const contentOutlineWidth = await regionWidth(window, '大纲');
     expect(documentSessionWidth).toBeGreaterThan(216);
     expect(contentOutlineWidth).toBeGreaterThan(216);
 
@@ -126,18 +126,18 @@ test('resizes, persists, and restores independent inline shell-region widths', a
     window = await electronApp.firstWindow();
     await window.setViewportSize({ height: 900, width: 1_440 });
     await expect(window.getByRole('complementary', { name: '文档会话' })).toBeVisible();
-    await expect(window.getByRole('complementary', { name: '内容目录' })).toBeVisible();
+    await expect(window.getByRole('complementary', { name: '大纲' })).toBeVisible();
     await expect.poll(() => regionWidth(window, '文档会话')).toBe(documentSessionWidth);
-    await expect.poll(() => regionWidth(window, '内容目录')).toBe(contentOutlineWidth);
+    await expect.poll(() => regionWidth(window, '大纲')).toBe(contentOutlineWidth);
 
     await window.getByRole('separator', { name: '调整文档会话宽度' }).dblclick();
-    await window.getByRole('separator', { name: '调整内容目录宽度' }).dblclick();
+    await window.getByRole('separator', { name: '调整大纲宽度' }).dblclick();
     expect(await regionWidth(window, '文档会话')).toBe(216);
-    expect(await regionWidth(window, '内容目录')).toBe(216);
+    expect(await regionWidth(window, '大纲')).toBe(216);
 
     await window.setViewportSize({ height: 768, width: 1_024 });
-    await expect(window.getByRole('separator', { name: '调整内容目录宽度' })).toHaveCount(0);
-    await window.getByRole('button', { name: '打开内容目录' }).click();
+    await expect(window.getByRole('separator', { name: '调整大纲宽度' })).toHaveCount(0);
+    await window.getByRole('button', { name: '显示大纲' }).click();
     await expect(window.getByRole('dialog')).toHaveCSS('width', '288px');
 
     await window.setViewportSize({ height: 620, width: 720 });

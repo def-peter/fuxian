@@ -111,7 +111,7 @@ export function ArticleStructureMapDialog({
       } catch (error) {
         if (!disposed) {
           setRenderState({
-            message: error instanceof Error ? error.message : '无法生成文章结构图。',
+            message: error instanceof Error ? error.message : '无法生成文章大纲图。',
             status: 'failed',
           });
         }
@@ -140,7 +140,7 @@ export function ArticleStructureMapDialog({
       >
         <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">文章结构图</DialogTitle>
+            <DialogTitle className="truncate text-sm">文章大纲图</DialogTitle>
             <DialogDescription className="truncate text-xs">
               {documentName} · {headings.length} 个标题
             </DialogDescription>
@@ -150,7 +150,7 @@ export function ArticleStructureMapDialog({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="缩小文章结构图"
+                    aria-label="缩小文章大纲图"
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.rescale(1 / 1.2)}
                     size="icon-sm"
@@ -164,7 +164,7 @@ export function ArticleStructureMapDialog({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="放大文章结构图"
+                    aria-label="放大文章大纲图"
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.rescale(1.2)}
                     size="icon-sm"
@@ -178,7 +178,7 @@ export function ArticleStructureMapDialog({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="适应文章结构图窗口"
+                    aria-label="适应文章大纲图窗口"
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.fit()}
                     size="icon-sm"
@@ -191,7 +191,7 @@ export function ArticleStructureMapDialog({
               </Tooltip>
               <Separator className="mx-1 h-5" orientation="vertical" />
               <DialogClose asChild>
-                <Button aria-label="关闭文章结构图" size="icon-sm" variant="ghost">
+                <Button aria-label="关闭大纲图" size="icon-sm" variant="ghost">
                   <X aria-hidden="true" data-icon="inline-start" />
                 </Button>
               </DialogClose>
@@ -200,7 +200,7 @@ export function ArticleStructureMapDialog({
         </DialogHeader>
         <div className="relative min-h-0 overflow-hidden bg-muted/30">
           <svg
-            aria-label="当前文章的标题结构思维导图"
+            aria-label="当前文章的大纲思维导图"
             className="article-structure-map size-full touch-none"
             ref={setSvgElement}
             role="img"
@@ -208,14 +208,14 @@ export function ArticleStructureMapDialog({
           {renderState.status === 'loading' ? (
             <div className="absolute inset-0 flex items-center justify-center" role="status">
               <Spinner />
-              <span className="sr-only">正在生成文章结构图</span>
+              <span className="sr-only">正在生成文章大纲图</span>
             </div>
           ) : null}
           {renderState.status === 'failed' ? (
             <div className="absolute inset-0 flex items-center justify-center p-6">
               <Alert className="max-w-md" variant="destructive">
                 <AlertCircle aria-hidden="true" />
-                <AlertTitle>无法生成文章结构图</AlertTitle>
+                <AlertTitle>无法生成文章大纲图</AlertTitle>
                 <AlertDescription>{renderState.message}</AlertDescription>
               </Alert>
             </div>
