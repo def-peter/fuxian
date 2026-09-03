@@ -40,13 +40,83 @@ export const classifyMarkdownAssociations = (
 ): Exclude<MarkdownDefaultAppState, 'unavailable'> =>
   md && markdown ? 'default' : md || markdown ? 'partial' : 'not-default';
 
-export const isWindowsMarkdownAssociation = (
-  association: { command?: unknown; progId?: unknown },
-  executablePath: string,
-): boolean =>
-  association.progId === windowsMarkdownProgId &&
-  typeof association.command === 'string' &&
-  association.command.toLocaleLowerCase().includes(executablePath.toLocaleLowerCase());
+export const buildWindowsAssociationQueryScript = (): string => String.raw`
+$ErrorActionPreference = 'Stop'
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace Fuxian {
+  public static class ShellAssociations {
+    private const uint ASSOCF_NONE = 0;
+    private const uint ASSOCSTR_PROGID = 20;
+
+    [DllImport("Shlwapi.dll", CharSet = CharSet.Unicode, EntryPoint = "AssocQueryStringW")]
+    private static extern int AssocQueryString(
+      uint flags,
+      uint associationString,
+      string association,
+      string extra,
+      StringBuilder output,
+      ref uint outputLength
+    );
+
+    public static string QueryProgId(string extension) {
+      uint outputLength = 0;
+      int result = AssocQueryString(
+        ASSOCF_NONE,
+        ASSOCSTR_PROGID,
+        extension,
+        null,
+        null,
+        ref outputLength
+      );
+      if (result < 0) Marshal.ThrowExceptionForHR(result);
+      if (outputLength == 0) throw new InvalidOperationException("No association was returned.");
+
+      StringBuilder output = new StringBuilder((int)outputLength);
+      result = AssocQueryString(
+        ASSOCF_NONE,
+        ASSOCSTR_PROGID,
+        extension,
+        null,
+        output,
+        ref outputLength
+      );
+      if (result != 0) throw new InvalidOperationException("The association query failed.");
+      return output.ToString();
+    }
+  }
+}
+'@
+
+[Console]::Out.Write(([PSCustomObject]@{
+  md = [Fuxian.ShellAssociations]::QueryProgId('.md')
+  markdown = [Fuxian.ShellAssociations]::QueryProgId('.markdown')
+} | ConvertTo-Json -Compress))
+`;
+
+export const parseWindowsAssociationQuery = (
+  stdout: string,
+): { markdown: boolean; md: boolean } => {
+  const association = JSON.parse(stdout) as { markdown?: unknown; md?: unknown };
+  if (
+    typeof association.md !== 'string' ||
+    association.md.trim() === '' ||
+    typeof association.markdown !== 'string' ||
+    association.markdown.trim() === ''
+  ) {
+    throw new Error('Windows did not return a reliable association result.');
+  }
+
+  const expectedProgId = windowsMarkdownProgId.toLocaleLowerCase();
+  return {
+    md: association.md.toLocaleLowerCase() === expectedProgId,
+    markdown: association.markdown.toLocaleLowerCase() === expectedProgId,
+  };
+};
 
 const testStatus = (
   state: MarkdownDefaultAppState,
@@ -59,27 +129,15 @@ const testStatus = (
   ...(state === 'unavailable' ? { message: '测试适配器模拟当前环境无法检测。' } : {}),
 });
 
-const queryWindowsAssociation = async (
-  extension: (typeof markdownExtensions)[number],
-  executablePath: string,
-) => {
-  const registryPath = `HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.${extension}\\UserChoice`;
-  const script = [
-    `$choice = Get-ItemProperty -LiteralPath '${registryPath}' -Name ProgId -ErrorAction SilentlyContinue`,
-    '$progId = $choice.ProgId',
-    `if ([string]::IsNullOrWhiteSpace($progId)) { $progId = (Get-ItemProperty -LiteralPath 'Registry::HKEY_CLASSES_ROOT\\.${extension}' -ErrorAction SilentlyContinue).'(default)' }`,
-    "$command = if ([string]::IsNullOrWhiteSpace($progId)) { '' } else { (Get-ItemProperty -LiteralPath ('Registry::HKEY_CLASSES_ROOT\\' + $progId + '\\shell\\open\\command') -ErrorAction SilentlyContinue).'(default)' }",
-    `[Console]::Out.Write(([PSCustomObject]@{ command = $command; progId = $progId } | ConvertTo-Json -Compress))`,
-  ].join('; ');
+const queryWindowsAssociations = async (): Promise<{ markdown: boolean; md: boolean }> => {
   const { stdout } = await executeFile('powershell.exe', [
     '-NoLogo',
     '-NoProfile',
     '-NonInteractive',
     '-Command',
-    script,
+    buildWindowsAssociationQueryScript(),
   ]);
-  const association = JSON.parse(stdout) as { command?: unknown; progId?: unknown };
-  return isWindowsMarkdownAssociation(association, executablePath);
+  return parseWindowsAssociationQuery(stdout);
 };
 
 const appleScriptArguments = (path: string): string[] => [
@@ -167,10 +225,7 @@ export const createMarkdownDefaultAppService = (
       try {
         const associations =
           supportedPlatform === 'win32'
-            ? {
-                md: await queryWindowsAssociation('md', dependencies.executablePath),
-                markdown: await queryWindowsAssociation('markdown', dependencies.executablePath),
-              }
+            ? await queryWindowsAssociations()
             : await queryMacAssociations(
                 dependencies.executablePath,
                 dependencies.temporaryDirectory,

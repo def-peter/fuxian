@@ -92,6 +92,11 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-windows-default-app-registration.ps1
 
+      - name: Verify effective Windows Shell associations
+        run: pnpm exec vitest run apps/desktop/src/main/markdown-default-app.windows.test.ts
+        env:
+          FUXIAN_VERIFY_INSTALLED_DEFAULT_APP_QUERY: '1'
+
       - name: Verify packaged application
         run: pnpm verify:package
 

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildWindowsAssociationQueryScript,
   classifyMarkdownAssociations,
   createMarkdownDefaultAppService,
-  isWindowsMarkdownAssociation,
+  parseWindowsAssociationQuery,
 } from './markdown-default-app';
 
 describe('Markdown default application service', () => {
@@ -13,30 +14,32 @@ describe('Markdown default application service', () => {
     expect(classifyMarkdownAssociations(false, false)).toBe('not-default');
   });
 
-  it('recognizes only the installed Fuxian ProgID and executable', () => {
-    const executablePath = 'C:\\Users\\Peter\\AppData\\Local\\Programs\\Fuxian\\Fuxian.exe';
+  it('queries the effective Windows Shell association through the supported API', () => {
+    const script = buildWindowsAssociationQueryScript();
 
+    expect(script).toContain('AssocQueryString');
+    expect(script).toContain('ASSOCSTR_PROGID');
+    expect(script).not.toContain('UserChoice');
+    expect(script).not.toContain('HKEY_CLASSES_ROOT');
+  });
+
+  it('does not mistake installer registration for a Notepad user choice', () => {
     expect(
-      isWindowsMarkdownAssociation(
-        {
-          command: `"${executablePath}" "%1"`,
-          progId: 'Fuxian.Markdown',
-        },
-        executablePath,
+      parseWindowsAssociationQuery(
+        JSON.stringify({ md: 'Applications\\notepad.exe', markdown: 'Applications\\notepad.exe' }),
       ),
-    ).toBe(true);
+    ).toEqual({ md: false, markdown: false });
     expect(
-      isWindowsMarkdownAssociation(
-        { command: `"${executablePath}" "%1"`, progId: 'Markdown 文档' },
-        executablePath,
+      parseWindowsAssociationQuery(
+        JSON.stringify({ md: 'Fuxian.Markdown', markdown: 'Applications\\notepad.exe' }),
       ),
-    ).toBe(false);
-    expect(
-      isWindowsMarkdownAssociation(
-        { command: '"C:\\Other\\Reader.exe" "%1"', progId: 'Fuxian.Markdown' },
-        executablePath,
-      ),
-    ).toBe(false);
+    ).toEqual({ md: true, markdown: false });
+  });
+
+  it('rejects incomplete Shell association results instead of falling back', () => {
+    expect(() => parseWindowsAssociationQuery(JSON.stringify({ md: 'Fuxian.Markdown' }))).toThrow(
+      'reliable association',
+    );
   });
 
   it('keeps development mode unavailable without opening system settings', async () => {
