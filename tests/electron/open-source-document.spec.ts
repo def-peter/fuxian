@@ -656,6 +656,17 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
     await expect(mermaidTask.locator('.render-task-output svg')).toBeVisible();
     await expect(mermaidTask).toContainText('Markdown 源文档');
     await expect(mermaidTask).toContainText('完成态文档');
+    await expect
+      .poll(() =>
+        mermaidTask
+          .locator('path.flowchart-link')
+          .first()
+          .evaluate((edge) => ({
+            fill: getComputedStyle(edge).fill,
+            stroke: getComputedStyle(edge).stroke,
+          })),
+      )
+      .toMatchObject({ fill: 'none', stroke: 'rgb(51, 51, 51)' });
     await expect(
       finishedDocument.getByRole('img', {
         name: 'Source document 到 finished document 的阅读流程',
@@ -676,6 +687,58 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
       .toContain('type FinishedDocument');
   } finally {
     await electronApp.close();
+  }
+});
+
+test('preserves the generated styles of a complex Mermaid flowchart', async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-mermaid-styles-'));
+  const sourcePath = join(temporaryDirectory, 'styled-flowchart.md');
+  await writeFile(
+    sourcePath,
+    [
+      '# Mermaid styles',
+      '',
+      '```mermaid',
+      '%%{init: {"theme":"base","flowchart":{"curve":"basis","padding":24},"themeVariables":{"lineColor":"#718096","edgeLabelBackground":"#FFFFFF"}}}%%',
+      'flowchart TB',
+      '  subgraph BEFORE[Before]',
+      '    A([Start]) --> B{Ready?}',
+      '    B -- No --> C[Prepare]',
+      '    C -. Retry .-> B',
+      '  end',
+      '  BEFORE ==> D([Done])',
+      '```',
+    ].join('\n'),
+    'utf8',
+  );
+  const electronApp = await launchDesktop(sourcePath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const mermaidTask = finishedDocument.locator('[data-render-task-kind="mermaid"]');
+    await expect(mermaidTask).toHaveAttribute('data-render-state', 'succeeded');
+    const edges = mermaidTask.locator('path.flowchart-link');
+    await expect(edges).toHaveCount(4);
+    await expect
+      .poll(() =>
+        edges.evaluateAll((elements) =>
+          elements.map((edge) => ({
+            fill: getComputedStyle(edge).fill,
+            stroke: getComputedStyle(edge).stroke,
+          })),
+        ),
+      )
+      .toEqual([
+        { fill: 'none', stroke: 'rgb(113, 128, 150)' },
+        { fill: 'none', stroke: 'rgb(113, 128, 150)' },
+        { fill: 'none', stroke: 'rgb(113, 128, 150)' },
+        { fill: 'none', stroke: 'rgb(113, 128, 150)' },
+      ]);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });
 

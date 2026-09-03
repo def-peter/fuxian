@@ -15,6 +15,7 @@ import { defaultPlantUmlServerUrl, type ReadingPosition } from '@fuxian/shared-t
 import { Code2, Maximize2 } from 'lucide-react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import createDOMPurify from 'dompurify';
 import {
   createDocumentRenderAdapter,
   type DocumentRenderResult,
@@ -125,7 +126,7 @@ const allowedInfographicTextStyles = new Map<string, RegExp>([
   ['word-break', /^(?:break-word|normal)$/u],
 ]);
 
-const sanitizeInfographicText = (svg: Element): void => {
+const sanitizeInfographicText = (svg: Element, styleDocument: Document): void => {
   for (const foreignObject of svg.querySelectorAll('foreignObject')) {
     const span = foreignObject.firstElementChild as HTMLElement | null;
     if (
@@ -146,13 +147,19 @@ const sanitizeInfographicText = (svg: Element): void => {
         span.removeAttribute(attribute.name);
       }
     }
-    for (const property of [...span.style]) {
-      const value = span.style.getPropertyValue(property).trim();
+    const parsedStyle = styleDocument.createElement('span').style;
+    parsedStyle.cssText = span.getAttribute('style') ?? '';
+    const styleProperties = Array.from({ length: parsedStyle.length }, (_, index) =>
+      parsedStyle.item(index),
+    );
+    for (const property of styleProperties) {
+      const value = parsedStyle.getPropertyValue(property).trim();
       if (!allowedInfographicTextStyles.get(property)?.test(value)) {
-        span.style.removeProperty(property);
+        parsedStyle.removeProperty(property);
       }
     }
-    if (!span.getAttribute('style')?.trim()) span.removeAttribute('style');
+    if (parsedStyle.cssText) span.setAttribute('style', parsedStyle.cssText);
+    else span.removeAttribute('style');
   }
 };
 
@@ -171,49 +178,50 @@ const collectRenderTasks = (frameDocument: Document): RenderTask[] => {
   return [...tasks.values()];
 };
 
-export const sanitizeRenderedVisualSvg = (
+export const prepareRenderedVisualSvg = (
   frameDocument: Document,
   source: string,
   kind: RenderTask['kind'],
 ): SVGElement => {
   const template = frameDocument.createElement('template');
   template.innerHTML = source;
-  const svg = template.content.firstElementChild;
-  if (svg?.localName !== 'svg' || template.content.childElementCount !== 1) {
+  const sourceSvg = template.content.firstElementChild;
+  if (sourceSvg?.localName !== 'svg' || template.content.childElementCount !== 1) {
     throw new TypeError('图表服务没有返回有效的 SVG。');
   }
-  if (svg.querySelectorAll('*').length > maximumRenderedVisualElements) {
+  if (sourceSvg.querySelectorAll('*').length > maximumRenderedVisualElements) {
     throw new TypeError('图表包含过多 SVG 元素。');
   }
-  for (const element of svg.querySelectorAll(
-    kind === 'infographic'
-      ? 'script, iframe, object, embed, image, audio, video, source'
-      : 'script, foreignObject, iframe, object, embed, image, audio, video, source',
-  )) {
-    element.remove();
-  }
-  if (kind === 'infographic') sanitizeInfographicText(svg);
-  for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
-  for (const style of svg.querySelectorAll('style')) {
-    if (/@import\b|url\s*\(/iu.test(style.textContent ?? '')) style.remove();
-  }
-  for (const element of [svg, ...svg.querySelectorAll('*')]) {
-    for (const attribute of [...element.attributes]) {
-      const name = attribute.name.toLowerCase();
-      const value = attribute.value.trim();
-      const urlReferences = [...value.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/giu)];
-      if (
-        name.startsWith('on') ||
-        name === 'src' ||
-        name === 'formaction' ||
-        name === 'xml:base' ||
-        ((name === 'href' || name.endsWith(':href')) && !value.startsWith('#')) ||
-        urlReferences.some((match) => !match[2]?.startsWith('#'))
-      ) {
-        element.removeAttribute(attribute.name);
-      }
+
+  const frameWindow = frameDocument.defaultView;
+  if (!frameWindow) throw new TypeError('图表所在文档尚未就绪。');
+  const purifier = createDOMPurify(frameWindow);
+  if (!purifier.isSupported) throw new TypeError('当前环境无法安全处理 SVG。');
+  purifier.addHook('uponSanitizeAttribute', (_element, data) => {
+    const name = data.attrName.toLowerCase();
+    if ((name === 'href' || name.endsWith(':href')) && !data.attrValue.trim().startsWith('#')) {
+      data.keepAttr = false;
     }
+  });
+  const fragment = purifier.sanitize(source, {
+    ADD_TAGS: ['use', ...(kind === 'infographic' ? ['foreignObject', 'span'] : [])],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['image'],
+    HTML_INTEGRATION_POINTS: kind === 'infographic' ? { foreignobject: true } : undefined,
+    RETURN_DOM_FRAGMENT: true,
+    USE_PROFILES: {
+      html: kind === 'infographic',
+      svg: true,
+      svgFilters: true,
+    },
+  });
+  const svg = fragment.firstElementChild;
+  if (svg?.localName !== 'svg' || fragment.childElementCount !== 1) {
+    throw new TypeError('图表没有通过 SVG 安全校验。');
   }
+
+  if (kind === 'infographic') sanitizeInfographicText(svg, frameDocument);
+  for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
   return svg as SVGElement;
 };
 
@@ -539,7 +547,7 @@ export function bindFinishedDocument(
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
-      const svg = sanitizeRenderedVisualSvg(frameDocument, result.svg, task.kind);
+      const svg = prepareRenderedVisualSvg(frameDocument, result.svg, task.kind);
       if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
       output.hidden = false;
       output.replaceChildren(svg);
