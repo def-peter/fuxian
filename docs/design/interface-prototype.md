@@ -161,7 +161,7 @@ The operating system owns window controls and the application menu. The content 
 - A downloaded update offers “重启并更新” and “稍后”. Normal application quit never installs it silently. Installation waits for document-session persistence and is refused while PDF export is active.
 - The document-session Settings action changes to a restrained update indicator while an update is available, downloading, or ready, so the state remains discoverable without a modal interruption.
 - With no open documents, the central start view shows the Fuxian identity, open/drop actions, and recent documents without feature marketing. The document-session sidebar may collapse in this state to avoid duplicating recent documents.
-- The start view initially shows five recent documents in a compact list with a `查看全部` action for the remaining history.
+- The start view shows only the five most recent documents in a compact list. Additional history remains available in the document-session sidebar.
 - The finished-document header shows filename and external-revision status on the left, with continuous/paper mode, continuous-layout width controls, find, PDF export, and overflow actions on the right. Paper mode displays its page count without exposing scaling controls.
 - The content outline shows headings H1-H3 by default. Deeper headings remain collapsed under their parents, and the active heading is kept visible automatically.
 - `Ctrl/Cmd + F` expands an in-header find control with match count, previous, next, and close actions.

@@ -226,7 +226,6 @@ export function App(): React.JSX.Element {
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
   const [blockingError, setBlockingError] = useState<string>();
-  const [showAllStartRecent, setShowAllStartRecent] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [contentOutlineSheetOpen, setContentOutlineSheetOpen] = useState(false);
   const [articleStructureMapOpen, setArticleStructureMapOpen] = useState(false);
@@ -1681,9 +1680,7 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const startRecentDocuments = showAllStartRecent
-    ? session.recentDocuments
-    : session.recentDocuments.slice(0, 5);
+  const startRecentDocuments = session.recentDocuments.slice(0, 5);
   const unavailableDocuments = session.openDocuments.filter(
     (document) => document.status === 'unavailable',
   );
@@ -2485,41 +2482,38 @@ export function App(): React.JSX.Element {
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <section className="w-full max-w-xl" aria-labelledby="start-title">
-                    <FuxianAppIcon className="mb-6 size-20" />
-                    <h1 id="start-title" className="text-3xl font-semibold text-foreground">
-                      浮现
-                    </h1>
-                    <div className="mt-8 border-t pt-6">
-                      <Button
-                        disabled={opening}
-                        onClick={() => void openSourceDocuments()}
-                        size="lg"
-                      >
-                        <FolderOpen aria-hidden="true" />
-                        {opening ? '正在打开...' : '打开 Markdown'}
-                      </Button>
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        也可以将 Markdown 文档拖放到窗口中
+                  <section className="w-full max-w-lg" aria-labelledby="start-title">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="flex items-center gap-4">
+                        <FuxianAppIcon className="size-16" />
+                        <h1 id="start-title" className="text-2xl font-semibold text-foreground">
+                          浮现
+                        </h1>
+                      </div>
+                      <p className="mt-4 text-sm text-muted-foreground">
+                        让内容精彩浮现，让 Markdown 值得阅读。
                       </p>
+                      <div className="mt-9 flex flex-col items-center gap-2">
+                        <Button
+                          disabled={opening}
+                          onClick={() => void openSourceDocuments()}
+                          size="lg"
+                        >
+                          <FolderOpen aria-hidden="true" data-icon="inline-start" />
+                          {opening ? '正在打开...' : '打开 Markdown'}
+                        </Button>
+                        <p className="text-xs text-muted-foreground/70">或直接拖入文件</p>
+                      </div>
                     </div>
 
                     {startRecentDocuments.length > 0 ? (
-                      <section className="mt-10 border-t pt-5" aria-labelledby="start-recent-title">
-                        <div className="flex items-center justify-between gap-4">
-                          <h2 id="start-recent-title" className="text-sm font-semibold">
-                            最近查看
-                          </h2>
-                          {session.recentDocuments.length > 5 ? (
-                            <Button
-                              onClick={() => setShowAllStartRecent((current) => !current)}
-                              size="xs"
-                              variant="ghost"
-                            >
-                              {showAllStartRecent ? '收起' : '查看全部'}
-                            </Button>
-                          ) : null}
-                        </div>
+                      <section
+                        className="mt-14 border-t pt-5 text-left"
+                        aria-labelledby="start-recent-title"
+                      >
+                        <h2 id="start-recent-title" className="text-sm font-semibold">
+                          最近查看
+                        </h2>
                         <div className="mt-2 flex flex-col">
                           {startRecentDocuments.map((document) => (
                             <Tooltip key={document.path}>
