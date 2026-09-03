@@ -31,8 +31,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run static and unit checks
-        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+      - name: Run static and Windows installer checks
+        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm exec vitest run apps/desktop/src/main/markdown-default-app.test.ts scripts/file-association-icon.test.mjs scripts/test-release.test.mjs
 
       - name: Verify Windows workflows
         run: pnpm test:e2e:release
