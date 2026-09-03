@@ -420,23 +420,35 @@ export type RestoredOpenDocument =
     }
   | {
       message: string;
+      reason: SourceDocumentUnavailableReason;
       reference: PersistedDocumentReference;
       status: 'unavailable';
     };
 
 export interface LoadDocumentSessionResult {
+  missingDocumentPaths: string[];
   openDocuments: RestoredOpenDocument[];
   session: PersistedDocumentSession;
 }
 
+export type SourceDocumentUnavailableReason = 'missing' | 'unreadable' | 'unsupported';
+
 export type ReadSourceDocumentResult =
   | { document: SourceDocumentData; status: 'available' }
-  | { message: string; status: 'unavailable' };
+  | {
+      message: string;
+      reason: SourceDocumentUnavailableReason;
+      status: 'unavailable';
+    };
 
 export type LocateSourceDocumentResult =
   | { status: 'cancelled' }
   | { document: SourceDocumentData; status: 'available' }
-  | { message: string; status: 'unavailable' };
+  | {
+      message: string;
+      reason: SourceDocumentUnavailableReason;
+      status: 'unavailable';
+    };
 
 export interface StartPdfExportRequest {
   expectedPageCount?: number;

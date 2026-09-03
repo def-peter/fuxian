@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -140,12 +140,11 @@ test('restores open-document order, active document, and reading position after 
   }
 });
 
-test('restores available documents while unavailable items can be retried, located, or removed', async () => {
+test('removes missing open and recent documents while restoring a session', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-recovery-'));
   const sessionFilePath = join(temporaryDirectory, 'document-session.json');
-  const retryPath = join(temporaryDirectory, 'retry.md');
-  const locatePath = join(temporaryDirectory, 'locate.md');
-  const removePath = join(temporaryDirectory, 'remove.md');
+  const missingOpenPath = join(temporaryDirectory, 'missing-open.md');
+  const missingRecentPath = join(temporaryDirectory, 'missing-recent.md');
   const reference = (path: string) => ({
     lastOpenedAt: Date.now(),
     name: basename(path),
@@ -155,19 +154,13 @@ test('restores available documents while unavailable items can be retried, locat
   await writeFile(
     sessionFilePath,
     JSON.stringify({
-      activeDocumentPath: locatePath,
-      openDocuments: [
-        reference(sourceDocumentPath),
-        reference(retryPath),
-        reference(locatePath),
-        reference(removePath),
-      ],
-      recentDocuments: [],
+      activeDocumentPath: missingOpenPath,
+      openDocuments: [reference(sourceDocumentPath), reference(missingOpenPath)],
+      recentDocuments: [reference(missingRecentPath)],
       version: 1,
     }),
   );
   const electronApp = await launchDesktop(sourceDocumentPath, {
-    locateSourcePath: showcaseDocumentPath,
     sessionFilePath,
   });
 
@@ -183,29 +176,118 @@ test('restores available documents while unavailable items can be retried, locat
       'aria-current',
       'page',
     );
-    await expect(session.getByText('retry.md', { exact: true })).toBeVisible();
-    await expect(session.getByRole('button', { name: '重试 retry.md' })).toBeVisible();
-    await expect(session.getByRole('button', { name: '定位 retry.md' })).toBeVisible();
-    await expect(session.getByRole('button', { name: '移除 retry.md' })).toBeVisible();
-
-    await writeFile(retryPath, '# Retried document\n\nRecovered.');
-    const canonicalRetryPath = await realpath(retryPath);
-    await session.getByRole('button', { name: '重试 retry.md' }).click();
-    await expect(session.getByRole('button', { exact: true, name: 'retry.md' })).toBeVisible();
-
-    await session.getByRole('button', { name: '定位 locate.md' }).click();
-    await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
-
-    await session.getByRole('button', { name: '移除 remove.md' }).click();
-    await expect(session.getByText('remove.md', { exact: true })).toHaveCount(0);
+    await expect(session.getByText('missing-open.md', { exact: true })).toHaveCount(0);
+    await expect(session.getByText('missing-recent.md', { exact: true })).toHaveCount(0);
     await expect
       .poll(async () => {
         const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
           openDocuments: Array<{ path: string }>;
+          recentDocuments: Array<{ path: string }>;
         };
-        return persisted.openDocuments.map(({ path }) => path);
+        return {
+          open: persisted.openDocuments.map(({ path }) => path),
+          recent: persisted.recentDocuments.map(({ path }) => path),
+        };
       })
-      .toEqual([sourceDocumentPath, canonicalRetryPath, showcaseDocumentPath]);
+      .toEqual({ open: [sourceDocumentPath], recent: [] });
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test('removes a source document from the session when it is deleted on disk', async () => {
+  const temporaryDirectory = await realpath(
+    await mkdtemp(join(tmpdir(), 'fuxian-e2e-deleted-source-')),
+  );
+  const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+  const deletedPath = join(temporaryDirectory, 'deleted.md');
+  await writeFile(deletedPath, '# Temporary document\n\nThis file will be deleted.');
+  const electronApp = await launchDesktop(deletedPath, { sessionFilePath });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(session.getByRole('button', { exact: true, name: 'deleted.md' })).toBeVisible();
+
+    await rm(deletedPath);
+
+    await expect(session.getByText('deleted.md', { exact: true })).toHaveCount(0, {
+      timeout: 10_000,
+    });
+    await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+          openDocuments: Array<{ path: string }>;
+          recentDocuments: Array<{ path: string }>;
+        };
+        return [persisted.openDocuments.length, persisted.recentDocuments.length];
+      })
+      .toEqual([0, 0]);
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test('removes old paths when a source file or its directory is renamed', async () => {
+  const temporaryDirectory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-e2e-renamed-')));
+  const nestedDirectory = join(temporaryDirectory, 'original-directory');
+  const renamedFilePath = join(temporaryDirectory, 'renamed-file.md');
+  const nestedSourcePath = join(nestedDirectory, 'nested.md');
+  await mkdir(nestedDirectory);
+  await writeFile(renamedFilePath, '# File rename');
+  await writeFile(nestedSourcePath, '# Directory rename');
+  const electronApp = await launchDesktop([renamedFilePath, nestedSourcePath]);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await expect(
+      session.getByRole('button', { exact: true, name: 'renamed-file.md' }),
+    ).toBeVisible();
+    await expect(session.getByRole('button', { exact: true, name: 'nested.md' })).toBeVisible();
+
+    await rename(renamedFilePath, join(temporaryDirectory, 'new-name.md'));
+    await rename(nestedDirectory, join(temporaryDirectory, 'renamed-directory'));
+
+    await expect(session.getByText('renamed-file.md', { exact: true })).toHaveCount(0, {
+      timeout: 10_000,
+    });
+    await expect(session.getByText('nested.md', { exact: true })).toHaveCount(0, {
+      timeout: 10_000,
+    });
+  } finally {
+    await electronApp.close();
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test('removes a stale recent document when reopening discovers it is missing', async () => {
+  const temporaryDirectory = await realpath(
+    await mkdtemp(join(tmpdir(), 'fuxian-e2e-stale-recent-')),
+  );
+  const stalePath = join(temporaryDirectory, 'stale.md');
+  await writeFile(stalePath, '# Stale recent document');
+  const electronApp = await launchDesktop(stalePath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const session = window.getByRole('complementary', { name: '文档会话' });
+    await session.getByRole('button', { name: '关闭 stale.md' }).click();
+    await expect(session.getByRole('button', { exact: true, name: 'stale.md' })).toBeVisible();
+    await rm(stalePath);
+
+    await session.getByRole('button', { exact: true, name: 'stale.md' }).click();
+
+    await expect(session.getByText('stale.md', { exact: true })).toHaveCount(0, {
+      timeout: 10_000,
+    });
+    await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
   } finally {
     await electronApp.close();
     await rm(temporaryDirectory, { force: true, recursive: true });

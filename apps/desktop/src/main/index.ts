@@ -93,6 +93,11 @@ let appUpdateService: AppUpdateService | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
+
+const isMissingPathError = (error: unknown): boolean => {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
+};
 const activePlantUmlRequests = new Map<string, AbortController>();
 interface RendererDocumentWatches {
   coordinator: OpenDocumentWatchCoordinator;
@@ -250,10 +255,11 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
   let canonicalPath: string;
   try {
     canonicalPath = await realpath(selectedPath);
-  } catch {
+  } catch (error) {
     return {
       status: 'unavailable',
       message: `无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`,
+      reason: isMissingPathError(error) ? 'missing' : 'unreadable',
     };
   }
 
@@ -261,6 +267,7 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
     return {
       status: 'unavailable',
       message: `“${basename(canonicalPath)}”不是 Markdown 文档。`,
+      reason: 'unsupported',
     };
   }
 
@@ -276,10 +283,11 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
         source,
       },
     };
-  } catch {
+  } catch (error) {
     return {
       status: 'unavailable',
       message: `无法读取“${basename(canonicalPath)}”。请确认文件仍然存在并可访问。`,
+      reason: isMissingPathError(error) ? 'missing' : 'unreadable',
     };
   }
 };
@@ -942,10 +950,35 @@ const registerDesktopHandlers = (
           const result = await readSourceDocument(reference.path);
           return result.status === 'available'
             ? { status: 'available' as const, reference, document: result.document }
-            : { status: 'unavailable' as const, reference, message: result.message };
+            : {
+                status: 'unavailable' as const,
+                reference,
+                message: result.message,
+                reason: result.reason,
+              };
         }),
       );
-      return { openDocuments, session };
+      const missingRecentDocumentPaths = (
+        await Promise.all(
+          session.recentDocuments.map(async ({ path }) => {
+            try {
+              await realpath(path);
+              return undefined;
+            } catch (error) {
+              return isMissingPathError(error) ? path : undefined;
+            }
+          }),
+        )
+      ).filter((path): path is string => Boolean(path));
+      const missingDocumentPaths = [
+        ...openDocuments.flatMap((document) =>
+          document.status === 'unavailable' && document.reason === 'missing'
+            ? [document.reference.path]
+            : [],
+        ),
+        ...missingRecentDocumentPaths,
+      ];
+      return { missingDocumentPaths, openDocuments, session };
     },
   );
   ipcMain.handle(desktopIpcChannels.saveDocumentSession, async (_event, value: unknown) => {
@@ -1043,7 +1076,11 @@ const registerDesktopHandlers = (
     desktopIpcChannels.retrySourceDocument,
     async (_event, path: unknown): Promise<ReadSourceDocumentResult> => {
       if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
-        return { status: 'unavailable', message: '该文档不属于当前文档会话。' };
+        return {
+          status: 'unavailable',
+          message: '该文档不属于当前文档会话。',
+          reason: 'unreadable',
+        };
       }
       return readSourceDocument(path);
     },
@@ -1052,7 +1089,11 @@ const registerDesktopHandlers = (
     desktopIpcChannels.locateSourceDocument,
     async (_event, path: unknown): Promise<LocateSourceDocumentResult> => {
       if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
-        return { status: 'unavailable', message: '该文档不属于当前文档会话。' };
+        return {
+          status: 'unavailable',
+          message: '该文档不属于当前文档会话。',
+          reason: 'unreadable',
+        };
       }
       const replacementPath = await chooseReplacementDocument();
       if (!replacementPath) {

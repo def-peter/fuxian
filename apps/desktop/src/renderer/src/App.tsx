@@ -56,6 +56,7 @@ import {
   createPersistedDocumentSession,
   createRestoredDocumentSession,
   failLoadingDocument,
+  forgetDocument,
   recoverUnavailableDocument,
   removeUnavailableDocument,
   setUnavailableDocumentMessage,
@@ -337,6 +338,52 @@ export function App(): React.JSX.Element {
     setSourceEdit(buffer);
   }, []);
 
+  const forgetMissingDocument = useCallback((path: string): void => {
+    const wasActive = sessionRef.current.activeDocumentPath === path;
+    recentDocumentCache.current.delete(path);
+    pendingRevisionRefs.current.delete(path);
+    setPendingRevisions((current) => {
+      const next = new Map(current);
+      next.delete(path);
+      return next;
+    });
+    setPromotedRevisions((current) => {
+      const next = new Map(current);
+      next.delete(path);
+      return next;
+    });
+    setExternalRevisionStatuses((current) => {
+      const next = new Map(current);
+      next.delete(path);
+      return next;
+    });
+    const statusTimer = updatedStatusTimers.current.get(path);
+    if (statusTimer) window.clearTimeout(statusTimer);
+    updatedStatusTimers.current.delete(path);
+    if (wasActive) {
+      finishedDocumentController.current = undefined;
+      paperPreviewController.current = undefined;
+      paperSnapshotRequest.current += 1;
+      visibleFrameIdRef.current = undefined;
+      setActiveHeadingId(undefined);
+      setFindOpen(false);
+      findReturnFocus.current = undefined;
+      setFindQuery('');
+      setFindResult(emptyFindResult());
+      setSourceDiagram(undefined);
+      setFocusedDiagram(undefined);
+      setPaperSnapshot(undefined);
+      setPaperPageCount(undefined);
+      setPaperReadyRevisionId(undefined);
+      setPaperPreviewFailure(undefined);
+    }
+    setSession((current) => {
+      const next = forgetDocument(current, path);
+      sessionRef.current = next;
+      return next;
+    });
+  }, []);
+
   const updateShellPreferences = useCallback(
     (patch: Partial<typeof preferences.shell>): void => {
       updatePreferences({ ...preferences, shell: { ...preferences.shell, ...patch } });
@@ -425,6 +472,21 @@ export function App(): React.JSX.Element {
 
       if (event.result.status === 'unavailable') {
         const message = event.result.message;
+        if (event.result.reason === 'missing') {
+          if (currentEdit?.path === event.path && isSourceEditDirty(currentEdit)) {
+            void persistCurrentSourceDraft().catch(() => undefined);
+            setExternalRevisionStatuses((current) =>
+              new Map(current).set(event.path, {
+                detail: '源文件已被移动或删除。未保存的源码仍保留在当前编辑器和恢复草稿中。',
+                state: 'failed',
+              }),
+            );
+            return;
+          }
+          if (currentEdit?.path === event.path) commitSourceEdit(undefined);
+          forgetMissingDocument(event.path);
+          return;
+        }
         pendingRevisionRefs.current.delete(event.path);
         setPendingRevisions((current) => {
           const next = new Map(current);
@@ -494,7 +556,7 @@ export function App(): React.JSX.Element {
         );
       }
     },
-    [getReadingController],
+    [commitSourceEdit, forgetMissingDocument, getReadingController, persistCurrentSourceDraft],
   );
 
   const saveActiveSourceEdit = useCallback(async (): Promise<boolean> => {
@@ -657,10 +719,14 @@ export function App(): React.JSX.Element {
               status: 'unavailable' as const,
               reference: item.reference,
               message: `“${item.reference.name}”的内容暂时无法呈现。`,
+              reason: 'unreadable' as const,
             };
           }
         });
-        let nextSession = createRestoredDocumentSession(result.session, restored, Date.now());
+        let nextSession = createRestoredDocumentSession(result.session, restored, Date.now(), {
+          missingDocumentPaths: result.missingDocumentPaths,
+          protectedDocumentPaths: drafts.map(({ path }) => path),
+        });
         const recoveryDraft = drafts.find((draft) =>
           nextSession.openDocuments.some(
             (item) => item.status === 'available' && item.latestSourceDocument.path === draft.path,
@@ -1442,7 +1508,11 @@ export function App(): React.JSX.Element {
     } catch {
       beginExternalRevision({
         path,
-        result: { message: '应用暂时无法访问该文档。', status: 'unavailable' },
+        result: {
+          message: '应用暂时无法访问该文档。',
+          reason: 'unreadable',
+          status: 'unavailable',
+        },
         revision: 0,
       });
     } finally {

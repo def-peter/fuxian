@@ -51,7 +51,8 @@ left to right direction
 Empty --> Restoring : 恢复上次会话
 Empty --> Loading : 打开或拖入 Markdown
 Restoring --> Reading : 文档可用并恢复阅读位置
-Restoring --> RecoveryWarning : 部分文档不可用
+Restoring --> RecoveryWarning : 部分文档暂时不可读
+Restoring --> Empty : 已记录的文件均不存在
 Loading --> Reading : 文件读取并完成首屏渲染
 Loading --> BlockingError : 文件读取或解析失败
 BlockingError --> Loading : 重试或打开其他文件
@@ -62,8 +63,11 @@ Saving --> Editing : 保存成功
 Saving --> Editing : 保存失败
 Editing --> ExternalConflict : dirty 时检测到外部修改
 ExternalConflict --> Editing : 保留本地、采用磁盘版本或另存
+Editing --> Editing : 源文件丢失时保留未保存内容和恢复草稿
 Editing --> Reading : 完成编辑或放弃修改
 Reading --> Loading : 当前文件被外部修改
+Reading --> Reading : 非当前文件被移动或删除并清理记录
+Reading --> Empty : 最后一份文件被移动或删除
 Reading --> Reading : 切换当前会话中的文档
 Reading --> Exporting : 导出 PDF
 Exporting --> Reading : 成功、失败或取消
@@ -82,7 +86,7 @@ end note
 | ----------------- | -------------------------------------------------------------------------------------------- |
 | Empty             | One primary **Open Markdown** action and full-window drag target; no marketing content       |
 | Restoring         | Restore available documents and their reading positions without blocking startup             |
-| Recovery warning  | Keep unavailable documents identifiable and offer locate, retry, or remove actions           |
+| Recovery warning  | Keep temporarily unreadable documents identifiable; missing paths are removed automatically  |
 | Loading           | Preserve the shell and document geometry; show restrained progress in the document area      |
 | Reading           | Show the content outline by default, remember its collapsed state, and keep commands compact |
 | Editing           | Replace the finished document with a source-only editor and expose dirty/save state          |
@@ -136,7 +140,7 @@ The operating system owns window controls and the application menu. The content 
 - Document items show identity, active state, external-revision state, and recovery state, but never display reading progress. Recent documents still retain their reading positions after they leave the active session.
 - Reading progress is not displayed as a percentage, progress bar, or bottom status bar. The viewport scrollbar communicates spatial progress with low contrast while idle and restrained emphasis during interaction; the content outline communicates semantic position.
 - Reading positions use the nearest heading and an offset, with relative document progress as a fallback after content changes.
-- Unavailable restored documents remain visible with locate, retry, and remove actions instead of blocking startup or disappearing silently.
+- Missing files are removed from both `正在查看` and `最近查看` during restoration, after a failed recent reopen, or after the file watcher confirms a stable deletion. The active document falls back to the next available item or the start view. Temporarily unreadable files remain identifiable instead of being deleted. A missing file with an unsaved source edit or recovery draft remains until the reader resolves the local work explicitly.
 - Recent documents contain at most the ten most recently opened documents and expire thirty days after their last open time.
 - The current successful document remains visible while a revision renders; replacement is atomic, restores the reading position, and falls back to the previous successful version on failure.
 - External-revision status appears temporarily beside the filename as `正在更新...` and `已更新 · time`; failures remain visible with retry and details actions.

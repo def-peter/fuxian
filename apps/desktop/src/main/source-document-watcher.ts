@@ -49,10 +49,15 @@ export class SourceDocumentWatcher {
   #startWatching(): void {
     const pathsByDirectory = new Map<string, Set<string>>();
     for (const path of this.#paths) {
-      const directory = dirname(path);
-      const watchedPaths = pathsByDirectory.get(directory) ?? new Set<string>();
-      watchedPaths.add(path);
-      pathsByDirectory.set(directory, watchedPaths);
+      let watchedPath = path;
+      while (true) {
+        const directory = dirname(watchedPath);
+        if (directory === watchedPath) break;
+        const watchedPaths = pathsByDirectory.get(directory) ?? new Set<string>();
+        watchedPaths.add(watchedPath);
+        pathsByDirectory.set(directory, watchedPaths);
+        watchedPath = directory;
+      }
     }
 
     for (const [directory, watchedPaths] of pathsByDirectory) {

@@ -3,6 +3,7 @@ import type {
   PersistedDocumentReference,
   PersistedDocumentSession,
   ReadingPosition,
+  SourceDocumentUnavailableReason,
   SourceDocumentData,
 } from '@fuxian/shared-types';
 
@@ -30,6 +31,7 @@ export interface SessionDocument extends FinishedSourceDocument {
 
 export interface UnavailableSessionDocument extends PersistedDocumentReference {
   message: string;
+  reason: SourceDocumentUnavailableReason;
   status: 'unavailable';
 }
 
@@ -55,9 +57,15 @@ export type RestoredFinishedDocument =
     }
   | {
       message: string;
+      reason: SourceDocumentUnavailableReason;
       reference: PersistedDocumentReference;
       status: 'unavailable';
     };
+
+interface RestoreDocumentSessionOptions {
+  missingDocumentPaths?: readonly string[];
+  protectedDocumentPaths?: readonly string[];
+}
 
 const itemPath = (item: OpenDocumentItem): string =>
   item.status === 'available' ? item.latestSourceDocument.path : item.path;
@@ -114,20 +122,28 @@ export const createRestoredDocumentSession = (
   persisted: PersistedDocumentSession,
   restoredDocuments: readonly RestoredFinishedDocument[],
   now: number,
+  options: RestoreDocumentSessionOptions = {},
 ): DocumentSession => {
-  const openDocuments: OpenDocumentItem[] = restoredDocuments.map((restored) =>
-    restored.status === 'available'
-      ? createSessionDocument(
-          restored.document,
-          restored.reference.lastOpenedAt,
-          restored.reference.readingPosition,
-        )
-      : {
-          ...restored.reference,
-          message: restored.message,
-          status: 'unavailable',
-        },
-  );
+  const missingDocumentPaths = new Set(options.missingDocumentPaths);
+  const protectedDocumentPaths = new Set(options.protectedDocumentPaths);
+  const shouldKeepPath = (path: string): boolean =>
+    !missingDocumentPaths.has(path) || protectedDocumentPaths.has(path);
+  const openDocuments: OpenDocumentItem[] = restoredDocuments
+    .filter((restored) => shouldKeepPath(restored.reference.path))
+    .map((restored) =>
+      restored.status === 'available'
+        ? createSessionDocument(
+            restored.document,
+            restored.reference.lastOpenedAt,
+            restored.reference.readingPosition,
+          )
+        : {
+            ...restored.reference,
+            message: restored.message,
+            reason: restored.reason,
+            status: 'unavailable',
+          },
+    );
   const requestedActive = openDocuments.find(
     (item): item is SessionDocument =>
       item.status === 'available' && item.document.path === persisted.activeDocumentPath,
@@ -139,7 +155,10 @@ export const createRestoredDocumentSession = (
   return {
     activeDocumentPath: requestedActive?.document.path ?? firstAvailable?.document.path,
     openDocuments,
-    recentDocuments: pruneRecentDocuments(persisted.recentDocuments, now),
+    recentDocuments: pruneRecentDocuments(
+      persisted.recentDocuments.filter((document) => shouldKeepPath(document.path)),
+      now,
+    ),
   };
 };
 
@@ -251,6 +270,19 @@ export const closeDocument = (
   };
 };
 
+export const forgetDocument = (session: DocumentSession, path: string): DocumentSession => {
+  const forgottenIndex = session.openDocuments.findIndex((item) => itemPath(item) === path);
+  const openDocuments = session.openDocuments.filter((item) => itemPath(item) !== path);
+  return {
+    activeDocumentPath:
+      session.activeDocumentPath === path
+        ? nextAvailablePath(openDocuments, Math.max(0, forgottenIndex))
+        : session.activeDocumentPath,
+    openDocuments,
+    recentDocuments: session.recentDocuments.filter((document) => document.path !== path),
+  };
+};
+
 export const removeUnavailableDocument = (
   session: DocumentSession,
   path: string,
@@ -353,7 +385,7 @@ export const failLoadingDocument = (
       : session.activeDocumentPath,
   openDocuments: session.openDocuments.map((item): OpenDocumentItem =>
     item.status === 'loading' && item.path === path
-      ? { ...item, message, status: 'unavailable' }
+      ? { ...item, message, reason: 'unreadable', status: 'unavailable' }
       : item,
   ),
 });
@@ -403,7 +435,12 @@ export const reopenRecentDocument = (
   const item: OpenDocumentItem =
     'document' in result
       ? createSessionDocument(result, now, recentDocument.readingPosition)
-      : { ...recentDocument, message: result.message, status: 'unavailable' };
+      : {
+          ...recentDocument,
+          message: result.message,
+          reason: 'unreadable',
+          status: 'unavailable',
+        };
 
   return {
     activeDocumentPath:

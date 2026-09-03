@@ -55,6 +55,62 @@ test('edits and explicitly saves Markdown before returning to the finished docum
   }
 });
 
+test('keeps an unsaved edit and recovery draft when the source file is deleted', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-deleted-edit-')));
+  const sourcePath = join(directory, 'guide.md');
+  const draftsPath = join(directory, 'source-recovery-drafts.json');
+  await writeFile(sourcePath, '# Original\n\nDisk content.', 'utf8');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SOURCE_DRAFTS_FILE: draftsPath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await page.getByRole('button', { name: '打开 Markdown' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
+    const editor = page.locator('.cm-content');
+    await editor.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.insertText('# Local draft\n\nUnsaved content.');
+    await expect(page.getByText('未保存', { exact: true })).toBeVisible();
+
+    await rm(sourcePath);
+
+    await page.waitForTimeout(1_000);
+    await expect(editor).toContainText('Local draft');
+    await expect(
+      page
+        .getByRole('complementary', { name: '文档会话' })
+        .getByRole('button', { exact: true, name: 'guide.md' }),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        try {
+          return JSON.parse(await readFile(draftsPath, 'utf8')) as {
+            drafts: Array<{ path: string; source: string }>;
+          };
+        } catch {
+          return undefined;
+        }
+      })
+      .toMatchObject({
+        drafts: [{ path: sourcePath, source: expect.stringContaining('Local draft') }],
+      });
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('shows an explicitly saved revision with an inline diagram failure', async () => {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-render-failure-')));
   const sourcePath = join(directory, 'diagram.md');

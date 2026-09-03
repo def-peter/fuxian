@@ -10,6 +10,7 @@ import {
   createPersistedDocumentSession,
   createRestoredDocumentSession,
   failLoadingDocument,
+  forgetDocument,
   pruneRecentDocuments,
   recentDocumentMaxAgeMs,
   reopenRecentDocument,
@@ -210,15 +211,17 @@ describe('document session', () => {
     expect(reopened.recentDocuments).toHaveLength(0);
   });
 
-  it('restores open-document order and keeps unavailable items without blocking the active document', () => {
+  it('drops missing open and recent documents while restoring the available session', () => {
     const now = Date.UTC(2026, 7, 27);
     const first = reference('/docs/first.md', now - 2);
     const missing = reference('/docs/missing.md', now - 1);
     const active = reference('/docs/active.md', now, 'chapter-two');
+    const recentMissing = reference('/docs/recent-missing.md', now - 3);
+    const recentAvailable = reference('/docs/recent.md', now - 4);
     const persisted = {
       activeDocumentPath: active.path,
       openDocuments: [first, missing, active],
-      recentDocuments: [],
+      recentDocuments: [recentMissing, recentAvailable],
       version: 1 as const,
     };
 
@@ -226,24 +229,40 @@ describe('document session', () => {
       persisted,
       [
         { status: 'available', reference: first, document: finishedDocument(first.path) },
-        { status: 'unavailable', reference: missing, message: 'File not found.' },
+        {
+          status: 'unavailable',
+          reference: missing,
+          message: 'File not found.',
+          reason: 'missing',
+        },
         { status: 'available', reference: active, document: finishedDocument(active.path) },
       ],
       now,
+      { missingDocumentPaths: [missing.path, recentMissing.path] },
     );
 
-    expect(openPaths(restored)).toEqual([first.path, missing.path, active.path]);
-    expect(restored.openDocuments.map(({ status }) => status)).toEqual([
-      'available',
-      'unavailable',
-      'available',
-    ]);
+    expect(openPaths(restored)).toEqual([first.path, active.path]);
+    expect(restored.openDocuments.map(({ status }) => status)).toEqual(['available', 'available']);
     expect(restored.activeDocumentPath).toBe(active.path);
-    expect(createPersistedDocumentSession(restored).openDocuments).toEqual([
-      first,
-      missing,
-      active,
-    ]);
+    expect(restored.recentDocuments).toEqual([recentAvailable]);
+    expect(createPersistedDocumentSession(restored).openDocuments).toEqual([first, active]);
+  });
+
+  it('forgets a deleted document without adding it to recent history', () => {
+    const now = Date.UTC(2026, 7, 27);
+    const first = finishedDocument('/docs/first.md');
+    const deleted = finishedDocument('/docs/deleted.md');
+    const open = addDocumentsToSession(createDocumentSession(), [first, deleted], now);
+    const session = {
+      ...open,
+      recentDocuments: [reference('/docs/deleted.md', now - 1), reference('/docs/recent.md', now)],
+    };
+
+    const forgotten = forgetDocument(session, deleted.document.path);
+
+    expect(openPaths(forgotten)).toEqual([first.document.path]);
+    expect(forgotten.activeDocumentPath).toBe(first.document.path);
+    expect(forgotten.recentDocuments.map(({ path }) => path)).toEqual(['/docs/recent.md']);
   });
 
   it('falls back to the first available document when the persisted active document is unavailable', () => {
@@ -258,7 +277,12 @@ describe('document session', () => {
         version: 1,
       },
       [
-        { status: 'unavailable', reference: missing, message: 'File not found.' },
+        {
+          status: 'unavailable',
+          reference: missing,
+          message: 'File not found.',
+          reason: 'missing',
+        },
         {
           status: 'available',
           reference: available,

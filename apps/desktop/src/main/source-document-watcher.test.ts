@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -50,6 +50,24 @@ describe('SourceDocumentWatcher', () => {
     expect(changed).not.toHaveBeenCalled();
 
     await writeFile(activePath, '# Latest');
+    await expect.poll(() => changed.mock.calls.length).toBe(1);
+    watcher.close();
+  });
+
+  it('observes when an ancestor directory of the source document is renamed', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fuxian-watch-directory-'));
+    temporaryDirectories.push(directory);
+    const originalDirectory = join(directory, 'original', 'nested');
+    const renamedDirectory = join(directory, 'renamed');
+    const sourcePath = join(originalDirectory, 'document.md');
+    await mkdir(originalDirectory, { recursive: true });
+    await writeFile(sourcePath, '# Initial');
+    const changed = vi.fn();
+    const watcher = new SourceDocumentWatcher(changed, { settleMilliseconds: 25 });
+    watcher.configure([sourcePath]);
+
+    await rename(join(directory, 'original'), renamedDirectory);
+
     await expect.poll(() => changed.mock.calls.length).toBe(1);
     watcher.close();
   });
