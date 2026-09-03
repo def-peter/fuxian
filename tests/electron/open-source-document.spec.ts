@@ -278,7 +278,7 @@ test('removes a stale recent document when reopening discovers it is missing', a
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const session = window.getByRole('complementary', { name: '文档会话' });
-    await session.getByRole('button', { name: '关闭 stale.md' }).click();
+    await session.getByRole('button', { name: '关闭“stale.md”' }).click();
     await expect(session.getByRole('button', { exact: true, name: 'stale.md' })).toBeVisible();
     await rm(stalePath);
 
@@ -390,7 +390,7 @@ test('a reader can manage multiple open and recent documents without duplicates'
       'page',
     );
 
-    await session.getByRole('button', { name: '关闭 basic.md' }).click();
+    await session.getByRole('button', { name: '关闭“basic.md”' }).click();
     await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -402,8 +402,8 @@ test('a reader can manage multiple open and recent documents without duplicates'
       'page',
     );
 
-    await session.getByRole('button', { name: '关闭 basic.md' }).click();
-    await session.getByRole('button', { name: '关闭 showcase.md' }).click();
+    await session.getByRole('button', { name: '关闭“basic.md”' }).click();
+    await session.getByRole('button', { name: '关闭“showcase.md”' }).click();
     const startView = window.getByRole('main');
     await expect(startView.getByRole('heading', { name: '最近查看' })).toBeVisible();
     await expect(startView.getByRole('button', { name: 'basic.md' })).toBeVisible();
@@ -553,7 +553,7 @@ test('the start view shows at most five recent documents', async () => {
     const session = window.getByRole('complementary', { name: '文档会话' });
 
     for (let index = 0; index < recentPaths.length; index += 1) {
-      await session.getByRole('button', { name: `关闭 recent-${index}.md` }).click();
+      await session.getByRole('button', { name: `关闭“recent-${index}.md”` }).click();
     }
 
     const startRecent = window.getByRole('region', { name: '最近查看' });

@@ -10,6 +10,8 @@ import {
   type MarkdownDefaultAppStatus,
   type ReaderPreferences,
   type SettingsSectionId,
+  type UiLanguagePreference,
+  type UiLocale,
 } from '@fuxian/shared-types';
 import {
   CircleArrowUp,
@@ -50,6 +52,7 @@ import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmente
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
 import { FuxianAppIcon } from '@/fuxian-mark';
+import { useLocalization } from '@/localization-context';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useAppUpdateStatus } from '@/use-app-update-status';
@@ -60,7 +63,8 @@ type PlantUmlValidationState =
   | { message: string; status: 'error' }
   | { status: 'saved' };
 
-const previewSource = `# 完成文档示例
+const previewSources: Record<UiLocale, string> = {
+  'zh-CN': `# 完成文档示例
 
 浮现让 Markdown 回到清晰、安静的阅读状态。**正文排版**会随设置即时变化。
 
@@ -87,15 +91,41 @@ async function render(source: string) {
   return { title: "浮现", pages }
 }
 \`\`\`
-`;
+`,
+  'en-US': `# Finished document sample
 
-const previewHtml = renderMarkdown({ source: previewSource }).html;
-const previewDocumentSource = createFinishedDocumentSource(previewHtml);
+Fuxian brings Markdown back to a clear, quiet reading experience. **Document typography** updates as you change settings.
+
+> A good reading experience should never let the tool overwhelm the content.
+
+## Content hierarchy
+
+- Headings retain a clear hierarchy
+- Tables, code, and body text share one width
+
+| Item | Current state |
+| --- | --- |
+| Document theme | Live preview |
+| Reading width | Applied globally |
+
+\`\`\`typescript
+type FinishedDocument = {
+  title: string
+  pages: number
+}
+
+async function render(source: string) {
+  const pages = await paginate(source)
+  return { title: "Fuxian", pages }
+}
+\`\`\`
+`,
+};
 
 const settingsSections: Array<{
   icon: typeof Sun;
   id: SettingsSectionId;
-  label: string;
+  label: 'PlantUML' | '关于与更新' | '外观' | '文档' | '通用';
 }> = [
   { icon: Settings2, id: 'general', label: '通用' },
   { icon: Sun, id: 'appearance', label: '外观' },
@@ -116,7 +146,7 @@ const formatBytes = (bytes: number | undefined): string => {
 
 const appearanceOptions: Array<{
   icon: typeof Sun;
-  label: string;
+  label: '浅色' | '深色' | '跟随系统';
   value: AppearancePreference;
 }> = [
   { icon: Sun, label: '浅色', value: 'light' },
@@ -124,9 +154,18 @@ const appearanceOptions: Array<{
   { icon: Monitor, label: '跟随系统', value: 'system' },
 ];
 
+const languageOptions: Array<{
+  label: 'English' | '中文' | '跟随系统';
+  value: UiLanguagePreference;
+}> = [
+  { label: '跟随系统', value: 'system' },
+  { label: '中文', value: 'zh-CN' },
+  { label: 'English', value: 'en-US' },
+];
+
 const codeThemeOptions: Array<{
   background: string;
-  label: string;
+  label: 'GitHub 浅色' | 'GitHub 深色' | '浮现浅色' | '浮现深色';
   tokens: [string, string, string];
   value: CodeHighlightTheme;
 }> = [
@@ -166,6 +205,7 @@ const updateDocumentTypography = (
 
 export function SettingsApp(): React.JSX.Element {
   const { preferences, ready, resolvedAppearance, updatePreferences } = useReaderPreferences();
+  const { locale, t } = useLocalization();
   const appUpdateStatus = useAppUpdateStatus();
   const [section, setSection] = useState<SettingsSectionId>(initialSettingsSection);
   const [plantUmlServerDraft, setPlantUmlServerDraft] = useState<string>();
@@ -179,6 +219,10 @@ export function SettingsApp(): React.JSX.Element {
   const documentTheme = useMemo(
     () => toDocumentThemePreferences(preferences, resolvedAppearance),
     [preferences, resolvedAppearance],
+  );
+  const previewDocumentSource = useMemo(
+    () => createFinishedDocumentSource(renderMarkdown({ source: previewSources[locale] }).html),
+    [locale],
   );
   const plantUmlServerValue = plantUmlServerDraft ?? preferences.plantUml.serverUrl;
 
@@ -226,6 +270,12 @@ export function SettingsApp(): React.JSX.Element {
     }
   };
 
+  const selectLanguage = (language: string): void => {
+    if (language === 'system' || language === 'zh-CN' || language === 'en-US') {
+      updatePreferences({ ...preferences, language });
+    }
+  };
+
   const selectBodyFamily = (bodyFamily: string): void => {
     if (bodyFamily === 'serif' || bodyFamily === 'sans-serif') {
       updatePreferences(updateDocumentTypography(preferences, { bodyFamily }));
@@ -259,7 +309,7 @@ export function SettingsApp(): React.JSX.Element {
       setPlantUmlServerDraft(undefined);
       setPlantUmlValidation({ status: 'saved' });
     } catch {
-      setPlantUmlValidation({ message: '暂时无法验证 PlantUML Server。', status: 'error' });
+      setPlantUmlValidation({ message: t('暂时无法验证 PlantUML Server。'), status: 'error' });
     }
   };
 
@@ -309,13 +359,16 @@ export function SettingsApp(): React.JSX.Element {
         data-settings-surface="header"
       >
         <div>
-          <h1 className="text-sm font-semibold">设置</h1>
-          <p className="text-xs text-fg-secondary">更改会自动保存并应用到所有文档</p>
+          <h1 className="text-sm font-semibold">{t('设置')}</h1>
+          <p className="text-xs text-fg-secondary">{t('更改会自动保存并应用到所有文档')}</p>
         </div>
       </header>
 
       <div className="grid min-h-0 grid-cols-[132px_292px_minmax(0,1fr)]">
-        <nav aria-label="设置分区" className="border-r border-line-subtle bg-surface-sidebar p-2">
+        <nav
+          aria-label={t('设置分区')}
+          className="border-r border-line-subtle bg-surface-sidebar p-2"
+        >
           {settingsSections.map(({ icon: Icon, id, label }) => (
             <Button
               aria-current={section === id ? 'page' : undefined}
@@ -326,7 +379,7 @@ export function SettingsApp(): React.JSX.Element {
               variant={section === id ? 'secondary' : 'ghost'}
             >
               <Icon aria-hidden="true" />
-              {label}
+              {label === 'PlantUML' ? label : t(label)}
             </Button>
           ))}
         </nav>
@@ -339,17 +392,34 @@ export function SettingsApp(): React.JSX.Element {
           {section === 'general' ? (
             <section aria-labelledby="general-title">
               <h2 className="text-base font-semibold" id="general-title">
-                通用
+                {t('通用')}
               </h2>
-              <p className="mt-1 text-sm text-fg-secondary">管理浮现与操作系统的集成。</p>
+              <p className="mt-1 text-sm text-fg-secondary">{t('管理浮现与操作系统的集成。')}</p>
               <Separator className="my-5" />
 
               <Field>
-                <FieldTitle>Markdown 默认应用</FieldTitle>
-                <FieldDescription>
-                  分别检查 .md 与
-                  .markdown。浮现只会在你明确操作后打开系统设置，不会静默更改文件关联。
-                </FieldDescription>
+                <FieldTitle>{t('用户界面语言')}</FieldTitle>
+                <FieldDescription>{t('界面语言会立即应用到浮现的所有窗口。')}</FieldDescription>
+                <SegmentedControl
+                  aria-label={t('用户界面语言')}
+                  className="w-full"
+                  onValueChange={selectLanguage}
+                  type="single"
+                  value={preferences.language}
+                >
+                  {languageOptions.map(({ label, value }) => (
+                    <SegmentedControlItem className="flex-1" key={value} value={value}>
+                      {t(label)}
+                    </SegmentedControlItem>
+                  ))}
+                </SegmentedControl>
+              </Field>
+
+              <Separator className="my-5" />
+
+              <Field>
+                <FieldTitle>{t('Markdown 默认应用')}</FieldTitle>
+                <FieldDescription>{t('Markdown 默认应用说明')}</FieldDescription>
                 <div aria-live="polite" className="mt-3 flex flex-col gap-3">
                   {defaultAppLoading && !defaultAppStatus ? (
                     <div
@@ -357,7 +427,7 @@ export function SettingsApp(): React.JSX.Element {
                       role="status"
                     >
                       <Spinner />
-                      正在检查系统设置...
+                      {t('正在检查系统设置...')}
                     </div>
                   ) : null}
                   {defaultAppStatus ? (
@@ -371,21 +441,24 @@ export function SettingsApp(): React.JSX.Element {
                       )}
                       <AlertTitle>
                         {defaultAppStatus.state === 'default'
-                          ? '已是默认应用'
+                          ? t('已是默认应用')
                           : defaultAppStatus.state === 'partial'
-                            ? '部分关联'
+                            ? t('部分关联')
                             : defaultAppStatus.state === 'not-default'
-                              ? '不是默认应用'
-                              : '无法检测'}
+                              ? t('不是默认应用')
+                              : t('无法检测')}
                       </AlertTitle>
                       <AlertDescription>
                         {defaultAppStatus.state === 'default'
-                          ? '.md 与 .markdown 均由浮现默认打开。'
+                          ? t('.md 与 .markdown 均由浮现默认打开。')
                           : defaultAppStatus.state === 'partial'
-                            ? `.md：${defaultAppStatus.md ? '浮现' : '其他应用'}；.markdown：${defaultAppStatus.markdown ? '浮现' : '其他应用'}。`
+                            ? t('.md：{md}；.markdown：{markdown}。', {
+                                md: defaultAppStatus.md ? t('浮现') : t('其他应用'),
+                                markdown: defaultAppStatus.markdown ? t('浮现') : t('其他应用'),
+                              })
                             : defaultAppStatus.state === 'not-default'
-                              ? '.md 与 .markdown 当前均由其他应用默认打开。'
-                              : (defaultAppStatus.message ?? '当前环境无法读取文件关联。')}
+                              ? t('.md 与 .markdown 当前均由其他应用默认打开。')
+                              : (defaultAppStatus.message ?? t('当前环境无法读取文件关联。'))}
                       </AlertDescription>
                     </Alert>
                   ) : null}
@@ -395,7 +468,7 @@ export function SettingsApp(): React.JSX.Element {
                     defaultAppStatus.state !== 'unavailable' ? (
                       <Button onClick={openMarkdownDefaultAppSettings} size="sm">
                         <ExternalLink data-icon="inline-start" />
-                        设为 Markdown 默认应用
+                        {t('设为 Markdown 默认应用')}
                       </Button>
                     ) : null}
                     <Button
@@ -405,7 +478,7 @@ export function SettingsApp(): React.JSX.Element {
                       variant="outline"
                     >
                       <RefreshCw data-icon="inline-start" />
-                      刷新状态
+                      {t('刷新状态')}
                     </Button>
                   </div>
                   {defaultAppActionMessage ? (
@@ -419,21 +492,21 @@ export function SettingsApp(): React.JSX.Element {
           {section === 'about' ? (
             <section aria-labelledby="about-title">
               <h2 className="text-base font-semibold" id="about-title">
-                关于与更新
+                {t('关于与更新')}
               </h2>
               <p className="mt-1 text-sm text-fg-secondary">
                 {appUpdateStatus.delivery === 'release-page'
-                  ? '查看当前版本，有新版本时前往 GitHub Release 下载。'
-                  : '查看当前版本，并在你准备好时下载和安装更新。'}
+                  ? t('查看当前版本，有新版本时前往 GitHub Release 下载。')
+                  : t('查看当前版本，并在你准备好时下载和安装更新。')}
               </p>
               <Separator className="my-5" />
 
               <div className="flex items-center gap-3">
                 <FuxianAppIcon className="size-12" decorative={false} />
                 <div className="min-w-0">
-                  <p className="font-semibold">浮现</p>
+                  <p className="font-semibold">{t('浮现')}</p>
                   <p className="text-sm text-fg-secondary">
-                    版本 {appUpdateStatus.currentVersion || '--'}
+                    {t('版本 {version}', { version: appUpdateStatus.currentVersion || '--' })}
                   </p>
                 </div>
               </div>
@@ -443,25 +516,25 @@ export function SettingsApp(): React.JSX.Element {
                 {appUpdateStatus.phase === 'idle' ? (
                   <Button onClick={checkForUpdates} size="sm">
                     <RefreshCw data-icon="inline-start" />
-                    检查更新
+                    {t('检查更新')}
                   </Button>
                 ) : null}
 
                 {appUpdateStatus.phase === 'checking' ? (
                   <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
                     <Spinner />
-                    正在检查更新...
+                    {t('正在检查更新...')}
                   </div>
                 ) : null}
 
                 {appUpdateStatus.phase === 'up-to-date' ? (
                   <Alert>
                     <CircleCheck aria-hidden="true" />
-                    <AlertTitle>当前已是最新版本</AlertTitle>
+                    <AlertTitle>{t('当前已是最新版本')}</AlertTitle>
                     <AlertDescription>
                       <Button onClick={checkForUpdates} size="sm" variant="outline">
                         <RefreshCw data-icon="inline-start" />
-                        重新检查
+                        {t('重新检查')}
                       </Button>
                     </AlertDescription>
                   </Alert>
@@ -471,14 +544,20 @@ export function SettingsApp(): React.JSX.Element {
                   <>
                     <Alert>
                       <CircleArrowUp aria-hidden="true" />
-                      <AlertTitle>新版本 {appUpdateStatus.availableVersion} 可用</AlertTitle>
+                      <AlertTitle>
+                        {t('新版本 {version} 可用', {
+                          version: appUpdateStatus.availableVersion ?? '',
+                        })}
+                      </AlertTitle>
                       <AlertDescription>
-                        <p>当前版本 {appUpdateStatus.currentVersion}</p>
+                        <p>
+                          {t('当前版本 {version}', { version: appUpdateStatus.currentVersion })}
+                        </p>
                       </AlertDescription>
                     </Alert>
                     {appUpdateStatus.releaseNotes ? (
                       <div>
-                        <h3 className="text-sm font-medium">更新内容</h3>
+                        <h3 className="text-sm font-medium">{t('更新内容')}</h3>
                         <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-fg-secondary">
                           {appUpdateStatus.releaseNotes}
                         </p>
@@ -490,12 +569,12 @@ export function SettingsApp(): React.JSX.Element {
                     {appUpdateStatus.delivery === 'release-page' ? (
                       <Button onClick={openUpdateRelease} size="sm">
                         <ExternalLink data-icon="inline-start" />
-                        前往 GitHub Release
+                        {t('前往 GitHub Release')}
                       </Button>
                     ) : (
                       <Button onClick={downloadUpdate} size="sm">
                         <Download data-icon="inline-start" />
-                        下载更新
+                        {t('下载更新')}
                       </Button>
                     )}
                   </>
@@ -504,18 +583,22 @@ export function SettingsApp(): React.JSX.Element {
                 {appUpdateStatus.phase === 'downloading' ? (
                   <>
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span>正在下载 {appUpdateStatus.availableVersion}</span>
+                      <span>
+                        {t('正在下载 {version}', {
+                          version: appUpdateStatus.availableVersion ?? '',
+                        })}
+                      </span>
                       <output className="tabular-nums">
                         {Math.round(appUpdateStatus.percent ?? 0)}%
                       </output>
                     </div>
-                    <Progress aria-label="更新下载进度" value={appUpdateStatus.percent ?? 0} />
+                    <Progress aria-label={t('更新下载进度')} value={appUpdateStatus.percent ?? 0} />
                     <p className="text-xs tabular-nums text-fg-secondary">
                       {formatBytes(appUpdateStatus.transferred)} /{' '}
                       {formatBytes(appUpdateStatus.total)}
                     </p>
                     <Button onClick={cancelUpdateDownload} size="sm" variant="outline">
-                      取消下载
+                      {t('取消下载')}
                     </Button>
                   </>
                 ) : null}
@@ -524,19 +607,23 @@ export function SettingsApp(): React.JSX.Element {
                   <>
                     <Alert>
                       <CircleCheck aria-hidden="true" />
-                      <AlertTitle>更新已准备好</AlertTitle>
+                      <AlertTitle>{t('更新已准备好')}</AlertTitle>
                       <AlertDescription>
-                        <p>重启浮现即可安装 {appUpdateStatus.availableVersion}。</p>
+                        <p>
+                          {t('重启浮现即可安装 {version}。', {
+                            version: appUpdateStatus.availableVersion ?? '',
+                          })}
+                        </p>
                         {appUpdateStatus.message ? <p>{appUpdateStatus.message}</p> : null}
                       </AlertDescription>
                     </Alert>
                     <div className="flex items-center gap-2">
                       <Button onClick={installUpdate} size="sm">
                         <RefreshCw data-icon="inline-start" />
-                        重启并更新
+                        {t('重启并更新')}
                       </Button>
                       <Button onClick={() => window.close()} size="sm" variant="outline">
-                        稍后
+                        {t('稍后')}
                       </Button>
                     </div>
                   </>
@@ -545,19 +632,19 @@ export function SettingsApp(): React.JSX.Element {
                 {appUpdateStatus.phase === 'installing' ? (
                   <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
                     <Spinner />
-                    正在重启并安装更新...
+                    {t('正在重启并安装更新...')}
                   </div>
                 ) : null}
 
                 {appUpdateStatus.phase === 'error' ? (
                   <Alert variant="destructive">
                     <Info aria-hidden="true" />
-                    <AlertTitle>软件更新失败</AlertTitle>
+                    <AlertTitle>{t('软件更新失败')}</AlertTitle>
                     <AlertDescription>
-                      <p>{appUpdateStatus.message ?? '暂时无法完成更新。'}</p>
+                      <p>{appUpdateStatus.message ?? t('暂时无法完成更新。')}</p>
                       <Button onClick={checkForUpdates} size="sm" variant="outline">
                         <RefreshCw data-icon="inline-start" />
-                        重试
+                        {t('重试')}
                       </Button>
                     </AlertDescription>
                   </Alert>
@@ -566,9 +653,9 @@ export function SettingsApp(): React.JSX.Element {
                 {appUpdateStatus.phase === 'unsupported' ? (
                   <Alert>
                     <Info aria-hidden="true" />
-                    <AlertTitle>当前环境不检查更新</AlertTitle>
+                    <AlertTitle>{t('当前环境不检查更新')}</AlertTitle>
                     <AlertDescription>
-                      正式安装的 Windows 和 macOS 版本支持软件更新。
+                      {t('正式安装的 Windows 和 macOS 版本支持软件更新。')}
                     </AlertDescription>
                   </Alert>
                 ) : null}
@@ -579,14 +666,16 @@ export function SettingsApp(): React.JSX.Element {
           {section === 'appearance' ? (
             <section aria-labelledby="appearance-title">
               <h2 className="text-base font-semibold" id="appearance-title">
-                外观
+                {t('外观')}
               </h2>
-              <p className="mt-1 text-sm text-fg-secondary">选择应用和完成文档的明暗外观。</p>
+              <p className="mt-1 text-sm text-fg-secondary">
+                {t('选择应用和完成文档的明暗外观。')}
+              </p>
               <Separator className="my-5" />
               <Field>
-                <FieldLabel>颜色模式</FieldLabel>
+                <FieldLabel>{t('颜色模式')}</FieldLabel>
                 <SegmentedControl
-                  aria-label="颜色模式"
+                  aria-label={t('颜色模式')}
                   className="w-full"
                   onValueChange={selectAppearance}
                   type="single"
@@ -595,7 +684,7 @@ export function SettingsApp(): React.JSX.Element {
                   {appearanceOptions.map(({ icon: Icon, label, value }) => (
                     <SegmentedControlItem className="flex-1" key={value} value={value}>
                       <Icon aria-hidden="true" />
-                      {label}
+                      {t(label)}
                     </SegmentedControlItem>
                   ))}
                 </SegmentedControl>
@@ -606,16 +695,14 @@ export function SettingsApp(): React.JSX.Element {
           {section === 'document' ? (
             <section aria-labelledby="document-title">
               <h2 className="text-base font-semibold" id="document-title">
-                文档
+                {t('文档')}
               </h2>
-              <p className="mt-1 text-sm text-fg-secondary">设置全局文档宽度与正文排版。</p>
+              <p className="mt-1 text-sm text-fg-secondary">{t('设置全局文档宽度与正文排版。')}</p>
 
               <Separator className="my-5" />
               <Field>
-                <FieldTitle>文档宽度</FieldTitle>
-                <FieldDescription>
-                  调整整个白色文档区域；正文、表格、代码、公式、图片和图表共用纸内宽度。
-                </FieldDescription>
+                <FieldTitle>{t('文档宽度')}</FieldTitle>
+                <FieldDescription>{t('文档宽度设置说明')}</FieldDescription>
                 <DocumentWidthControls
                   onChange={(documentWidth) => updatePreferences({ ...preferences, documentWidth })}
                   value={preferences.documentWidth}
@@ -624,9 +711,9 @@ export function SettingsApp(): React.JSX.Element {
 
               <Separator className="my-6" />
               <Field>
-                <FieldLabel>正文字体</FieldLabel>
+                <FieldLabel>{t('正文字体')}</FieldLabel>
                 <SegmentedControl
-                  aria-label="正文字体"
+                  aria-label={t('正文字体')}
                   className="w-full"
                   onValueChange={selectBodyFamily}
                   type="single"
@@ -634,8 +721,8 @@ export function SettingsApp(): React.JSX.Element {
                 >
                   {(
                     [
-                      ['serif', '衬线'],
-                      ['sans-serif', '无衬线'],
+                      ['serif', t('衬线')],
+                      ['sans-serif', t('无衬线')],
                     ] as Array<[DocumentBodyFamily, string]>
                   ).map(([value, label]) => (
                     <SegmentedControlItem className="flex-1" key={value} value={value}>
@@ -648,13 +735,13 @@ export function SettingsApp(): React.JSX.Element {
 
               <Field className="mt-6">
                 <div className="flex items-center justify-between">
-                  <FieldLabel>正文字号</FieldLabel>
+                  <FieldLabel>{t('正文字号')}</FieldLabel>
                   <output className="text-sm tabular-nums">
                     {preferences.documentTypography.bodySize}px
                   </output>
                 </div>
                 <Slider
-                  aria-label="正文字号"
+                  aria-label={t('正文字号')}
                   max={readerPreferenceLimits.bodySize.max}
                   min={readerPreferenceLimits.bodySize.min}
                   onValueChange={([bodySize]) => {
@@ -669,13 +756,13 @@ export function SettingsApp(): React.JSX.Element {
 
               <Field className="mt-6">
                 <div className="flex items-center justify-between">
-                  <FieldLabel>正文行高</FieldLabel>
+                  <FieldLabel>{t('正文行高')}</FieldLabel>
                   <output className="text-sm tabular-nums">
                     {preferences.documentTypography.lineHeight.toFixed(2)}
                   </output>
                 </div>
                 <Slider
-                  aria-label="正文行高"
+                  aria-label={t('正文行高')}
                   max={readerPreferenceLimits.lineHeight.max}
                   min={readerPreferenceLimits.lineHeight.min}
                   onValueChange={([lineHeight]) => {
@@ -690,12 +777,10 @@ export function SettingsApp(): React.JSX.Element {
 
               <Separator className="my-6" />
               <Field>
-                <FieldTitle>代码高亮主题</FieldTitle>
-                <FieldDescription>
-                  独立于应用明暗模式。切换后可在右侧代表性代码中即时预览。
-                </FieldDescription>
+                <FieldTitle>{t('代码高亮主题')}</FieldTitle>
+                <FieldDescription>{t('代码高亮主题说明')}</FieldDescription>
                 <ToggleGroup
-                  aria-label="代码高亮主题"
+                  aria-label={t('代码高亮主题')}
                   className="grid w-full grid-cols-2 gap-2"
                   onValueChange={selectCodeTheme}
                   spacing={2}
@@ -709,7 +794,7 @@ export function SettingsApp(): React.JSX.Element {
                       key={value}
                       value={value}
                     >
-                      <span className="truncate text-left">{label}</span>
+                      <span className="truncate text-left">{t(label)}</span>
                       <span
                         aria-hidden="true"
                         className="flex h-3 overflow-hidden rounded-sm border"
@@ -732,14 +817,14 @@ export function SettingsApp(): React.JSX.Element {
                 PlantUML
               </h2>
               <p className="mt-1 text-sm text-fg-secondary">
-                配置用于生成 PlantUML SVG 的公共、本地或私有服务。
+                {t('配置用于生成 PlantUML SVG 的公共、本地或私有服务。')}
               </p>
               <Separator className="my-5" />
 
               <form onSubmit={(event) => void validateAndSavePlantUmlServer(event)}>
                 <FieldGroup>
                   <Field data-invalid={plantUmlValidation.status === 'error'}>
-                    <FieldLabel htmlFor="plantuml-server-url">Server 地址</FieldLabel>
+                    <FieldLabel htmlFor="plantuml-server-url">{t('Server 地址')}</FieldLabel>
                     <Input
                       aria-invalid={plantUmlValidation.status === 'error'}
                       autoCapitalize="none"
@@ -755,10 +840,7 @@ export function SettingsApp(): React.JSX.Element {
                       type="url"
                       value={plantUmlServerValue}
                     />
-                    <FieldDescription>
-                      默认使用公共服务。地址验证通过后才会保存，并立即重绘已打开文档中的 PlantUML
-                      图表。
-                    </FieldDescription>
+                    <FieldDescription>{t('PlantUML Server 设置说明')}</FieldDescription>
                     {plantUmlValidation.status === 'error' ? (
                       <FieldError>{plantUmlValidation.message}</FieldError>
                     ) : null}
@@ -777,10 +859,10 @@ export function SettingsApp(): React.JSX.Element {
                         <CircleCheck aria-hidden="true" data-icon="inline-start" />
                       ) : null}
                       {plantUmlValidation.status === 'checking'
-                        ? '正在验证'
+                        ? t('正在验证')
                         : plantUmlValidation.status === 'saved'
-                          ? '已验证并保存'
-                          : '验证并保存'}
+                          ? t('已验证并保存')
+                          : t('验证并保存')}
                     </Button>
                     <Button
                       disabled={plantUmlValidation.status === 'checking'}
@@ -793,7 +875,7 @@ export function SettingsApp(): React.JSX.Element {
                       variant="outline"
                     >
                       <RotateCcw data-icon="inline-start" />
-                      恢复默认
+                      {t('恢复默认')}
                     </Button>
                   </Field>
                   {plantUmlValidation.status === 'saved' ? (
@@ -803,7 +885,7 @@ export function SettingsApp(): React.JSX.Element {
                       role="status"
                     >
                       <CircleCheck aria-hidden="true" className="size-4" />
-                      <span>连接验证成功，地址已保存。</span>
+                      <span>{t('连接验证成功，地址已保存。')}</span>
                     </div>
                   ) : null}
                 </FieldGroup>
@@ -811,10 +893,8 @@ export function SettingsApp(): React.JSX.Element {
 
               <Alert className="mt-6">
                 <Info />
-                <AlertTitle>源码发送范围</AlertTitle>
-                <AlertDescription>
-                  PlantUML 源码会发送到上方配置的服务。不要在图表中放入不应离开设备的敏感内容。
-                </AlertDescription>
+                <AlertTitle>{t('源码发送范围')}</AlertTitle>
+                <AlertDescription>{t('PlantUML 源码发送说明')}</AlertDescription>
               </Alert>
             </section>
           ) : null}
@@ -822,24 +902,24 @@ export function SettingsApp(): React.JSX.Element {
 
         {section === 'about' ? (
           <aside
-            aria-label="关于浮现"
+            aria-label={t('关于浮现')}
             className="flex min-h-0 flex-col items-center justify-center border-l border-line-subtle bg-surface-stage px-8 text-center"
             data-settings-surface="preview"
           >
             <FuxianAppIcon className="size-24" decorative={false} />
-            <h2 className="mt-5 text-lg font-semibold">浮现</h2>
+            <h2 className="mt-5 text-lg font-semibold">{t('浮现')}</h2>
             <p className="mt-2 max-w-sm text-sm leading-6 text-fg-secondary">
-              让内容精彩浮现，让 Markdown 值得阅读。
+              {t('让内容精彩浮现，让 Markdown 值得阅读。')}
             </p>
           </aside>
         ) : (
           <aside
             className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-surface-stage"
-            aria-label="实时预览"
+            aria-label={t('实时预览')}
             data-settings-surface="preview"
           >
             <div className="flex items-center border-b border-line-subtle px-4">
-              <span className="text-xs font-medium text-fg-secondary">完成文档预览</span>
+              <span className="text-xs font-medium text-fg-secondary">{t('完成文档预览')}</span>
             </div>
             <div className="min-h-0 p-3">
               <iframe
@@ -848,7 +928,7 @@ export function SettingsApp(): React.JSX.Element {
                 ref={previewFrame}
                 sandbox="allow-same-origin"
                 srcDoc={previewDocumentSource}
-                title="完成文档预览"
+                title={t('完成文档预览')}
               />
             </div>
           </aside>

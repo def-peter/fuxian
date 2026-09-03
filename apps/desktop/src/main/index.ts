@@ -3,6 +3,7 @@ import {
   isSettingsSectionId,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
+  resolveUiLocale,
   type AppCloseRequest,
   type AppUpdateDelivery,
   type AppUpdateInstallPreparationResult,
@@ -31,6 +32,7 @@ import {
   type StartPdfExportRequest,
   type StartPdfExportResult,
   type SettingsSectionId,
+  type UiLocale,
 } from '@fuxian/shared-types';
 import electronUpdater from 'electron-updater';
 import {
@@ -77,6 +79,7 @@ import {
   runMacDefaultApplicationHelper,
   type MarkdownDefaultAppService,
 } from './markdown-default-app';
+import { productName, translate, type MessageKey, type MessageValues } from '../localization';
 
 const { autoUpdater } = electronUpdater;
 
@@ -95,6 +98,25 @@ let appUpdateService: AppUpdateService | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
+let activeUiLocale: UiLocale = 'en-US';
+let systemLocale = '';
+let applicationMenuReady = false;
+
+const mainText = (key: MessageKey, values?: MessageValues): string =>
+  translate(activeUiLocale, key, values);
+
+const rendererQuery = (values: Record<string, string> = {}): Record<string, string> => ({
+  ...values,
+  systemLocale,
+});
+
+const rendererUrl = (values: Record<string, string> = {}): string => {
+  const url = new URL(process.env.ELECTRON_RENDERER_URL!);
+  for (const [key, value] of Object.entries(rendererQuery(values))) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+};
 
 const isMissingPathError = (error: unknown): boolean => {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
@@ -172,7 +194,7 @@ const plantUmlRequestKey = (webContentsId: number, requestId: string): string =>
   `${webContentsId}:${requestId}`;
 
 const errorMessage = (error: unknown): string =>
-  error instanceof Error && error.message ? error.message : 'PlantUML Server 验证失败。';
+  error instanceof Error && error.message ? error.message : mainText('PlantUML Server 验证失败。');
 
 const sendPdfExportProgress = (job: PdfExportJob, progress: PdfExportProgress): void => {
   if (!job.originWindow.isDestroyed()) {
@@ -215,7 +237,7 @@ const chooseSourceDocuments = async (): Promise<string[] | undefined> => {
   }
 
   const selection = await dialog.showOpenDialog({
-    title: '打开 Markdown',
+    title: mainText('打开 Markdown'),
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
@@ -230,7 +252,7 @@ const chooseReplacementDocument = async (): Promise<string | undefined> => {
   }
 
   const selection = await dialog.showOpenDialog({
-    title: '定位 Markdown',
+    title: mainText('定位 Markdown'),
     properties: ['openFile'],
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
@@ -246,7 +268,7 @@ const chooseSourceDocumentCopyPath = async (
     return testDestination;
   }
   const selection = await dialog.showSaveDialog(owner, {
-    title: '另存 Markdown',
+    title: mainText('另存 Markdown'),
     defaultPath: suggestedName,
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
   });
@@ -260,7 +282,9 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
   } catch (error) {
     return {
       status: 'unavailable',
-      message: `无法读取“${basename(selectedPath)}”。请确认文件仍然存在并可访问。`,
+      message: mainText('无法读取“{name}”。请确认文件仍然存在并可访问。', {
+        name: basename(selectedPath),
+      }),
       reason: isMissingPathError(error) ? 'missing' : 'unreadable',
     };
   }
@@ -268,7 +292,7 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
   if (!supportedSourceDocumentExtensions.has(extname(canonicalPath).toLowerCase())) {
     return {
       status: 'unavailable',
-      message: `“${basename(canonicalPath)}”不是 Markdown 文档。`,
+      message: mainText('“{name}”不是 Markdown 文档。', { name: basename(canonicalPath) }),
       reason: 'unsupported',
     };
   }
@@ -288,7 +312,9 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
   } catch (error) {
     return {
       status: 'unavailable',
-      message: `无法读取“${basename(canonicalPath)}”。请确认文件仍然存在并可访问。`,
+      message: mainText('无法读取“{name}”。请确认文件仍然存在并可访问。', {
+        name: basename(canonicalPath),
+      }),
       reason: isMissingPathError(error) ? 'missing' : 'unreadable',
     };
   }
@@ -321,7 +347,7 @@ const readSourceDocuments = async (
   if (documents.length === 0) {
     return {
       status: 'error',
-      message: warnings[0] ?? '没有可打开的 Markdown 文档。',
+      message: warnings[0] ?? mainText('没有可打开的 Markdown 文档。'),
     };
   }
 
@@ -355,7 +381,7 @@ const deliverPendingSourceDocumentOpenRequests = (): void => {
     .catch(() => {
       if (!receiver.isDestroyed() && sourceDocumentOpenReceiver === receiver) {
         receiver.send(desktopIpcChannels.sourceDocumentOpenRequested, {
-          message: '系统交给应用的文档暂时无法打开。',
+          message: mainText('系统交给应用的文档暂时无法打开。'),
           status: 'error',
         } satisfies OpenSourceDocumentsResult);
       }
@@ -380,7 +406,7 @@ const choosePdfExportPath = async (
   const selection = await dialog.showSaveDialog(owner, {
     defaultPath: `${sourceName}.pdf`,
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
-    title: '导出 PDF',
+    title: mainText('导出 PDF'),
   });
   return selection.canceled ? undefined : selection.filePath;
 };
@@ -394,7 +420,7 @@ const openDroppedSourceDocuments = async (
     selectedPaths.length > 100 ||
     !selectedPaths.every((path) => typeof path === 'string' && path.length > 0)
   ) {
-    return { status: 'error', message: '无法识别拖入的文档。' };
+    return { status: 'error', message: mainText('无法识别拖入的文档。') };
   }
 
   return readSourceDocuments(selectedPaths);
@@ -420,7 +446,7 @@ const handleDocumentResourceRequest = async (request: Request): Promise<Response
       },
     });
   } catch {
-    return new Response('读取图片时发生错误。', {
+    return new Response(mainText('读取图片时发生错误。'), {
       status: 404,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
@@ -664,10 +690,10 @@ const registerDesktopHandlers = (
         ) > 20_000_000 ||
         !knownDocumentPaths.has(request.path)
       ) {
-        return { message: '当前文档不属于受信任的文档会话。', status: 'failed' };
+        return { message: mainText('当前文档不属于受信任的文档会话。'), status: 'failed' };
       }
       if ([...pdfExportJobs.values()].some((job) => job.originWindow === originWindow)) {
-        return { message: '已有 PDF 正在导出。', status: 'failed' };
+        return { message: mainText('已有 PDF 正在导出。'), status: 'failed' };
       }
 
       const outputPath = await choosePdfExportPath(originWindow, request.path);
@@ -703,12 +729,15 @@ const registerDesktopHandlers = (
         temporaryPath: `${outputPath}.${exportId}.tmp`,
       };
       pdfExportJobs.set(exportId, job);
-      job.timeout = setTimeout(() => failPdfExportJob(job, 'PDF 导出页面准备超时。'), 45_000);
+      job.timeout = setTimeout(
+        () => failPdfExportJob(job, mainText('PDF 导出页面准备超时。')),
+        45_000,
+      );
       exportWindow.webContents.once('did-fail-load', () => {
-        failPdfExportJob(job, 'PDF 导出页面加载失败。');
+        failPdfExportJob(job, mainText('PDF 导出页面加载失败。'));
       });
       exportWindow.webContents.once('render-process-gone', () => {
-        failPdfExportJob(job, 'PDF 导出进程意外退出。');
+        failPdfExportJob(job, mainText('PDF 导出进程意外退出。'));
       });
       exportWindow.on('closed', () => {
         if (pdfExportJobs.get(exportId) !== job) return;
@@ -718,7 +747,7 @@ const registerDesktopHandlers = (
         if (!job.cancelled) {
           sendPdfExportProgress(job, {
             exportId,
-            message: 'PDF 导出窗口意外关闭。',
+            message: mainText('PDF 导出窗口意外关闭。'),
             status: 'failed',
           });
         }
@@ -786,7 +815,7 @@ const registerDesktopHandlers = (
     if (signal?.status === 'failed') {
       failPdfExportJob(
         job,
-        typeof signal.message === 'string' ? signal.message : 'PDF 导出页面准备失败。',
+        typeof signal.message === 'string' ? signal.message : mainText('PDF 导出页面准备失败。'),
       );
       return;
     }
@@ -804,13 +833,16 @@ const registerDesktopHandlers = (
     ) {
       failPdfExportJob(
         job,
-        `纸张预览为 ${job.payload.expectedPageCount} 页，但 PDF 分页为 ${pageCount} 页。`,
+        mainText('纸张预览为 {expected} 页，但 PDF 分页为 {actual} 页。', {
+          actual: pageCount,
+          expected: job.payload.expectedPageCount,
+        }),
       );
       return;
     }
     job.printing = true;
     if (job.timeout) clearTimeout(job.timeout);
-    job.timeout = setTimeout(() => failPdfExportJob(job, '写入 PDF 超时。'), 30_000);
+    job.timeout = setTimeout(() => failPdfExportJob(job, mainText('写入 PDF 超时。')), 30_000);
     sendPdfExportProgress(job, {
       exportId: job.id,
       progress: 90,
@@ -852,7 +884,7 @@ const registerDesktopHandlers = (
         if (job.cancelled || pdfExportJobs.get(job.id) !== job) return;
         sendPdfExportProgress(job, {
           exportId: job.id,
-          message: error instanceof Error ? error.message : '无法生成 PDF。',
+          message: error instanceof Error ? error.message : mainText('无法生成 PDF。'),
           status: 'failed',
         });
         closePdfExportJob(job);
@@ -872,7 +904,7 @@ const registerDesktopHandlers = (
         !serverUrl ||
         typeof request.source !== 'string'
       ) {
-        throw new TypeError('PlantUML 渲染请求无效。');
+        throw new TypeError(mainText('PlantUML 渲染请求无效。'));
       }
 
       const key = plantUmlRequestKey(event.sender.id, request.requestId);
@@ -883,7 +915,13 @@ const registerDesktopHandlers = (
       event.sender.once('destroyed', abortOnDestroyed);
       try {
         return {
-          svg: await fetchPlantUmlSvg(serverUrl, request.source, controller.signal),
+          svg: await fetchPlantUmlSvg(
+            serverUrl,
+            request.source,
+            controller.signal,
+            fetch,
+            mainText,
+          ),
         };
       } finally {
         event.sender.removeListener('destroyed', abortOnDestroyed);
@@ -901,6 +939,8 @@ const registerDesktopHandlers = (
           serverUrl: await validatePlantUmlServer(
             typeof value === 'string' ? value : '',
             controller.signal,
+            fetch,
+            mainText,
           ),
           status: 'valid',
         };
@@ -908,7 +948,7 @@ const registerDesktopHandlers = (
         return {
           message:
             controller.signal.aborted && !(error instanceof TypeError)
-              ? '连接 PlantUML Server 超时。'
+              ? mainText('连接 PlantUML Server 超时。')
               : errorMessage(error),
           status: 'invalid',
         };
@@ -927,6 +967,7 @@ const registerDesktopHandlers = (
       const normalized = normalizeReaderPreferences(value);
       const save = preferencesSaveQueue.then(async () => {
         const preferences = await preferencesPersistence.save(normalized);
+        applyApplicationLocale(preferences);
         for (const browserWindow of BrowserWindow.getAllWindows()) {
           browserWindow.webContents.send(desktopIpcChannels.readerPreferencesChanged, preferences);
         }
@@ -1025,12 +1066,13 @@ const registerDesktopHandlers = (
         typeof request.source !== 'string' ||
         request.source.length > 10_000_000
       ) {
-        return { message: '保存请求无效或文档不属于当前会话。', status: 'failed' };
+        return { message: mainText('保存请求无效或文档不属于当前会话。'), status: 'failed' };
       }
       const result = await saveExistingSourceDocument(
         request.path,
         request.expectedSource,
         request.source,
+        mainText,
       );
       if (result.status === 'failed') return result;
       if (result.status === 'conflict') {
@@ -1059,14 +1101,14 @@ const registerDesktopHandlers = (
         request.suggestedName.length < 1 ||
         request.suggestedName.length > 512
       ) {
-        return { message: '另存请求无效。', status: 'failed' };
+        return { message: mainText('另存请求无效。'), status: 'failed' };
       }
       const selectedPath = await chooseSourceDocumentCopyPath(owner, request.suggestedName);
       if (!selectedPath) return { status: 'cancelled' };
-      const result = await saveSourceDocumentCopy(selectedPath, request.source);
+      const result = await saveSourceDocumentCopy(selectedPath, request.source, mainText);
       if (result.status === 'failed') return result;
       if (result.status === 'conflict') {
-        return { message: '目标文档在保存期间发生变化，请重新选择。', status: 'failed' };
+        return { message: mainText('目标文档在保存期间发生变化，请重新选择。'), status: 'failed' };
       }
       const saved = await readSourceDocument(result.path);
       return saved.status === 'available'
@@ -1080,7 +1122,7 @@ const registerDesktopHandlers = (
       if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
         return {
           status: 'unavailable',
-          message: '该文档不属于当前文档会话。',
+          message: mainText('该文档不属于当前文档会话。'),
           reason: 'unreadable',
         };
       }
@@ -1093,7 +1135,7 @@ const registerDesktopHandlers = (
       if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
         return {
           status: 'unavailable',
-          message: '该文档不属于当前文档会话。',
+          message: mainText('该文档不属于当前文档会话。'),
           reason: 'unreadable',
         };
       }
@@ -1130,13 +1172,10 @@ const createPdfExportWindow = (): BrowserWindow =>
 
 const loadPdfExportWindow = (window: BrowserWindow, exportId: string): void => {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    const url = new URL(process.env.ELECTRON_RENDERER_URL);
-    url.searchParams.set('exportId', exportId);
-    url.searchParams.set('view', 'pdf-export');
-    void window.loadURL(url.toString());
+    void window.loadURL(rendererUrl({ exportId, view: 'pdf-export' }));
   } else {
     void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
-      query: { exportId, view: 'pdf-export' },
+      query: rendererQuery({ exportId, view: 'pdf-export' }),
     });
   }
 };
@@ -1223,9 +1262,11 @@ const createWindow = (): BrowserWindow => {
   });
 
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL);
+    void window.loadURL(rendererUrl());
   } else {
-    void window.loadFile(join(currentDirectory, '../renderer/index.html'));
+    void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
+      query: rendererQuery(),
+    });
   }
 
   mainWindow = window;
@@ -1255,7 +1296,7 @@ const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
     minWidth: 820,
     minHeight: 620,
     show: false,
-    title: '浮现设置',
+    title: mainText('浮现设置'),
     webPreferences: {
       ...e2eWebPreferences,
       preload: join(currentDirectory, '../preload/index.cjs'),
@@ -1272,13 +1313,10 @@ const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
   });
 
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    const url = new URL(process.env.ELECTRON_RENDERER_URL);
-    url.searchParams.set('view', 'settings');
-    if (section) url.searchParams.set('section', section);
-    void window.loadURL(url.toString());
+    void window.loadURL(rendererUrl({ ...(section ? { section } : {}), view: 'settings' }));
   } else {
     void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
-      query: { ...(section ? { section } : {}), view: 'settings' },
+      query: rendererQuery({ ...(section ? { section } : {}), view: 'settings' }),
     });
   }
   return window;
@@ -1296,7 +1334,7 @@ const openSourceDocumentsFromMenu = (): void => {
     .catch(() => {
       if (sourceDocumentOpenReceiver && !sourceDocumentOpenReceiver.isDestroyed()) {
         sourceDocumentOpenReceiver.send(desktopIpcChannels.sourceDocumentOpenRequested, {
-          message: '应用暂时无法打开所选文档。',
+          message: mainText('应用暂时无法打开所选文档。'),
           status: 'error',
         } satisfies OpenSourceDocumentsResult);
       }
@@ -1305,108 +1343,115 @@ const openSourceDocumentsFromMenu = (): void => {
 
 const createApplicationMenu = (): Menu => {
   const fileMenu: MenuItemConstructorOptions = {
-    label: '文件',
+    label: mainText('文件'),
     submenu: [
       {
         accelerator: 'CmdOrCtrl+O',
         click: openSourceDocumentsFromMenu,
-        label: '打开 Markdown…',
+        label: mainText('打开 Markdown…'),
       },
       { type: 'separator' },
       ...(process.platform === 'darwin'
-        ? [{ label: '关闭窗口', role: 'close' as const }]
+        ? [{ label: mainText('关闭窗口'), role: 'close' as const }]
         : [
-            { click: () => createSettingsWindow(), label: '设置…' },
+            { click: () => createSettingsWindow(), label: mainText('设置…') },
             { type: 'separator' as const },
-            { label: '退出浮现', role: 'quit' as const },
+            { label: mainText('退出浮现'), role: 'quit' as const },
           ]),
     ],
   };
   const template: MenuItemConstructorOptions[] = [
     fileMenu,
     {
-      label: '编辑',
+      label: mainText('编辑'),
       submenu: [
-        { label: '撤销', role: 'undo' },
-        { label: '重做', role: 'redo' },
+        { label: mainText('撤销'), role: 'undo' },
+        { label: mainText('重做'), role: 'redo' },
         { type: 'separator' },
-        { label: '剪切', role: 'cut' },
-        { label: '复制', role: 'copy' },
-        { label: '粘贴', role: 'paste' },
-        { label: '粘贴并匹配样式', role: 'pasteAndMatchStyle' },
-        { label: '删除', role: 'delete' },
-        { label: '全选', role: 'selectAll' },
+        { label: mainText('剪切'), role: 'cut' },
+        { label: mainText('复制'), role: 'copy' },
+        { label: mainText('粘贴'), role: 'paste' },
+        { label: mainText('粘贴并匹配样式'), role: 'pasteAndMatchStyle' },
+        { label: mainText('删除'), role: 'delete' },
+        { label: mainText('全选'), role: 'selectAll' },
       ],
     },
     {
-      label: '视图',
+      label: mainText('视图'),
       submenu: [
-        { label: '重新加载', role: 'reload' },
-        { label: '强制重新加载', role: 'forceReload' },
+        { label: mainText('重新加载'), role: 'reload' },
+        { label: mainText('强制重新加载'), role: 'forceReload' },
         ...(!app.isPackaged
           ? [
               { type: 'separator' as const },
-              { label: '切换开发者工具', role: 'toggleDevTools' as const },
+              { label: mainText('切换开发者工具'), role: 'toggleDevTools' as const },
             ]
           : []),
         { type: 'separator' },
-        { label: '实际大小', role: 'resetZoom' },
-        { label: '放大', role: 'zoomIn' },
-        { label: '缩小', role: 'zoomOut' },
+        { label: mainText('实际大小'), role: 'resetZoom' },
+        { label: mainText('放大'), role: 'zoomIn' },
+        { label: mainText('缩小'), role: 'zoomOut' },
         { type: 'separator' },
-        { label: '切换全屏', role: 'togglefullscreen' },
+        { label: mainText('切换全屏'), role: 'togglefullscreen' },
       ],
     },
     {
-      label: '窗口',
+      label: mainText('窗口'),
       submenu: [
-        { label: '最小化', role: 'minimize' },
+        { label: mainText('最小化'), role: 'minimize' },
         ...(process.platform === 'darwin'
           ? [
-              { label: '缩放', role: 'zoom' as const },
+              { label: mainText('缩放'), role: 'zoom' as const },
               { type: 'separator' as const },
-              { label: '前置全部窗口', role: 'front' as const },
+              { label: mainText('前置全部窗口'), role: 'front' as const },
             ]
-          : [{ label: '关闭窗口', role: 'close' as const }]),
+          : [{ label: mainText('关闭窗口'), role: 'close' as const }]),
       ],
     },
     {
-      label: '帮助',
+      label: mainText('帮助'),
       submenu: [
         {
           click: () => {
             createSettingsWindow('about');
             void appUpdateService?.checkForUpdates();
           },
-          label: '检查更新…',
+          label: mainText('检查更新…'),
         },
         { type: 'separator' },
         {
           click: () => void openExternalUrl('https://github.com/def-peter/fuxian'),
-          label: '项目主页',
+          label: mainText('项目主页'),
         },
         ...(process.platform === 'darwin'
           ? []
-          : [{ type: 'separator' as const }, { label: '关于浮现', role: 'about' as const }]),
+          : [
+              { type: 'separator' as const },
+              { label: mainText('关于浮现'), role: 'about' as const },
+            ]),
       ],
     },
   ];
 
   if (process.platform === 'darwin') {
     template.unshift({
-      label: '浮现',
+      label: mainText('浮现'),
       submenu: [
-        { label: '关于浮现', role: 'about' },
+        { label: mainText('关于浮现'), role: 'about' },
         { type: 'separator' },
-        { accelerator: 'CmdOrCtrl+,', click: () => createSettingsWindow(), label: '设置…' },
+        {
+          accelerator: 'CmdOrCtrl+,',
+          click: () => createSettingsWindow(),
+          label: mainText('设置…'),
+        },
         { type: 'separator' },
-        { label: '服务', role: 'services' },
+        { label: mainText('服务'), role: 'services' },
         { type: 'separator' },
-        { label: '隐藏浮现', role: 'hide' },
-        { label: '隐藏其他窗口', role: 'hideOthers' },
-        { label: '全部显示', role: 'unhide' },
+        { label: mainText('隐藏浮现'), role: 'hide' },
+        { label: mainText('隐藏其他窗口'), role: 'hideOthers' },
+        { label: mainText('全部显示'), role: 'unhide' },
         { type: 'separator' },
-        { label: '退出浮现', role: 'quit' },
+        { label: mainText('退出浮现'), role: 'quit' },
       ],
     });
   }
@@ -1414,7 +1459,16 @@ const createApplicationMenu = (): Menu => {
   return Menu.buildFromTemplate(template);
 };
 
-app.setName('浮现');
+const applyApplicationLocale = (preferences: ReaderPreferences): void => {
+  activeUiLocale = resolveUiLocale(preferences.language, systemLocale);
+  app.setName(productName(activeUiLocale));
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.setTitle(mainText('浮现设置'));
+  }
+  if (applicationMenuReady) Menu.setApplicationMenu(createApplicationMenu());
+};
+
+app.setName('Fuxian');
 
 app.on('before-quit', () => {
   if (!allowMainWindowClose) appQuitRequested = true;
@@ -1440,7 +1494,9 @@ if (!hasSingleInstanceLock) {
     activateMainWindow();
   });
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
+    systemLocale =
+      (isE2ERuntime ? process.env.FUXIAN_E2E_SYSTEM_LOCALE : undefined) ?? app.getLocale();
     if (process.platform === 'darwin') {
       if (e2eWindowMode === 'hidden') app.dock?.hide();
       else app.dock?.setIcon(appIconPath);
@@ -1454,6 +1510,8 @@ if (!hasSingleInstanceLock) {
       !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_PREFERENCES_FILE
         ? process.env.FUXIAN_E2E_PREFERENCES_FILE
         : join(app.getPath('userData'), 'reader-preferences.json');
+    const preferencesPersistence = new JsonFilePreferencesPersistence(preferencesPath);
+    applyApplicationLocale(await preferencesPersistence.load());
     const sourceRecoveryPath =
       !app.isPackaged &&
       process.env.NODE_ENV === 'test' &&
@@ -1491,6 +1549,7 @@ if (!hasSingleInstanceLock) {
       supported:
         Boolean(e2eUpdateAdapter) ||
         (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')),
+      translate: mainText,
     });
     appUpdateService.initialize();
     const testDefaultAppState = (
@@ -1513,24 +1572,27 @@ if (!hasSingleInstanceLock) {
         ),
       showMacGuidance: async () => {
         await dialog.showMessageBox({
-          buttons: ['知道了'],
-          detail:
+          buttons: [mainText('知道了')],
+          detail: mainText(
             '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“浮现”，再点击“全部更改”。系统确认后返回浮现。',
-          message: '将浮现设为 Markdown 默认应用',
-          title: 'Markdown 默认应用',
+          ),
+          message: mainText('将浮现设为 Markdown 默认应用'),
+          title: mainText('Markdown 默认应用'),
           type: 'info',
         });
       },
       temporaryDirectory: app.getPath('temp'),
+      translate: mainText,
       ...(isE2ERuntime && testDefaultAppState ? { testState: testDefaultAppState } : {}),
     });
     registerDesktopHandlers(
       new JsonFileSessionPersistence(sessionPath),
-      new JsonFilePreferencesPersistence(preferencesPath),
+      preferencesPersistence,
       new JsonFileSourceRecoveryPersistence(sourceRecoveryPath),
       appUpdateService,
       markdownDefaultAppService,
     );
+    applicationMenuReady = true;
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
     const updateCheckTimer = setTimeout(

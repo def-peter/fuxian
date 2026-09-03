@@ -86,6 +86,7 @@ import {
 } from '@/finished-document';
 import { FuxianAppIcon } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
+import { useLocalization } from '@/localization-context';
 import { PdfExportPanel } from '@/pdf-export-panel';
 import { PaperPreviewFrame } from '@/paper-preview-frame';
 import type { PaperPreviewSnapshot } from '@/paper-preview-protocol';
@@ -220,6 +221,7 @@ const finishSourceDocument = (document: SourceDocumentData): FinishedSourceDocum
 };
 
 export function App(): React.JSX.Element {
+  const { locale, t } = useLocalization();
   const { preferences, resolvedAppearance, updatePreferences } = useReaderPreferences();
   const appUpdateStatus = useAppUpdateStatus();
   const shellLayout = useShellLayout();
@@ -315,7 +317,7 @@ export function App(): React.JSX.Element {
     shellLayout !== 'narrow' && preferences.shell.documentSessionExpanded;
   const contentOutlineInline =
     !sourceEdit && shellLayout === 'wide' && preferences.shell.contentOutlineExpanded;
-  const contentOutlineActionLabel = contentOutlineInline ? '隐藏大纲' : '显示大纲';
+  const contentOutlineActionLabel = contentOutlineInline ? t('隐藏大纲') : t('显示大纲');
   const getReadingController = useCallback(
     (): FinishedDocumentController | undefined =>
       viewModeRef.current === 'paper'
@@ -477,7 +479,7 @@ export function App(): React.JSX.Element {
             void persistCurrentSourceDraft().catch(() => undefined);
             setExternalRevisionStatuses((current) =>
               new Map(current).set(event.path, {
-                detail: '源文件已被移动或删除。未保存的源码仍保留在当前编辑器和恢复草稿中。',
+                detail: t('源文件已被移动或删除。未保存的源码仍保留在当前编辑器和恢复草稿中。'),
                 state: 'failed',
               }),
             );
@@ -550,13 +552,13 @@ export function App(): React.JSX.Element {
         });
         setExternalRevisionStatuses((current) =>
           new Map(current).set(event.path, {
-            detail: error instanceof Error ? error.message : '新版本 Markdown 无法解析。',
+            detail: error instanceof Error ? error.message : t('新版本 Markdown 无法解析。'),
             state: 'failed',
           }),
         );
       }
     },
-    [commitSourceEdit, forgetMissingDocument, getReadingController, persistCurrentSourceDraft],
+    [commitSourceEdit, forgetMissingDocument, getReadingController, persistCurrentSourceDraft, t],
   );
 
   const saveActiveSourceEdit = useCallback(async (): Promise<boolean> => {
@@ -624,8 +626,8 @@ export function App(): React.JSX.Element {
             new Map(current).set(buffer.path, {
               detail:
                 error instanceof Error
-                  ? `源码已保存，但无法生成阅读内容：${error.message}`
-                  : '源码已保存，但无法生成阅读内容。',
+                  ? t('源码已保存，但无法生成阅读内容：{detail}', { detail: error.message })
+                  : t('源码已保存，但无法生成阅读内容。'),
               state: 'failed',
             }),
           );
@@ -633,10 +635,10 @@ export function App(): React.JSX.Element {
       }
       return true;
     } catch {
-      commitSourceEdit(failSourceEditSave(buffer, '应用暂时无法保存文档，请重试。'));
+      commitSourceEdit(failSourceEditSave(buffer, t('应用暂时无法保存文档，请重试。')));
       return false;
     }
-  }, [commitSourceEdit]);
+  }, [commitSourceEdit, t]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -718,7 +720,7 @@ export function App(): React.JSX.Element {
             return {
               status: 'unavailable' as const,
               reference: item.reference,
-              message: `“${item.reference.name}”的内容暂时无法呈现。`,
+              message: t('“{name}”的内容暂时无法呈现。', { name: item.reference.name }),
               reason: 'unreadable' as const,
             };
           }
@@ -754,7 +756,7 @@ export function App(): React.JSX.Element {
         setSession(nextSession);
       } catch {
         if (!cancelled) {
-          setBlockingError('无法恢复上次文档会话。你仍可以重新打开文档。');
+          setBlockingError(t('无法恢复上次文档会话。你仍可以重新打开文档。'));
         }
       } finally {
         if (!cancelled) {
@@ -766,7 +768,7 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (restorationStatus !== 'ready') {
@@ -842,12 +844,12 @@ export function App(): React.JSX.Element {
       })
       .catch((error: unknown) => {
         if (paperSnapshotRequest.current !== request) return;
-        setPaperPreviewFailure(error instanceof Error ? error.message : '无法准备纸张预览。');
+        setPaperPreviewFailure(error instanceof Error ? error.message : t('无法准备纸张预览。'));
       });
     return () => {
       if (paperSnapshotRequest.current === request) paperSnapshotRequest.current += 1;
     };
-  }, [getReadingController, preferences, resolvedAppearance, viewMode, visibleFrameId]);
+  }, [getReadingController, preferences, resolvedAppearance, t, viewMode, visibleFrameId]);
 
   useEffect(() => {
     const position = diagramLayoutReadingPosition.current;
@@ -1023,6 +1025,7 @@ export function App(): React.JSX.Element {
       },
       revisionId: frame.id,
       renderPlantUml,
+      translate: t,
     });
     controller.applyTheme(toDocumentThemePreferences(preferences, resolvedAppearance));
     frameControllers.current.set(frame.id, controller);
@@ -1088,7 +1091,7 @@ export function App(): React.JSX.Element {
           setActiveHeadingId(readingPosition.headingId ?? frame.document.headings[0]?.id);
           setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
         }
-        const time = new Intl.DateTimeFormat('zh-CN', {
+        const time = new Intl.DateTimeFormat(locale, {
           hour: '2-digit',
           hour12: false,
           minute: '2-digit',
@@ -1119,7 +1122,7 @@ export function App(): React.JSX.Element {
         });
         setExternalRevisionStatuses((current) =>
           new Map(current).set(path, {
-            detail: error instanceof Error ? error.message : '新版本无法完整呈现。',
+            detail: error instanceof Error ? error.message : t('新版本无法完整呈现。'),
             state: 'failed',
           }),
         );
@@ -1152,7 +1155,7 @@ export function App(): React.JSX.Element {
     setOpening(false);
     if (finishedDocuments.length === 0) {
       if (!activeDocument) {
-        setBlockingError('选择的文档暂时无法呈现。请检查文件内容后重试。');
+        setBlockingError(t('选择的文档暂时无法呈现。请检查文件内容后重试。'));
       }
       return;
     }
@@ -1218,7 +1221,7 @@ export function App(): React.JSX.Element {
     } catch {
       setOpening(false);
       if (!activeDocument) {
-        setBlockingError('应用暂时无法访问文件。请重试或重新打开窗口。');
+        setBlockingError(t('应用暂时无法访问文件。请重试或重新打开窗口。'));
       }
     }
   };
@@ -1230,7 +1233,7 @@ export function App(): React.JSX.Element {
     } catch {
       setOpening(false);
       if (!activeDocument) {
-        setBlockingError('应用无法读取拖入的文档。请确认文件仍然存在。');
+        setBlockingError(t('应用无法读取拖入的文档。请确认文件仍然存在。'));
       }
     }
   };
@@ -1349,7 +1352,7 @@ export function App(): React.JSX.Element {
     }
     void executeSourceAction(action).catch(() => {
       if (action.kind === 'install-update') {
-        pendingInstallResolution.current?.reject(new Error('无法保存当前文档会话。'));
+        pendingInstallResolution.current?.reject(new Error(t('无法保存当前文档会话。')));
         pendingInstallResolution.current = undefined;
       }
     });
@@ -1401,7 +1404,7 @@ export function App(): React.JSX.Element {
 
   const cancelPendingSourceAction = (): void => {
     if (pendingSourceAction?.kind === 'install-update') {
-      pendingInstallResolution.current?.reject(new Error('存在尚未保存的 Markdown 修改。'));
+      pendingInstallResolution.current?.reject(new Error(t('存在尚未保存的 Markdown 修改。')));
       pendingInstallResolution.current = undefined;
     }
     setPendingSourceAction(undefined);
@@ -1479,7 +1482,7 @@ export function App(): React.JSX.Element {
       await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
       if (pendingSourceAction) requestSourceAction(pendingSourceAction);
     } catch {
-      commitSourceEdit(failSourceEditSave(buffer, '应用暂时无法另存文档，请重试。'));
+      commitSourceEdit(failSourceEditSave(buffer, t('应用暂时无法另存文档，请重试。')));
     }
   };
 
@@ -1509,7 +1512,7 @@ export function App(): React.JSX.Element {
       beginExternalRevision({
         path,
         result: {
-          message: '应用暂时无法访问该文档。',
+          message: t('应用暂时无法访问该文档。'),
           reason: 'unreadable',
           status: 'unavailable',
         },
@@ -1531,7 +1534,7 @@ export function App(): React.JSX.Element {
       setBlockingError(undefined);
     } catch {
       setSession((current) =>
-        setUnavailableDocumentMessage(current, path, '该文档的内容暂时无法呈现。'),
+        setUnavailableDocumentMessage(current, path, t('该文档的内容暂时无法呈现。')),
       );
     }
   };
@@ -1542,7 +1545,7 @@ export function App(): React.JSX.Element {
       acceptRecoveryResult(path, await window.fuxian.retrySourceDocument(path));
     } catch {
       setSession((current) =>
-        setUnavailableDocumentMessage(current, path, '应用暂时无法访问该文档。'),
+        setUnavailableDocumentMessage(current, path, t('应用暂时无法访问该文档。')),
       );
     } finally {
       setOpening(false);
@@ -1577,7 +1580,7 @@ export function App(): React.JSX.Element {
     } catch {
       setExternalRevisionStatuses((current) =>
         new Map(current).set(path, {
-          detail: '应用暂时无法重新读取源文档。',
+          detail: t('应用暂时无法重新读取源文档。'),
           state: 'failed',
         }),
       );
@@ -1660,7 +1663,7 @@ export function App(): React.JSX.Element {
     } catch {
       setPdfExportProgress({
         exportId: `failed:${Date.now()}`,
-        message: '应用暂时无法启动 PDF 导出。',
+        message: t('应用暂时无法启动 PDF 导出。'),
         status: 'failed',
       });
     } finally {
@@ -1766,18 +1769,18 @@ export function App(): React.JSX.Element {
       : undefined;
   const pendingSourceActionDescription = pendingSourceAction
     ? pendingSourceAction.kind === 'activate'
-      ? '切换文档'
+      ? t('切换文档')
       : pendingSourceAction.kind === 'accept-open'
-        ? '打开其他文档'
+        ? t('打开其他文档')
         : pendingSourceAction.kind === 'close'
-          ? '关闭文档'
+          ? t('关闭文档')
           : pendingSourceAction.kind === 'install-update'
-            ? '安装更新'
+            ? t('安装更新')
             : pendingSourceAction.kind === 'quit'
-              ? '退出浮现'
+              ? t('退出浮现')
               : pendingSourceAction.kind === 'close-window'
-                ? '关闭窗口'
-                : '返回阅读模式'
+                ? t('关闭窗口')
+                : t('返回阅读模式')
     : '';
   const documentSessionSidebar = (
     <DocumentSessionSidebar
@@ -1852,7 +1855,7 @@ export function App(): React.JSX.Element {
                 {documentSessionSidebar}
               </ResizablePanel>
               <ResizableHandle
-                aria-label="调整文档会话宽度"
+                aria-label={t('调整文档会话宽度')}
                 disableDoubleClick
                 id="document-session-resize-handle"
                 onDoubleClick={() => {
@@ -1871,7 +1874,7 @@ export function App(): React.JSX.Element {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label={shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+                    aria-label={shellLayout === 'narrow' ? t('打开文档会话') : t('展开文档会话')}
                     className="absolute top-1 left-2 z-30"
                     onClick={() => {
                       if (shellLayout === 'narrow') {
@@ -1888,14 +1891,14 @@ export function App(): React.JSX.Element {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
-                  {shellLayout === 'narrow' ? '打开文档会话' : '展开文档会话'}
+                  {shellLayout === 'narrow' ? t('打开文档会话') : t('展开文档会话')}
                 </TooltipContent>
               </Tooltip>
             ) : null}
 
             {restorationStatus === 'loading' ? (
               <main className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
-                正在恢复上次会话...
+                {t('正在恢复上次会话...')}
               </main>
             ) : activeLoadingDocument ? (
               <div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
@@ -1914,11 +1917,11 @@ export function App(): React.JSX.Element {
                     className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"
                   >
                     <Spinner aria-hidden="true" />
-                    正在更新...
+                    {t('正在更新...')}
                   </span>
                 </header>
                 <main
-                  aria-label="正在准备文档"
+                  aria-label={t('正在准备文档')}
                   className="grid min-h-0 grid-cols-[minmax(0,1fr)] bg-background p-3"
                 >
                   <div className="col-start-1 row-start-1 mx-auto w-full max-w-3xl animate-pulse px-16 py-16">
@@ -1935,7 +1938,7 @@ export function App(): React.JSX.Element {
                       documentWidth={preferences.documentWidth}
                       draggingFiles={draggingFiles}
                       frame={frame}
-                      key={frame.id}
+                      key={`${frame.id}:${locale}`}
                       onLoad={handleFinishedDocumentLoad}
                       onRemove={handleFinishedDocumentFrameRemove}
                       visible={false}
@@ -1973,14 +1976,14 @@ export function App(): React.JSX.Element {
                       >
                         {sourceEdit.status === 'saving' ? <Spinner aria-hidden="true" /> : null}
                         {sourceEdit.conflictDocument
-                          ? '外部修改冲突'
+                          ? t('外部修改冲突')
                           : sourceEdit.status === 'saving'
-                            ? '正在保存...'
+                            ? t('正在保存...')
                             : isSourceEditDirty(sourceEdit)
                               ? sourceEdit.recovered
-                                ? '已恢复草稿 · 未保存'
-                                : '未保存'
-                              : '已保存'}
+                                ? t('已恢复草稿 · 未保存')
+                                : t('未保存')
+                              : t('已保存')}
                       </span>
                     ) : null}
                     {!sourceEdit && externalRevisionStatus.state === 'updating' ? (
@@ -1989,7 +1992,7 @@ export function App(): React.JSX.Element {
                         className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
                       >
                         <Spinner aria-hidden="true" />
-                        正在更新...
+                        {t('正在更新...')}
                       </span>
                     ) : null}
                     {!sourceEdit && externalRevisionStatus.state === 'updated' ? (
@@ -1998,7 +2001,7 @@ export function App(): React.JSX.Element {
                         className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
                       >
                         <CheckCircle2 aria-hidden="true" className="size-3.5 text-success" />
-                        已更新 · {externalRevisionStatus.time}
+                        {t('已更新 · {time}', { time: externalRevisionStatus.time })}
                       </span>
                     ) : null}
                     {!sourceEdit && externalRevisionStatus.state === 'new-content' ? (
@@ -2009,7 +2012,7 @@ export function App(): React.JSX.Element {
                         variant="secondary"
                       >
                         <ArrowDown aria-hidden="true" />
-                        有新内容
+                        {t('有新内容')}
                       </Button>
                     ) : null}
                     {!sourceEdit && externalRevisionStatus.state === 'failed' ? (
@@ -2018,9 +2021,9 @@ export function App(): React.JSX.Element {
                         className="ml-2 flex shrink-0 items-center gap-1 text-xs text-destructive"
                       >
                         <AlertCircle aria-hidden="true" className="size-3.5" />
-                        <span>更新失败</span>
+                        <span>{t('更新失败')}</span>
                         <Button
-                          aria-label="重试文档更新"
+                          aria-label={t('重试文档更新')}
                           onClick={() => void retryExternalRevision()}
                           size="icon-xs"
                           variant="ghost"
@@ -2030,14 +2033,16 @@ export function App(): React.JSX.Element {
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button size="xs" variant="ghost">
-                              详情
+                              {t('详情')}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent align="start" className="w-80">
                             <PopoverHeader>
-                              <PopoverTitle>文档更新失败</PopoverTitle>
+                              <PopoverTitle>{t('文档更新失败')}</PopoverTitle>
                               <PopoverDescription className="break-words">
-                                正在显示上一版本。{externalRevisionStatus.detail}
+                                {t('正在显示上一版本。{detail}', {
+                                  detail: externalRevisionStatus.detail,
+                                })}
                               </PopoverDescription>
                             </PopoverHeader>
                           </PopoverContent>
@@ -2049,9 +2054,9 @@ export function App(): React.JSX.Element {
                   <div className="ml-2 flex shrink-0 items-center gap-1 min-[960px]:ml-4">
                     {sourceEdit ? (
                       <>
-                        <ToolbarTooltip label="进入阅读模式">
+                        <ToolbarTooltip label={t('进入阅读模式')}>
                           <Button
-                            aria-label="进入阅读模式"
+                            aria-label={t('进入阅读模式')}
                             onClick={() => requestSourceAction({ kind: 'read' })}
                             size="icon-sm"
                             variant="ghost"
@@ -2059,9 +2064,9 @@ export function App(): React.JSX.Element {
                             <BookOpen aria-hidden="true" />
                           </Button>
                         </ToolbarTooltip>
-                        <ToolbarTooltip label="保存 Markdown">
+                        <ToolbarTooltip label={t('保存 Markdown')}>
                           <Button
-                            aria-label="保存 Markdown"
+                            aria-label={t('保存 Markdown')}
                             disabled={
                               !isSourceEditDirty(sourceEdit) ||
                               sourceEdit.status === 'saving' ||
@@ -2086,7 +2091,7 @@ export function App(): React.JSX.Element {
                           data-document-display-controls=""
                         >
                           <SegmentedControl
-                            aria-label="文档显示模式"
+                            aria-label={t('文档显示模式')}
                             onValueChange={(value) => {
                               if (value === 'continuous' || value === 'paper')
                                 changeViewMode(value);
@@ -2094,22 +2099,22 @@ export function App(): React.JSX.Element {
                             type="single"
                             value={viewMode}
                           >
-                            <ToolbarTooltip label="连续阅读" wrapTrigger>
+                            <ToolbarTooltip label={t('连续阅读')} wrapTrigger>
                               <SegmentedControlItem
-                                aria-label="无界阅读"
+                                aria-label={t('无界阅读')}
                                 className="min-w-11"
                                 value="continuous"
                               >
-                                无界
+                                {t('无界')}
                               </SegmentedControlItem>
                             </ToolbarTooltip>
-                            <ToolbarTooltip label="A4 分页预览" wrapTrigger>
+                            <ToolbarTooltip label={t('A4 分页预览')} wrapTrigger>
                               <SegmentedControlItem
-                                aria-label="纸张预览"
+                                aria-label={t('纸张预览')}
                                 className="min-w-11"
                                 value="paper"
                               >
-                                纸张
+                                {t('纸张')}
                               </SegmentedControlItem>
                             </ToolbarTooltip>
                           </SegmentedControl>
@@ -2127,14 +2132,14 @@ export function App(): React.JSX.Element {
                               />
                             ) : paperPageCount ? (
                               <span className="w-full px-2 text-xs tabular-nums text-muted-foreground">
-                                {paperPageCount} 页
+                                {t('{count} 页', { count: paperPageCount })}
                               </span>
                             ) : null}
                           </div>
                         </div>
                         {findOpen ? (
                           <div
-                            aria-label="页内查找"
+                            aria-label={t('页内查找')}
                             className="flex h-8 items-center rounded-md border bg-background pl-2 shadow-xs"
                             role="search"
                           >
@@ -2143,11 +2148,11 @@ export function App(): React.JSX.Element {
                               className="mr-2 size-4 text-muted-foreground"
                             />
                             <input
-                              aria-label="页内查找"
+                              aria-label={t('页内查找')}
                               className="h-7 w-32 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-[960px]:w-48"
                               onChange={(event) => setFindQuery(event.target.value)}
                               onKeyDown={handleFindKeyDown}
-                              placeholder="查找"
+                              placeholder={t('查找')}
                               ref={findInput}
                               type="text"
                               value={findQuery}
@@ -2158,9 +2163,9 @@ export function App(): React.JSX.Element {
                             >
                               {findResult.current}/{findResult.total}
                             </span>
-                            <ToolbarTooltip label="上一个匹配项">
+                            <ToolbarTooltip label={t('上一个匹配项')}>
                               <Button
-                                aria-label="上一个匹配项"
+                                aria-label={t('上一个匹配项')}
                                 disabled={findResult.total === 0}
                                 onClick={showPreviousFindResult}
                                 size="icon-xs"
@@ -2169,9 +2174,9 @@ export function App(): React.JSX.Element {
                                 <ChevronUp aria-hidden="true" />
                               </Button>
                             </ToolbarTooltip>
-                            <ToolbarTooltip label="下一个匹配项">
+                            <ToolbarTooltip label={t('下一个匹配项')}>
                               <Button
-                                aria-label="下一个匹配项"
+                                aria-label={t('下一个匹配项')}
                                 disabled={findResult.total === 0}
                                 onClick={showNextFindResult}
                                 size="icon-xs"
@@ -2180,9 +2185,9 @@ export function App(): React.JSX.Element {
                                 <ChevronDown aria-hidden="true" />
                               </Button>
                             </ToolbarTooltip>
-                            <ToolbarTooltip label="关闭查找">
+                            <ToolbarTooltip label={t('关闭查找')}>
                               <Button
-                                aria-label="关闭查找"
+                                aria-label={t('关闭查找')}
                                 className="mx-1"
                                 onClick={closeFind}
                                 size="icon-xs"
@@ -2193,9 +2198,9 @@ export function App(): React.JSX.Element {
                             </ToolbarTooltip>
                           </div>
                         ) : (
-                          <ToolbarTooltip label="页内查找">
+                          <ToolbarTooltip label={t('页内查找')}>
                             <Button
-                              aria-label="页内查找"
+                              aria-label={t('页内查找')}
                               onClick={openFind}
                               size="icon-sm"
                               variant="ghost"
@@ -2204,9 +2209,9 @@ export function App(): React.JSX.Element {
                             </Button>
                           </ToolbarTooltip>
                         )}
-                        <ToolbarTooltip label="进入编辑模式">
+                        <ToolbarTooltip label={t('进入编辑模式')}>
                           <Button
-                            aria-label="进入编辑模式"
+                            aria-label={t('进入编辑模式')}
                             onClick={enterSourceEditing}
                             size="icon-sm"
                             variant="ghost"
@@ -2214,9 +2219,9 @@ export function App(): React.JSX.Element {
                             <Pencil aria-hidden="true" />
                           </Button>
                         </ToolbarTooltip>
-                        <ToolbarTooltip label="导出 PDF">
+                        <ToolbarTooltip label={t('导出 PDF')}>
                           <Button
-                            aria-label="导出 PDF"
+                            aria-label={t('导出 PDF')}
                             disabled={pdfExportStarting || pdfExportProgress?.status === 'running'}
                             onClick={() => void startPdfExport()}
                             size="icon-sm"
@@ -2273,7 +2278,7 @@ export function App(): React.JSX.Element {
                         'relative grid h-full min-h-0 bg-background',
                         sourceEdit ? 'grid-cols-1 grid-rows-1' : 'p-3',
                       )}
-                      aria-label={sourceEdit ? 'Markdown 源码编辑区' : '完成文档阅读区'}
+                      aria-label={sourceEdit ? t('Markdown 源码编辑区') : t('完成文档阅读区')}
                       {...(sourceEdit
                         ? { 'data-source-editor-region': '' }
                         : { 'data-finished-document-region': '' })}
@@ -2284,7 +2289,7 @@ export function App(): React.JSX.Element {
                             fallback={
                               <div className="flex items-center justify-center text-sm text-muted-foreground">
                                 <Spinner aria-hidden="true" />
-                                <span className="ml-2">正在准备源码编辑器...</span>
+                                <span className="ml-2">{t('正在准备源码编辑器...')}</span>
                               </div>
                             }
                           >
@@ -2303,7 +2308,7 @@ export function App(): React.JSX.Element {
                               variant="destructive"
                             >
                               <AlertCircle aria-hidden="true" />
-                              <AlertTitle>保存失败</AlertTitle>
+                              <AlertTitle>{t('保存失败')}</AlertTitle>
                               <AlertDescription>{sourceEdit.error}</AlertDescription>
                             </Alert>
                           ) : null}
@@ -2315,7 +2320,7 @@ export function App(): React.JSX.Element {
                               documentWidth={preferences.documentWidth}
                               draggingFiles={draggingFiles}
                               frame={frame}
-                              key={frame.id}
+                              key={`${frame.id}:${locale}`}
                               onLoad={handleFinishedDocumentLoad}
                               onRemove={handleFinishedDocumentFrameRemove}
                               visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
@@ -2366,7 +2371,9 @@ export function App(): React.JSX.Element {
                               aria-live="polite"
                               className="absolute right-4 bottom-4 z-20 max-w-sm border border-destructive/40 bg-card px-3 py-2 text-xs text-destructive shadow-sm"
                             >
-                              正在保留上一版纸张预览。{paperPreviewFailure}
+                              {t('正在保留上一版纸张预览。{detail}', {
+                                detail: paperPreviewFailure,
+                              })}
                             </div>
                           ) : null}
                           {pdfExportProgress ? (
@@ -2401,7 +2408,7 @@ export function App(): React.JSX.Element {
                   ) : contentOutlineInline ? (
                     <>
                       <ResizableHandle
-                        aria-label="调整大纲宽度"
+                        aria-label={t('调整大纲宽度')}
                         disableDoubleClick
                         id="content-outline-resize-handle"
                         onDoubleClick={() => {
@@ -2481,9 +2488,9 @@ export function App(): React.JSX.Element {
                       ref={contentOutlineSheet}
                       showCloseButton={false}
                     >
-                      <SheetTitle className="sr-only">大纲</SheetTitle>
+                      <SheetTitle className="sr-only">{t('大纲')}</SheetTitle>
                       <SheetDescription className="sr-only">
-                        浏览并跳转到当前文档中的标题。
+                        {t('浏览并跳转到当前文档中的标题。')}
                       </SheetDescription>
                       <ContentOutline
                         activeHeadingId={activeHeadingId}
@@ -2507,9 +2514,9 @@ export function App(): React.JSX.Element {
                     open={Boolean(sourceDiagram)}
                   >
                     <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
-                      <SheetTitle className="sr-only">图表源码</SheetTitle>
+                      <SheetTitle className="sr-only">{t('图表源码')}</SheetTitle>
                       <SheetDescription className="sr-only">
-                        查看并复制当前 Mermaid 或 PlantUML 图表源码。
+                        {t('查看并复制当前 Mermaid 或 PlantUML 图表源码。')}
                       </SheetDescription>
                       <DiagramSourceDrawer
                         copyText={window.fuxian.copyText}
@@ -2527,13 +2534,13 @@ export function App(): React.JSX.Element {
                   <Alert className="w-full max-w-md" variant="destructive">
                     <AlertCircle aria-hidden="true" />
                     <AlertTitle>
-                      <h1 id="error-title">无法打开文档</h1>
+                      <h1 id="error-title">{t('无法打开文档')}</h1>
                     </AlertTitle>
                     <AlertDescription>
                       <p>{blockingError}</p>
                       <Button className="mt-3" onClick={() => void openSourceDocuments()}>
                         <FolderOpen aria-hidden="true" />
-                        打开其他文档
+                        {t('打开其他文档')}
                       </Button>
                     </AlertDescription>
                   </Alert>
@@ -2541,13 +2548,13 @@ export function App(): React.JSX.Element {
                   <Alert className="w-full max-w-md">
                     <AlertCircle aria-hidden="true" />
                     <AlertTitle>
-                      <h1>部分文档暂时不可用</h1>
+                      <h1>{t('部分文档暂时不可用')}</h1>
                     </AlertTitle>
                     <AlertDescription>
-                      <p>可在左侧对文档执行重试、重新定位或移除。</p>
+                      <p>{t('可在左侧对文档执行重试、重新定位或移除。')}</p>
                       <Button className="mt-3" onClick={() => void openSourceDocuments()}>
                         <FolderOpen aria-hidden="true" />
-                        打开其他文档
+                        {t('打开其他文档')}
                       </Button>
                     </AlertDescription>
                   </Alert>
@@ -2557,11 +2564,11 @@ export function App(): React.JSX.Element {
                       <div className="flex items-center gap-4">
                         <FuxianAppIcon className="size-16" />
                         <h1 id="start-title" className="text-2xl font-semibold text-foreground">
-                          浮现
+                          {t('浮现')}
                         </h1>
                       </div>
                       <p className="mt-4 text-sm text-muted-foreground">
-                        让内容精彩浮现，让 Markdown 值得阅读。
+                        {t('让内容精彩浮现，让 Markdown 值得阅读。')}
                       </p>
                       <div className="mt-9 flex flex-col items-center gap-2">
                         <Button
@@ -2570,9 +2577,9 @@ export function App(): React.JSX.Element {
                           size="lg"
                         >
                           <FolderOpen aria-hidden="true" data-icon="inline-start" />
-                          {opening ? '正在打开...' : '打开 Markdown'}
+                          {opening ? t('正在打开...') : t('打开 Markdown')}
                         </Button>
-                        <p className="text-xs text-muted-foreground/70">或直接拖入文件</p>
+                        <p className="text-xs text-muted-foreground/70">{t('或直接拖入文件')}</p>
                       </div>
                     </div>
 
@@ -2582,7 +2589,7 @@ export function App(): React.JSX.Element {
                         aria-labelledby="start-recent-title"
                       >
                         <h2 id="start-recent-title" className="text-sm font-semibold">
-                          最近查看
+                          {t('最近查看')}
                         </h2>
                         <div className="mt-2 flex flex-col">
                           {startRecentDocuments.map((document) => (
@@ -2617,7 +2624,7 @@ export function App(): React.JSX.Element {
 
         {draggingFiles ? (
           <div className="pointer-events-none absolute inset-2 flex items-center justify-center border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">
-            松开以打开文档
+            {t('松开以打开文档')}
           </div>
         ) : null}
         {shellLayout === 'narrow' ? (
@@ -2631,9 +2638,9 @@ export function App(): React.JSX.Element {
               showCloseButton={false}
               side="left"
             >
-              <SheetTitle className="sr-only">文档会话</SheetTitle>
+              <SheetTitle className="sr-only">{t('文档会话')}</SheetTitle>
               <SheetDescription className="sr-only">
-                切换正在查看的文档或重新查看最近文档。
+                {t('切换正在查看的文档或重新查看最近文档。')}
               </SheetDescription>
               {documentSessionSidebar}
             </SheetContent>

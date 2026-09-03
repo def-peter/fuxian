@@ -5,6 +5,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { useEffect, useRef } from 'react';
 import type { SourceEditorSelection } from '@fuxian/shared-types';
+import { useLocalization } from '@/localization-context';
 
 interface SourceEditorProps {
   autoFocus?: boolean;
@@ -60,6 +61,7 @@ export function SourceEditor({
   selection,
   source,
 }: SourceEditorProps): React.JSX.Element {
+  const { t } = useLocalization();
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView>(null);
   const editable = useRef(new Compartment());
@@ -92,7 +94,7 @@ export function SourceEditor({
           markdown(),
           EditorView.lineWrapping,
           sourceEditorTheme,
-          EditorView.contentAttributes.of({ 'aria-label': 'Markdown 源码编辑器' }),
+          EditorView.contentAttributes.of({ 'aria-label': t('Markdown 源码编辑器') }),
           editable.current.of(EditorState.readOnly.of(initialState.readOnly)),
           keymap.of([
             {
@@ -123,7 +125,7 @@ export function SourceEditor({
       editor.current = null;
       view.destroy();
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     editor.current?.dispatch({

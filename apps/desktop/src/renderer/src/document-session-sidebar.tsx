@@ -23,6 +23,7 @@ import type {
 } from '@/document-session';
 import { FuxianMark } from '@/fuxian-mark';
 import { cn } from '@/lib/utils';
+import { useLocalization } from '@/localization-context';
 
 interface DocumentSessionSidebarProps {
   activeDocumentPath: string | undefined;
@@ -81,16 +82,17 @@ function UnavailableDocumentItem({
   onRemove,
   onRetry,
 }: UnavailableDocumentItemProps): React.JSX.Element {
+  const { t } = useLocalization();
   return (
     <div
-      aria-label={`${document.name}，文档不可用。${document.message}`}
+      aria-label={`${document.name}. ${t('文档不可用')}. ${document.message}`}
       className="flex min-h-10 items-center border-l-2 border-warning/60 px-1 pl-3"
       role="group"
     >
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            aria-label={`${document.name}。${document.message}`}
+            aria-label={`${document.name}. ${document.message}`}
             className="flex min-w-0 flex-1 items-center gap-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             role="note"
             tabIndex={0}
@@ -104,9 +106,9 @@ function UnavailableDocumentItem({
           <p>{document.message}</p>
         </TooltipContent>
       </Tooltip>
-      <SidebarActionTooltip label={`重试 ${document.name}`}>
+      <SidebarActionTooltip label={t('重试“{name}”', { name: document.name })}>
         <Button
-          aria-label={`重试 ${document.name}`}
+          aria-label={t('重试“{name}”', { name: document.name })}
           disabled={disabled}
           onClick={onRetry}
           size="icon-xs"
@@ -115,9 +117,9 @@ function UnavailableDocumentItem({
           <RotateCcw aria-hidden="true" />
         </Button>
       </SidebarActionTooltip>
-      <SidebarActionTooltip label={`定位 ${document.name}`}>
+      <SidebarActionTooltip label={t('定位“{name}”', { name: document.name })}>
         <Button
-          aria-label={`定位 ${document.name}`}
+          aria-label={t('定位“{name}”', { name: document.name })}
           disabled={disabled}
           onClick={onLocate}
           size="icon-xs"
@@ -126,9 +128,9 @@ function UnavailableDocumentItem({
           <FolderSearch aria-hidden="true" />
         </Button>
       </SidebarActionTooltip>
-      <SidebarActionTooltip label={`移除 ${document.name}`}>
+      <SidebarActionTooltip label={t('移除“{name}”', { name: document.name })}>
         <Button
-          aria-label={`移除 ${document.name}`}
+          aria-label={t('移除“{name}”', { name: document.name })}
           disabled={disabled}
           onClick={onRemove}
           size="icon-xs"
@@ -148,6 +150,7 @@ function DocumentItem({
   onActivate,
   onClose,
 }: DocumentItemProps): React.JSX.Element {
+  const { t } = useLocalization();
   return (
     <div
       className={cn(
@@ -158,7 +161,7 @@ function DocumentItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            aria-label={`${document.name}${loading ? '，正在更新' : ''}`}
+            aria-label={`${document.name}${loading ? `, ${t('正在更新')}` : ''}`}
             aria-current={active ? 'page' : undefined}
             className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={onActivate}
@@ -177,9 +180,9 @@ function DocumentItem({
         </TooltipContent>
       </Tooltip>
       {onClose ? (
-        <SidebarActionTooltip label={`关闭 ${document.name}`}>
+        <SidebarActionTooltip label={t('关闭“{name}”', { name: document.name })}>
           <Button
-            aria-label={`关闭 ${document.name}`}
+            aria-label={t('关闭“{name}”', { name: document.name })}
             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
             onClick={onClose}
             size="icon-xs"
@@ -236,20 +239,21 @@ export function DocumentSessionSidebar({
   recentDocuments,
   updateAttention,
 }: DocumentSessionSidebarProps): React.JSX.Element {
+  const { t } = useLocalization();
   return (
     <aside
-      aria-label="文档会话"
+      aria-label={t('文档会话')}
       className="grid h-full min-h-0 w-full min-w-0 grid-rows-[44px_minmax(0,1fr)_40px] overflow-hidden border-r bg-muted"
     >
       <header className="flex min-w-0 items-center gap-1 border-b bg-card px-2">
         <div className="mr-auto flex min-w-0 items-center gap-2">
-          <FuxianMark className="size-7" />
-          <span className="truncate text-base font-semibold">浮现</span>
+          <FuxianMark className="size-7" label={t('浮现')} />
+          <span className="truncate text-base font-semibold">{t('浮现')}</span>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="打开文档"
+              aria-label={t('打开文档')}
               disabled={isOpening}
               onClick={onOpen}
               size="icon-sm"
@@ -259,24 +263,29 @@ export function DocumentSessionSidebar({
             </Button>
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom" sideOffset={6}>
-            打开文档
+            {t('打开文档')}
           </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button aria-label="收起文档会话" onClick={onCollapse} size="icon-sm" variant="ghost">
+            <Button
+              aria-label={t('收起文档会话')}
+              onClick={onCollapse}
+              size="icon-sm"
+              variant="ghost"
+            >
               <PanelLeftClose aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom" sideOffset={6}>
-            收起文档会话
+            {t('收起文档会话')}
           </TooltipContent>
         </Tooltip>
       </header>
 
       <ScrollArea className="min-h-0 min-w-0 overflow-hidden">
         <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden py-2">
-          <SessionSection count={openDocuments.length} title="正在查看">
+          <SessionSection count={openDocuments.length} title={t('正在查看')}>
             {openDocuments.map((document) =>
               document.status !== 'unavailable' ? (
                 <DocumentItem
@@ -322,7 +331,7 @@ export function DocumentSessionSidebar({
             )}
           </SessionSection>
 
-          <SessionSection count={recentDocuments.length} title="最近查看">
+          <SessionSection count={recentDocuments.length} title={t('最近查看')}>
             {recentDocuments.map((document) => (
               <DocumentItem
                 document={document}
@@ -334,7 +343,7 @@ export function DocumentSessionSidebar({
         </div>
       </ScrollArea>
       <Button
-        aria-label={updateAttention ? '设置，有可用更新' : '设置'}
+        aria-label={updateAttention ? t('设置，有可用更新') : t('设置')}
         className="h-10 justify-start rounded-none border-t px-3 text-xs font-normal text-muted-foreground"
         onClick={onOpenSettings}
         variant="ghost"
@@ -346,7 +355,7 @@ export function DocumentSessionSidebar({
         ) : (
           <Settings aria-hidden="true" />
         )}
-        <span>{updateAttention ? '有可用更新' : '设置'}</span>
+        <span>{updateAttention ? t('有可用更新') : t('设置')}</span>
         {appVersion ? (
           <span className="ml-auto tabular-nums text-muted-foreground" data-app-version="">
             v{appVersion}

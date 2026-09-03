@@ -75,7 +75,9 @@ export function PaperPreviewFrame({
   const channelId = useMemo(() => crypto.randomUUID(), []);
   const sourceUrl = useMemo(() => {
     const url = new URL(globalThis.location.href);
+    const systemLocale = url.searchParams.get('systemLocale');
     url.search = '';
+    if (systemLocale) url.searchParams.set('systemLocale', systemLocale);
     url.hash = '';
     url.searchParams.set('channelId', channelId);
     url.searchParams.set('view', 'paper-preview');

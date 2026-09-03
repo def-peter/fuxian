@@ -115,6 +115,18 @@ export type AppearancePreference = 'dark' | 'light' | 'system';
 export type CodeHighlightTheme = 'fuxian-dark' | 'fuxian-light' | 'github-dark' | 'github-light';
 export type DocumentBodyFamily = 'sans-serif' | 'serif';
 export type DocumentWidthMode = 'a4' | 'adaptive' | 'custom';
+export type UiLanguagePreference = 'en-US' | 'system' | 'zh-CN';
+export type UiLocale = 'en-US' | 'zh-CN';
+
+export const resolveUiLocale = (
+  preference: UiLanguagePreference,
+  systemLocale: unknown,
+): UiLocale => {
+  if (preference !== 'system') return preference;
+  if (typeof systemLocale !== 'string') return 'en-US';
+  const normalized = systemLocale.trim().replaceAll('_', '-').toLowerCase();
+  return normalized === 'zh' || normalized.startsWith('zh-') ? 'zh-CN' : 'en-US';
+};
 
 export const isCodeHighlightTheme = (value: unknown): value is CodeHighlightTheme =>
   value === 'fuxian-dark' ||
@@ -136,6 +148,7 @@ export interface ReaderPreferences {
     customWidth: number;
     mode: DocumentWidthMode;
   };
+  language: UiLanguagePreference;
   plantUml: {
     serverUrl: string;
   };
@@ -162,6 +175,7 @@ export const createDefaultReaderPreferences = (): ReaderPreferences => ({
     customWidth: 860,
     mode: 'adaptive',
   },
+  language: 'system',
   plantUml: {
     serverUrl: defaultPlantUmlServerUrl,
   },
@@ -216,6 +230,7 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
       lineHeight?: unknown;
     };
     documentWidth?: { customWidth?: unknown; mode?: unknown };
+    language?: unknown;
     plantUml?: { serverUrl?: unknown };
     shell?: {
       contentOutlineExpanded?: unknown;
@@ -241,6 +256,12 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
     candidate.documentWidth?.mode === 'custom'
       ? candidate.documentWidth.mode
       : defaults.documentWidth.mode;
+  const language =
+    candidate.language === 'en-US' ||
+    candidate.language === 'system' ||
+    candidate.language === 'zh-CN'
+      ? candidate.language
+      : defaults.language;
 
   return {
     appearance,
@@ -276,6 +297,7 @@ export const normalizeReaderPreferences = (value: unknown): ReaderPreferences =>
       ),
       mode: widthMode,
     },
+    language,
     plantUml: {
       serverUrl:
         normalizePlantUmlServerUrl(candidate.plantUml?.serverUrl) ?? defaults.plantUml.serverUrl,

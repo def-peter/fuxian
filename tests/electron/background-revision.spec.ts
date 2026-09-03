@@ -122,7 +122,7 @@ test('keeps inactive documents current, cancels stale work, and reopens cached c
       .toBe(1);
 
     await window.getByRole('button', { name: 'second.md', exact: true }).click();
-    await window.getByRole('button', { name: '关闭 second.md' }).click();
+    await window.getByRole('button', { name: '关闭“second.md”' }).click();
     await writeFile(secondPath, slowDiagramSource('Second writing again'));
     await window.getByRole('button', { name: 'second.md', exact: true }).click();
     await expect(

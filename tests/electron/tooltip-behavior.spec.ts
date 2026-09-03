@@ -33,7 +33,7 @@ test('tooltips stay clear of file actions and use one global treatment', async (
 
     const session = window.getByRole('complementary', { name: '文档会话' });
     const documentButton = session.getByRole('button', { exact: true, name: 'showcase.md' });
-    const closeButton = session.getByRole('button', { name: '关闭 showcase.md' });
+    const closeButton = session.getByRole('button', { name: '关闭“showcase.md”' });
     await documentButton.hover();
     const fileTooltip = window.getByRole('tooltip', { exact: true, name: sourcePath });
     await expect(fileTooltip).toContainText(sourcePath);

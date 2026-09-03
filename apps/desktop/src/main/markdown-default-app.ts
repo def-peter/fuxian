@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { createTranslator, type Translator } from '../localization';
 
 const executeFile = promisify(execFile);
 const markdownExtensions = ['md', 'markdown'] as const;
@@ -29,6 +30,7 @@ export interface MarkdownDefaultAppDependencies {
   showMacGuidance(): Promise<void>;
   temporaryDirectory: string;
   testState?: MarkdownDefaultAppState | undefined;
+  translate?: Translator;
 }
 
 export interface MarkdownDefaultAppService {
@@ -126,12 +128,13 @@ export const parseWindowsAssociationQuery = (
 const testStatus = (
   state: MarkdownDefaultAppState,
   platform: MarkdownDefaultAppStatus['platform'],
+  t: Translator = createTranslator('zh-CN'),
 ): MarkdownDefaultAppStatus => ({
   markdown: state === 'unavailable' ? null : state === 'default',
   md: state === 'unavailable' ? null : state === 'default' || state === 'partial',
   platform,
   state,
-  ...(state === 'unavailable' ? { message: '测试适配器模拟当前环境无法检测。' } : {}),
+  ...(state === 'unavailable' ? { message: t('测试适配器模拟当前环境无法检测。') } : {}),
 });
 
 const queryWindowsAssociations = async (): Promise<{ markdown: boolean; md: boolean }> => {
@@ -227,6 +230,7 @@ const unavailableStatus = (
 export const createMarkdownDefaultAppService = (
   dependencies: MarkdownDefaultAppDependencies,
 ): MarkdownDefaultAppService => {
+  const t = dependencies.translate ?? createTranslator('zh-CN');
   const supportedPlatform =
     dependencies.platform === 'darwin' || dependencies.platform === 'win32'
       ? (dependencies.platform as SupportedPlatform)
@@ -235,16 +239,19 @@ export const createMarkdownDefaultAppService = (
   return {
     getStatus: async () => {
       if (dependencies.testState) {
-        return testStatus(dependencies.testState, platformName(dependencies.platform));
+        return testStatus(dependencies.testState, platformName(dependencies.platform), t);
       }
       if (!dependencies.isPackaged) {
         return unavailableStatus(
           dependencies.platform,
-          '开发模式不会检测或修改系统文件关联。请安装正式版本后查看。',
+          t('开发模式不会检测或修改系统文件关联。请安装正式版本后查看。'),
         );
       }
       if (!supportedPlatform) {
-        return unavailableStatus(dependencies.platform, '当前系统暂不支持检测 Markdown 默认应用。');
+        return unavailableStatus(
+          dependencies.platform,
+          t('当前系统暂不支持检测 Markdown 默认应用。'),
+        );
       }
 
       try {
@@ -263,20 +270,20 @@ export const createMarkdownDefaultAppService = (
       } catch {
         return unavailableStatus(
           dependencies.platform,
-          '系统没有返回可靠的 Markdown 文件关联状态。',
+          t('系统没有返回可靠的 Markdown 文件关联状态。'),
         );
       }
     },
     openSettings: async () => {
       if (dependencies.testState) {
         return {
-          message: '测试适配器已模拟打开系统默认应用设置。',
+          message: t('测试适配器已模拟打开系统默认应用设置。'),
           status: 'opened',
         };
       }
       if (!dependencies.isPackaged && !dependencies.testState) {
         return {
-          message: '开发模式不会打开或修改系统文件关联。',
+          message: t('开发模式不会打开或修改系统文件关联。'),
           status: 'unavailable',
         };
       }
@@ -286,8 +293,9 @@ export const createMarkdownDefaultAppService = (
             `ms-settings:defaultapps?registeredAppUser=${encodeURIComponent(windowsDefaultAppRegistrationName)}`,
           );
           return {
-            message:
+            message: t(
               '已打开 Windows 默认应用设置。若系统未定位到浮现，请搜索 Fuxian，再确认 .md 与 .markdown 均选择浮现。',
+            ),
             status: 'opened',
           };
         }
@@ -304,25 +312,25 @@ export const createMarkdownDefaultAppService = (
               );
             });
             return {
-              message: '已将浮现设为 .md 与 .markdown 的默认应用。',
+              message: t('已将浮现设为 .md 与 .markdown 的默认应用。'),
               status: 'opened',
             };
           } catch {
             // Finder remains a supported fallback when macOS declines the direct request.
           }
-          const guidePath = join(dependencies.temporaryDirectory, '浮现默认应用设置.md');
-          await writeFile(guidePath, '# 浮现 Markdown 默认应用设置\n');
+          const guidePath = join(dependencies.temporaryDirectory, `${t('浮现默认应用设置')}.md`);
+          await writeFile(guidePath, `# ${t('浮现')} Markdown ${t('默认应用')}\n`);
           dependencies.revealFile(guidePath);
           await dependencies.showMacGuidance();
           return {
-            message: '系统未能直接完成设置，已在访达中显示示例文档，可通过“显示简介”继续设置。',
+            message: t('系统未能直接完成设置，已在访达中显示示例文档，可通过“显示简介”继续设置。'),
             status: 'opened',
           };
         }
       } catch {
-        return { message: '暂时无法打开系统默认应用设置。', status: 'unavailable' };
+        return { message: t('暂时无法打开系统默认应用设置。'), status: 'unavailable' };
       }
-      return { message: '当前系统暂不支持此设置入口。', status: 'unavailable' };
+      return { message: t('当前系统暂不支持此设置入口。'), status: 'unavailable' };
     },
   };
 };

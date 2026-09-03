@@ -1,6 +1,7 @@
 import { documentThemeCss } from '@fuxian/document-theme';
 import type { PdfExportPayload } from '@fuxian/shared-types';
 import { useEffect, useRef } from 'react';
+import { useLocalization } from '@/localization-context';
 import {
   applyPaperTheme,
   paginateFinishedDocument,
@@ -18,6 +19,7 @@ const resolveAppearance = (payload: PdfExportPayload): 'dark' | 'light' =>
     : payload.preferences.appearance;
 
 export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element {
+  const { t } = useLocalization();
   const viewport = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
         if (abortController.signal.aborted) return;
         window.fuxian.signalPdfExportReady({
           exportId,
-          message: error instanceof Error ? error.message : '无法准备 PDF 文档。',
+          message: error instanceof Error ? error.message : t('无法准备 PDF 文档。'),
           status: 'failed',
         });
       }
@@ -72,7 +74,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
       delete document.documentElement.dataset.pdfExport;
       delete document.documentElement.dataset.paperPageCount;
     };
-  }, [exportId]);
+  }, [exportId, t]);
 
   return (
     <>
@@ -81,7 +83,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
       </style>
       <style data-pagedjs-ignore="true">{paperPagedMediaCss}</style>
       <style data-pagedjs-ignore="true">{paperRuntimeCss}</style>
-      <main aria-label="PDF 分页文档" className="paper-preview-viewport" ref={viewport} />
+      <main aria-label={t('PDF 分页文档')} className="paper-preview-viewport" ref={viewport} />
     </>
   );
 }

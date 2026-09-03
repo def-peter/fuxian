@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { buildArticleStructureMap } from '@/article-structure-map';
+import { useLocalization } from '@/localization-context';
 
 interface ArticleStructureMapDialogProps {
   documentName: string;
@@ -32,6 +33,7 @@ export function ArticleStructureMapDialog({
   onOpenChange,
   open,
 }: ArticleStructureMapDialogProps): React.JSX.Element {
+  const { t } = useLocalization();
   const root = useMemo(
     () => buildArticleStructureMap(headings, documentName),
     [documentName, headings],
@@ -111,7 +113,7 @@ export function ArticleStructureMapDialog({
       } catch (error) {
         if (!disposed) {
           setRenderState({
-            message: error instanceof Error ? error.message : '无法生成文章大纲图。',
+            message: error instanceof Error ? error.message : t('无法生成文章大纲图。'),
             status: 'failed',
           });
         }
@@ -128,7 +130,7 @@ export function ArticleStructureMapDialog({
       if (markmapRef.current === markmap) markmapRef.current = undefined;
       svg.replaceChildren();
     };
-  }, [open, root, svgElement]);
+  }, [open, root, svgElement, t]);
 
   const ready = renderState.status === 'ready';
 
@@ -140,9 +142,12 @@ export function ArticleStructureMapDialog({
       >
         <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">文章大纲图</DialogTitle>
+            <DialogTitle className="truncate text-sm">{t('文章大纲图')}</DialogTitle>
             <DialogDescription className="truncate text-xs">
-              {documentName} · {headings.length} 个标题
+              {t('{name} · {count} 个标题', {
+                count: headings.length,
+                name: documentName,
+              })}
             </DialogDescription>
           </div>
           <TooltipProvider>
@@ -150,7 +155,7 @@ export function ArticleStructureMapDialog({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="缩小文章大纲图"
+                    aria-label={t('缩小文章大纲图')}
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.rescale(1 / 1.2)}
                     size="icon-sm"
@@ -159,12 +164,12 @@ export function ArticleStructureMapDialog({
                     <ZoomOut aria-hidden="true" data-icon="inline-start" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>缩小</TooltipContent>
+                <TooltipContent>{t('缩小')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="放大文章大纲图"
+                    aria-label={t('放大文章大纲图')}
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.rescale(1.2)}
                     size="icon-sm"
@@ -173,12 +178,12 @@ export function ArticleStructureMapDialog({
                     <ZoomIn aria-hidden="true" data-icon="inline-start" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>放大</TooltipContent>
+                <TooltipContent>{t('放大')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="适应文章大纲图窗口"
+                    aria-label={t('适应文章大纲图窗口')}
                     disabled={!ready}
                     onClick={() => void markmapRef.current?.fit()}
                     size="icon-sm"
@@ -187,11 +192,11 @@ export function ArticleStructureMapDialog({
                     <Scan aria-hidden="true" data-icon="inline-start" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>适应窗口</TooltipContent>
+                <TooltipContent>{t('适应窗口')}</TooltipContent>
               </Tooltip>
               <Separator className="mx-1 h-5" orientation="vertical" />
               <DialogClose asChild>
-                <Button aria-label="关闭大纲图" size="icon-sm" variant="ghost">
+                <Button aria-label={t('关闭大纲图')} size="icon-sm" variant="ghost">
                   <X aria-hidden="true" data-icon="inline-start" />
                 </Button>
               </DialogClose>
@@ -200,7 +205,7 @@ export function ArticleStructureMapDialog({
         </DialogHeader>
         <div className="relative min-h-0 overflow-hidden bg-muted/30">
           <svg
-            aria-label="当前文章的大纲思维导图"
+            aria-label={t('当前文章的大纲思维导图')}
             className="article-structure-map size-full touch-none"
             ref={setSvgElement}
             role="img"
@@ -208,14 +213,14 @@ export function ArticleStructureMapDialog({
           {renderState.status === 'loading' ? (
             <div className="absolute inset-0 flex items-center justify-center" role="status">
               <Spinner />
-              <span className="sr-only">正在生成文章大纲图</span>
+              <span className="sr-only">{t('正在生成文章大纲图')}</span>
             </div>
           ) : null}
           {renderState.status === 'failed' ? (
             <div className="absolute inset-0 flex items-center justify-center p-6">
               <Alert className="max-w-md" variant="destructive">
                 <AlertCircle aria-hidden="true" />
-                <AlertTitle>无法生成文章大纲图</AlertTitle>
+                <AlertTitle>{t('无法生成文章大纲图')}</AlertTitle>
                 <AlertDescription>{renderState.message}</AlertDescription>
               </Alert>
             </div>

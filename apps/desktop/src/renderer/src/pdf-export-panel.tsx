@@ -5,12 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
-
-const runningStageLabel = {
-  preparing: '正在准备文档',
-  rendering: '正在渲染内容',
-  saving: '正在写入 PDF',
-} as const;
+import { useLocalization } from '@/localization-context';
 
 export function PdfExportPanel({
   onCancel,
@@ -21,16 +16,22 @@ export function PdfExportPanel({
   onRetry(): void;
   progress: PdfExportProgress;
 }): React.JSX.Element {
+  const { t } = useLocalization();
   const [open, setOpen] = useState(true);
   const running = progress.status === 'running';
+  const runningStageLabel = {
+    preparing: t('正在准备文档'),
+    rendering: t('正在渲染内容'),
+    saving: t('正在写入 PDF'),
+  } as const;
   const title =
     progress.status === 'running'
       ? runningStageLabel[progress.stage]
       : progress.status === 'completed'
-        ? 'PDF 已导出'
+        ? t('PDF 已导出')
         : progress.status === 'failed'
-          ? '导出失败'
-          : '导出已取消';
+          ? t('导出失败')
+          : t('导出已取消');
 
   return (
     <Collapsible
@@ -51,9 +52,9 @@ export function PdfExportPanel({
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
         <CollapsibleTrigger asChild>
           <Button
-            aria-label={open ? '折叠导出进度' : '展开导出进度'}
+            aria-label={open ? t('折叠导出进度') : t('展开导出进度')}
             size="icon-xs"
-            title={open ? '折叠导出进度' : '展开导出进度'}
+            title={open ? t('折叠导出进度') : t('展开导出进度')}
             variant="ghost"
           >
             {open ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
@@ -65,7 +66,7 @@ export function PdfExportPanel({
           {running ? (
             <>
               <Progress
-                aria-label="PDF 导出进度"
+                aria-label={t('PDF 导出进度')}
                 aria-valuetext={`${progress.progress}%`}
                 value={progress.progress}
               />
@@ -74,7 +75,7 @@ export function PdfExportPanel({
                   {progress.progress}%
                 </span>
                 <Button onClick={onCancel} size="xs" variant="outline">
-                  取消
+                  {t('取消')}
                 </Button>
               </div>
             </>
@@ -90,12 +91,12 @@ export function PdfExportPanel({
               <p className="m-0 break-words text-xs text-muted-foreground">{progress.message}</p>
               <div className="flex justify-end">
                 <Button onClick={onRetry} size="xs" variant="outline">
-                  重试
+                  {t('重试')}
                 </Button>
               </div>
             </>
           ) : (
-            <p className="m-0 text-xs text-muted-foreground">未写入 PDF 文件。</p>
+            <p className="m-0 text-xs text-muted-foreground">{t('未写入 PDF 文件。')}</p>
           )}
         </div>
       </CollapsibleContent>

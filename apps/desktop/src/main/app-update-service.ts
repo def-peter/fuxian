@@ -2,6 +2,7 @@ import { CancellationToken } from 'builder-util-runtime';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import type { AppUpdateDelivery, AppUpdatePhase, AppUpdateStatus } from '@fuxian/shared-types';
 import { parseFragment, type DefaultTreeAdapterTypes } from 'parse5';
+import { createTranslator, type Translator } from '../localization';
 
 export interface AppUpdateAdapter {
   allowDowngrade: boolean;
@@ -31,6 +32,7 @@ interface AppUpdateServiceOptions {
   delivery: AppUpdateDelivery;
   openReleasePage(version: string): Promise<void>;
   supported: boolean;
+  translate?: Translator;
 }
 
 const releaseText = (value: unknown, maximumLength: number): string | undefined => {
@@ -122,10 +124,13 @@ const releaseNotesText = (releaseNotes: UpdateInfo['releaseNotes']): string | un
   return normalized ? normalized.slice(0, 12_000) : undefined;
 };
 
-const updateFailureMessage = (operation: 'check' | 'download' | 'install'): string => {
-  if (operation === 'download') return '无法下载更新，请检查网络后重试。';
-  if (operation === 'install') return '暂时无法重启安装，请稍后重试。';
-  return '无法检查更新，请检查网络后重试。';
+const updateFailureMessage = (
+  t: Translator,
+  operation: 'check' | 'download' | 'install',
+): string => {
+  if (operation === 'download') return t('无法下载更新，请检查网络后重试。');
+  if (operation === 'install') return t('暂时无法重启安装，请稍后重试。');
+  return t('无法检查更新，请检查网络后重试。');
 };
 
 export class AppUpdateService {
@@ -135,12 +140,14 @@ export class AppUpdateService {
   private initialized = false;
   private installPromise: Promise<AppUpdateStatus> | undefined;
   private status: AppUpdateStatus;
+  private readonly t: Translator;
 
   constructor(private readonly options: AppUpdateServiceOptions) {
+    this.t = options.translate ?? createTranslator('zh-CN');
     this.status = {
       currentVersion: options.currentVersion,
       delivery: options.delivery,
-      message: options.supported ? undefined : '当前环境不支持软件更新。',
+      message: options.supported ? undefined : this.t('当前环境不支持软件更新。'),
       phase: options.supported ? 'idle' : 'unsupported',
     };
   }
@@ -286,7 +293,7 @@ export class AppUpdateService {
       await this.options.beforeInstall();
     } catch (error) {
       console.error('[app-update] install preparation failed', error);
-      this.update({ message: updateFailureMessage('install'), phase: 'downloaded' });
+      this.update({ message: updateFailureMessage(this.t, 'install'), phase: 'downloaded' });
       return this.getStatus();
     }
     this.update({ message: undefined, phase: 'installing' });
@@ -294,7 +301,7 @@ export class AppUpdateService {
       this.options.adapter.quitAndInstall(false, true);
     } catch (error) {
       console.error('[app-update] install failed', error);
-      this.update({ message: updateFailureMessage('install'), phase: 'downloaded' });
+      this.update({ message: updateFailureMessage(this.t, 'install'), phase: 'downloaded' });
     }
     return this.getStatus();
   }
@@ -309,13 +316,13 @@ export class AppUpdateService {
       this.update({ message: undefined });
     } catch (error) {
       console.error('[app-update] opening release page failed', error);
-      this.update({ message: '无法打开 GitHub Release，请稍后重试。' });
+      this.update({ message: this.t('无法打开 GitHub Release，请稍后重试。') });
     }
     return this.getStatus();
   }
 
   private fail(operation: 'check' | 'download' | 'install'): AppUpdateStatus {
-    this.update({ message: updateFailureMessage(operation), phase: 'error' });
+    this.update({ message: updateFailureMessage(this.t, operation), phase: 'error' });
     return this.getStatus();
   }
 
@@ -323,7 +330,7 @@ export class AppUpdateService {
     this.downloadToken = undefined;
     this.update({
       bytesPerSecond: undefined,
-      message: '已取消下载，可以稍后重新检查。',
+      message: this.t('已取消下载，可以稍后重新检查。'),
       percent: undefined,
       phase: 'available',
       total: undefined,

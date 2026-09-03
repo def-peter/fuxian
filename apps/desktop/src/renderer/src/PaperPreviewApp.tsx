@@ -1,5 +1,6 @@
 import { documentThemeCss } from '@fuxian/document-theme';
 import { useEffect, useRef, useState } from 'react';
+import { useLocalization } from '@/localization-context';
 import { bindFinishedDocument, type FinishedDocumentController } from './finished-document';
 import {
   applyPaperTheme,
@@ -39,6 +40,7 @@ const fitPaperToViewport = (): void => {
 };
 
 export function PaperPreviewApp(): React.JSX.Element {
+  const { t } = useLocalization();
   const viewport = useRef<HTMLElement>(null);
   const currentController = useRef<FinishedDocumentController | undefined>(undefined);
   const currentPagination = useRef<PaginatedDocument | undefined>(undefined);
@@ -46,7 +48,7 @@ export function PaperPreviewApp(): React.JSX.Element {
   const latestSnapshot = useRef<PaperPreviewSnapshot | undefined>(undefined);
   const activeAbortController = useRef<AbortController | undefined>(undefined);
   const processing = useRef(false);
-  const [status, setStatus] = useState('正在准备纸张...');
+  const [status, setStatus] = useState(() => t('正在准备纸张...'));
 
   useEffect(() => {
     document.documentElement.dataset.paperPreview = 'true';
@@ -71,7 +73,7 @@ export function PaperPreviewApp(): React.JSX.Element {
           if (!snapshot || snapshot.revisionId === currentRevisionId.current) break;
           const abortController = new AbortController();
           activeAbortController.current = abortController;
-          setStatus(currentPagination.current ? '正在更新分页...' : '正在分页...');
+          setStatus(currentPagination.current ? t('正在更新分页...') : t('正在分页...'));
           applyPaperTheme(document, snapshot.preferences);
           try {
             const pagination = await paginateFinishedDocument({
@@ -122,6 +124,7 @@ export function PaperPreviewApp(): React.JSX.Element {
               },
               revisionId: `paper:${snapshot.revisionId}`,
               staticSnapshot: true,
+              translate: t,
             });
             currentController.current = controller;
             currentPagination.current = pagination;
@@ -144,7 +147,7 @@ export function PaperPreviewApp(): React.JSX.Element {
           } catch (error) {
             if (abortController.signal.aborted) continue;
             console.error('Paper preview pagination failed', error);
-            const message = error instanceof Error ? error.message : '纸张分页失败。';
+            const message = error instanceof Error ? error.message : t('纸张分页失败。');
             setStatus(message);
             postToHost({ message, revisionId: snapshot.revisionId, type: 'failed' });
             currentRevisionId.current = snapshot.revisionId;
@@ -204,7 +207,7 @@ export function PaperPreviewApp(): React.JSX.Element {
       currentPagination.current?.cleanup();
       globalThis.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [t]);
 
   return (
     <>
@@ -213,7 +216,7 @@ export function PaperPreviewApp(): React.JSX.Element {
       </style>
       <style data-pagedjs-ignore="true">{paperPagedMediaCss}</style>
       <style data-pagedjs-ignore="true">{paperRuntimeCss}</style>
-      <main aria-label="纸张预览页面" className="paper-preview-viewport" ref={viewport} />
+      <main aria-label={t('纸张预览页面')} className="paper-preview-viewport" ref={viewport} />
       <div aria-live="polite" className="paper-preview-status" hidden={!status}>
         {status}
       </div>

@@ -8,6 +8,7 @@ import {
   findOutlinePath,
   type ContentOutlineNode,
 } from '@/content-outline-model';
+import { useLocalization } from '@/localization-context';
 
 export type ContentOutlinePreference = 'collapsed' | 'expanded';
 
@@ -24,6 +25,7 @@ export function ContentOutline({
   onNavigate,
   onOpenStructureMap,
 }: ContentOutlineProps): React.JSX.Element {
+  const { t } = useLocalization();
   const outline = useMemo(() => buildContentOutline(headings), [headings]);
   const [expandedHeadings, setExpandedHeadings] = useState<ReadonlySet<string>>(new Set());
   const activeItem = useRef<HTMLButtonElement>(null);
@@ -85,7 +87,10 @@ export function ContentOutline({
               <TooltipTrigger asChild>
                 <Button
                   aria-expanded={isExpanded}
-                  aria-label={`${isExpanded ? '折叠' : '展开'}“${node.heading.text}”下的深层标题`}
+                  aria-label={t(
+                    isExpanded ? '折叠“{heading}”下的深层标题' : '展开“{heading}”下的深层标题',
+                    { heading: node.heading.text },
+                  )}
                   className="mr-0.5 text-muted-foreground"
                   onClick={() => toggleHeading(node.heading.id)}
                   size="icon-xs"
@@ -99,7 +104,7 @@ export function ContentOutline({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={6}>
-                {isExpanded ? '折叠深层标题' : '展开深层标题'}
+                {isExpanded ? t('折叠深层标题') : t('展开深层标题')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -134,14 +139,14 @@ export function ContentOutline({
   return (
     <aside
       className="grid h-full min-h-0 grid-rows-[40px_minmax(0,1fr)] border-l bg-muted"
-      aria-label="大纲"
+      aria-label={t('大纲')}
     >
       <header className="flex items-center justify-between border-b px-3">
-        <h2 className="text-xs font-semibold text-foreground">大纲</h2>
+        <h2 className="text-xs font-semibold text-foreground">{t('大纲')}</h2>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="查看大纲图"
+              aria-label={t('查看大纲图')}
               disabled={headings.length === 0}
               onClick={onOpenStructureMap}
               size="icon-xs"
@@ -151,15 +156,15 @@ export function ContentOutline({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={6}>
-            查看大纲图
+            {t('查看大纲图')}
           </TooltipContent>
         </Tooltip>
       </header>
-      <nav className="min-h-0 overflow-y-auto py-2" aria-label="文档标题">
+      <nav className="min-h-0 overflow-y-auto py-2" aria-label={t('文档标题')}>
         {outline.length > 0 ? (
           <ul>{outline.map((node) => renderNode(node))}</ul>
         ) : (
-          <p className="px-4 py-3 text-xs text-muted-foreground">当前文档没有标题</p>
+          <p className="px-4 py-3 text-xs text-muted-foreground">{t('当前文档没有标题')}</p>
         )}
       </nav>
     </aside>

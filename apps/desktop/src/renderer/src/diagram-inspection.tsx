@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { copyDiagramContent, type CopyStatus } from '@/diagram-copy';
 import type { RenderedVisualSnapshot } from '@/finished-document';
+import { useLocalization } from '@/localization-context';
 
 const diagramKindLabel = (kind: RenderedVisualSnapshot['kind']): string =>
   kind === 'infographic'
@@ -28,6 +29,7 @@ interface CopyButtonProps {
 }
 
 function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React.JSX.Element {
+  const { t } = useLocalization();
   const [status, setStatus] = useState<CopyStatus>('idle');
   return (
     <Button
@@ -42,7 +44,7 @@ function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React
       ) : (
         <Copy aria-hidden="true" data-icon="inline-start" />
       )}
-      {status === 'copied' ? '已复制' : status === 'failed' ? '复制失败' : label}
+      {status === 'copied' ? t('已复制') : status === 'failed' ? t('复制失败') : label}
     </Button>
   );
 }
@@ -60,9 +62,10 @@ export function DiagramSourceDrawer({
   onClose,
   onLocate,
 }: DiagramSourceDrawerProps): React.JSX.Element {
+  const { t } = useLocalization();
   return (
     <aside
-      aria-label="图表源码"
+      aria-label={t('图表源码')}
       className="grid h-full min-h-0 grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted"
     >
       <header className="flex items-center justify-between border-b px-3">
@@ -70,18 +73,18 @@ export function DiagramSourceDrawer({
           <Code2 aria-hidden="true" className="size-4 text-muted-foreground" />
           <div className="min-w-0">
             <h2 className="truncate text-xs font-semibold">
-              {diagramKindLabel(diagram.kind)} 源码
+              {t('{kind} 源码', { kind: diagramKindLabel(diagram.kind) })}
             </h2>
             <p className="truncate text-xs text-muted-foreground">{diagram.contextLabel}</p>
           </div>
         </div>
-        <Button aria-label="关闭图表源码" onClick={onClose} size="icon-xs" variant="ghost">
+        <Button aria-label={t('关闭图表源码')} onClick={onClose} size="icon-xs" variant="ghost">
           <X aria-hidden="true" data-icon="inline-start" />
         </Button>
       </header>
       <div className="min-h-0 overflow-auto p-3">
         <pre
-          aria-label={`${diagramKindLabel(diagram.kind)} 图表源码`}
+          aria-label={t('{kind} 图表源码', { kind: diagramKindLabel(diagram.kind) })}
           className="min-h-full whitespace-pre-wrap break-words rounded-sm border bg-background p-3 text-xs leading-5 outline-none selection:bg-primary selection:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring"
           tabIndex={0}
         >
@@ -91,13 +94,13 @@ export function DiagramSourceDrawer({
       <footer className="flex items-center gap-2 border-t px-3">
         <Button onClick={onLocate} size="sm" variant="outline">
           <LocateFixed aria-hidden="true" data-icon="inline-start" />
-          定位到图表
+          {t('定位到图表')}
         </Button>
-        <CopyButton copyText={copyText} label="复制源码" text={diagram.source} />
+        <CopyButton copyText={copyText} label={t('复制源码')} text={diagram.source} />
         <CopyButton
           copyText={copyText}
           disabled={!diagram.svg}
-          label="复制 SVG"
+          label={t('复制 SVG')}
           text={diagram.svg ?? ''}
         />
       </footer>
@@ -120,6 +123,7 @@ export function DiagramFocusDialog({
   onClose,
   onReturnFocus,
 }: DiagramFocusDialogProps): React.JSX.Element {
+  const { t } = useLocalization();
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
@@ -146,48 +150,48 @@ export function DiagramFocusDialog({
       >
         <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">全屏图表</DialogTitle>
+            <DialogTitle className="truncate text-sm">{t('全屏图表')}</DialogTitle>
             <DialogDescription className="sr-only" id="diagram-focus-description">
-              可缩放、平移、适应窗口并复制当前图表。聚焦画布后可使用方向键平移、加减号缩放，按数字零恢复窗口大小。
+              {t('全屏图表操作说明')}
             </DialogDescription>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button
-              aria-label="缩小图表"
+              aria-label={t('缩小图表')}
               onClick={() => setZoom((current) => clampZoom(current / 1.2))}
               size="icon-sm"
-              title="缩小"
+              title={t('缩小')}
               variant="ghost"
             >
               <Minus aria-hidden="true" data-icon="inline-start" />
             </Button>
             <output
-              aria-label="图表缩放比例"
+              aria-label={t('图表缩放比例')}
               aria-live="polite"
               className="w-14 text-center text-xs tabular-nums"
             >
               {Math.round(zoom * 100)}%
             </output>
             <Button
-              aria-label="放大图表"
+              aria-label={t('放大图表')}
               onClick={() => setZoom((current) => clampZoom(current * 1.2))}
               size="icon-sm"
-              title="放大"
+              title={t('放大')}
               variant="ghost"
             >
               <Plus aria-hidden="true" data-icon="inline-start" />
             </Button>
-            <Button onClick={fit} size="sm" title="适应窗口" variant="ghost">
+            <Button onClick={fit} size="sm" title={t('适应窗口')} variant="ghost">
               <Scan aria-hidden="true" data-icon="inline-start" />
-              适应窗口
+              {t('适应窗口')}
             </Button>
-            <CopyButton copyText={copyText} label="复制源码" text={diagram?.source ?? ''} />
-            <CopyButton copyText={copyText} label="复制 SVG" text={diagram?.svg ?? ''} />
+            <CopyButton copyText={copyText} label={t('复制源码')} text={diagram?.source ?? ''} />
+            <CopyButton copyText={copyText} label={t('复制 SVG')} text={diagram?.svg ?? ''} />
             <Button
-              aria-label="返回文档"
+              aria-label={t('返回文档')}
               onClick={onClose}
               size="icon-sm"
-              title="返回"
+              title={t('返回')}
               variant="ghost"
             >
               <X aria-hidden="true" data-icon="inline-start" />
@@ -197,7 +201,7 @@ export function DiagramFocusDialog({
         <div
           aria-describedby="diagram-focus-description"
           aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0"
-          aria-label="图表全屏画布"
+          aria-label={t('图表全屏画布')}
           className="relative min-h-0 touch-none overflow-hidden bg-muted/30 outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           onKeyDown={(event) => {
             const movement = event.shiftKey ? 80 : 24;

@@ -16,6 +16,7 @@ import { Code2, Maximize2 } from 'lucide-react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import createDOMPurify from 'dompurify';
+import { createTranslator, type MessageKey, type Translator } from '../../localization';
 import {
   createDocumentRenderAdapter,
   type DocumentRenderResult,
@@ -82,6 +83,7 @@ interface BindFinishedDocumentOptions {
   renderTimeoutMilliseconds?: number;
   revisionId?: string;
   staticSnapshot?: boolean;
+  translate?: Translator;
 }
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
@@ -105,6 +107,30 @@ const renderedVisualLabel = (kind: string): string =>
       : kind === 'plantuml'
         ? 'PlantUML'
         : 'Vega-Lite';
+const calloutTitleKeys: Readonly<Record<string, MessageKey>> = {
+  abstract: '摘要',
+  bug: '缺陷',
+  caution: '注意',
+  danger: '危险',
+  example: '示例',
+  failure: '失败',
+  important: '重要',
+  info: '信息',
+  note: '备注',
+  question: '问题',
+  quote: '引用',
+  success: '成功',
+  tip: '提示',
+  todo: '待办',
+  warning: '警告',
+};
+const resourceErrorDetailKeys: Readonly<Record<string, MessageKey>> = {
+  '不支持这种图片格式。': '不支持这种图片格式。',
+  '只允许访问文档目录内的相对图片。': '只允许访问文档目录内的相对图片。',
+  '图片地址无效或使用了不安全的协议。': '图片地址无效或使用了不安全的协议。',
+  '图片路径超出了文档的授权范围。': '图片路径超出了文档的授权范围。',
+  '请确认图片存在且文件内容完整。': '请确认图片存在且文件内容完整。',
+};
 
 const allowedInfographicTextStyles = new Map<string, RegExp>([
   ['align-content', /^(?:center|flex-end|flex-start)$/u],
@@ -182,21 +208,22 @@ export const prepareRenderedVisualSvg = (
   frameDocument: Document,
   source: string,
   kind: RenderTask['kind'],
+  t: Translator = createTranslator('zh-CN'),
 ): SVGElement => {
   const template = frameDocument.createElement('template');
   template.innerHTML = source;
   const sourceSvg = template.content.firstElementChild;
   if (sourceSvg?.localName !== 'svg' || template.content.childElementCount !== 1) {
-    throw new TypeError('图表服务没有返回有效的 SVG。');
+    throw new TypeError(t('图表服务没有返回有效的 SVG。'));
   }
   if (sourceSvg.querySelectorAll('*').length > maximumRenderedVisualElements) {
-    throw new TypeError('图表包含过多 SVG 元素。');
+    throw new TypeError(t('图表包含过多 SVG 元素。'));
   }
 
   const frameWindow = frameDocument.defaultView;
-  if (!frameWindow) throw new TypeError('图表所在文档尚未就绪。');
+  if (!frameWindow) throw new TypeError(t('图表所在文档尚未就绪。'));
   const purifier = createDOMPurify(frameWindow);
-  if (!purifier.isSupported) throw new TypeError('当前环境无法安全处理 SVG。');
+  if (!purifier.isSupported) throw new TypeError(t('当前环境无法安全处理 SVG。'));
   purifier.addHook('uponSanitizeAttribute', (_element, data) => {
     const name = data.attrName.toLowerCase();
     if ((name === 'href' || name.endsWith(':href')) && !data.attrValue.trim().startsWith('#')) {
@@ -217,7 +244,7 @@ export const prepareRenderedVisualSvg = (
   });
   const svg = fragment.firstElementChild;
   if (svg?.localName !== 'svg' || fragment.childElementCount !== 1) {
-    throw new TypeError('图表没有通过 SVG 安全校验。');
+    throw new TypeError(t('图表没有通过 SVG 安全校验。'));
   }
 
   if (kind === 'infographic') sanitizeInfographicText(svg, frameDocument);
@@ -322,12 +349,12 @@ const normalizeVegaLiteSvgBounds = (svg: SVGSVGElement): void => {
   if (height) svg.setAttribute('height', `${(height * nextHeight) / originalViewBox.height}`);
 };
 
-const conciseRenderError = (error: string): string => {
+const conciseRenderError = (error: string, fallback: string): string => {
   const firstLine =
     error
       .split('\n')
       .find((line) => line.trim())
-      ?.trim() ?? '渲染任务失败。';
+      ?.trim() ?? fallback;
   return firstLine.length > 240 ? `${firstLine.slice(0, 237)}...` : firstLine;
 };
 
@@ -364,6 +391,27 @@ export function bindFinishedDocument(
   frameDocument: Document,
   options: BindFinishedDocumentOptions,
 ): FinishedDocumentController {
+  const t = options.translate ?? createTranslator('zh-CN');
+  for (const header of frameDocument.querySelectorAll<HTMLElement>(
+    '.callout-header[data-callout-default-title]',
+  )) {
+    const key = calloutTitleKeys[header.dataset.calloutDefaultTitle ?? ''];
+    if (key) header.textContent = t(key);
+  }
+  for (const error of frameDocument.querySelectorAll<HTMLElement>('.resource-error')) {
+    const title = error.querySelector<HTMLElement>('.resource-error-title');
+    if (title) title.textContent = t('无法加载图片');
+    const detail = error.querySelector<HTMLElement>('.resource-error-detail');
+    const detailKey = resourceErrorDetailKeys[detail?.textContent ?? ''];
+    if (detail && detailKey) detail.textContent = t(detailKey);
+    const retry = error.querySelector<HTMLButtonElement>('.resource-retry-button');
+    if (retry) retry.textContent = t('重试');
+  }
+  for (const button of frameDocument.querySelectorAll<HTMLButtonElement>('[data-copy-code]')) {
+    button.ariaLabel = t('复制代码');
+    button.title = t('复制代码');
+    button.textContent = t('复制');
+  }
   const {
     copyText,
     initialReadingPosition,
@@ -413,7 +461,7 @@ export function bindFinishedDocument(
           options.initialPlantUmlServerUrl ?? defaultPlantUmlServerUrl,
           options.renderPlantUml ??
             (async () => {
-              throw new TypeError('PlantUML 渲染服务不可用。');
+              throw new TypeError(t('PlantUML 渲染服务不可用。'));
             }),
           options.renderVegaLite,
           options.renderInfographic,
@@ -446,7 +494,9 @@ export function bindFinishedDocument(
           [
             task.id,
             {
-              contextLabel: `${headingText || '文档开头'} · 图表 ${ordinal}`,
+              contextLabel: headingText
+                ? t('{heading} · 图表 {ordinal}', { heading: headingText, ordinal })
+                : t('文档开头 · 图表 {ordinal}', { ordinal }),
               ...(heading ? { headingId: heading.id } : {}),
               ...(headingText ? { headingText } : {}),
               ordinal,
@@ -503,18 +553,34 @@ export function bindFinishedDocument(
     if (!renderedVisualTaskKinds.has(task.kind)) continue;
     const element = getRenderTaskElement(task);
     if (!element) continue;
+    const errorTitle = element.querySelector<HTMLElement>('.render-task-error-title');
+    if (errorTitle) {
+      errorTitle.textContent = t(
+        task.kind === 'infographic'
+          ? '无法呈现信息图'
+          : renderedVisualTaskKinds.has(task.kind)
+            ? '无法呈现图表'
+            : '无法呈现公式',
+      );
+    }
+    const retryButton = element.querySelector<HTMLButtonElement>('.render-task-retry-button');
+    if (retryButton) retryButton.textContent = t('重试');
     const visual = getRenderedVisualSnapshot(task);
     if (visual) {
-      element.ariaLabel = `${renderedVisualLabel(task.kind)} 图表 ${visual.ordinal}，${visual.headingText || '文档开头'}`;
+      element.ariaLabel = t('{kind} 图表 {ordinal}，{heading}', {
+        heading: visual.headingText || t('文档开头'),
+        kind: renderedVisualLabel(task.kind),
+        ordinal: visual.ordinal,
+      });
       element.tabIndex = -1;
     }
     const toolbar = frameDocument.createElement('span');
-    toolbar.ariaLabel = '图表操作';
+    toolbar.ariaLabel = t('图表操作');
     toolbar.className = 'diagram-action-toolbar';
     toolbar.role = 'toolbar';
     toolbar.append(
-      createDiagramAction('source', '查看图表源码', Code2),
-      createDiagramAction('focus', '全屏查看图表', Maximize2),
+      createDiagramAction('source', t('查看图表源码'), Code2),
+      createDiagramAction('focus', t('全屏查看图表'), Maximize2),
     );
     element.prepend(toolbar);
   }
@@ -542,12 +608,12 @@ export function bindFinishedDocument(
   ): Promise<void> => {
     const element = getRenderTaskElement(task);
     const output = element?.querySelector<HTMLElement>('.render-task-output');
-    if (!element || !output) throw new TypeError('渲染任务占位已不存在。');
+    if (!element || !output) throw new TypeError(t('渲染任务占位已不存在。'));
     element.setAttribute('aria-busy', 'false');
     if (result.kind === 'math') {
       output.innerHTML = result.html;
     } else {
-      const svg = prepareRenderedVisualSvg(frameDocument, result.svg, task.kind);
+      const svg = prepareRenderedVisualSvg(frameDocument, result.svg, task.kind, t);
       if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
       output.hidden = false;
       output.replaceChildren(svg);
@@ -571,9 +637,16 @@ export function bindFinishedDocument(
     element.dataset.renderState = status;
     element.setAttribute('aria-busy', 'false');
     const detail = element.querySelector<HTMLElement>('[data-render-error-detail]');
-    if (detail)
+    if (detail) {
+      const fallback = t('渲染任务失败。');
+      const conciseError = conciseRenderError(error, fallback);
       detail.textContent =
-        status === 'timed-out' ? '渲染超时，请重试。' : conciseRenderError(error);
+        status === 'timed-out'
+          ? t('渲染超时，请重试。')
+          : fallback !== '渲染任务失败。' && /\p{Script=Han}/u.test(conciseError)
+            ? fallback
+            : conciseError;
+    }
     element.querySelector<HTMLElement>('.render-task-source')?.setAttribute('hidden', '');
     element.querySelector<HTMLElement>('.render-task-skeleton')?.setAttribute('hidden', '');
     const output = element.querySelector<HTMLElement>('.render-task-output');
@@ -588,7 +661,7 @@ export function bindFinishedDocument(
       documentRenderAdapter ??
       ({
         render: async () => {
-          throw new TypeError('静态文档快照不执行渲染任务。');
+          throw new TypeError(t('静态文档快照不执行渲染任务。'));
         },
       } satisfies RenderTaskAdapter<DocumentRenderResult>),
     onSnapshot: (snapshot) => {
@@ -809,15 +882,15 @@ export function bindFinishedDocument(
     button.disabled = true;
     void copyText(code.textContent ?? '')
       .then(() => {
-        button.textContent = '已复制';
+        button.textContent = t('已复制');
       })
       .catch(() => {
-        button.textContent = '失败';
+        button.textContent = t('失败');
       })
       .finally(() => {
         window.setTimeout(() => {
           button.disabled = false;
-          button.textContent = '复制';
+          button.textContent = t('复制');
         }, 1200);
       });
   };
@@ -912,7 +985,7 @@ export function bindFinishedDocument(
     getRenderSnapshot: () => renderRevision.snapshot(),
     getStaticSnapshotHtml: () => {
       const source = frameDocument.querySelector<HTMLElement>('.finished-document');
-      if (!source) throw new TypeError('完成文档快照不可用。');
+      if (!source) throw new TypeError(t('完成文档快照不可用。'));
       const clone = source.cloneNode(true) as HTMLElement;
       for (const control of clone.querySelectorAll(
         '.diagram-action-toolbar, .code-toolbar, .resource-retry-button, .render-task-retry-button, .render-task-skeleton',

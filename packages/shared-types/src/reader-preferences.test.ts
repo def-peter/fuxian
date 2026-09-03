@@ -5,6 +5,7 @@ import {
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
   readerPreferenceLimits,
+  resolveUiLocale,
 } from './index';
 
 describe('reader preferences', () => {
@@ -25,6 +26,23 @@ describe('reader preferences', () => {
     expect(normalizeReaderPreferences({ version: 1 }).codeHighlight).toEqual({
       theme: 'fuxian-light',
     });
+  });
+
+  it('resolves the UI locale from a persisted preference and normalized system locale', () => {
+    expect(resolveUiLocale('system', 'zh-CN')).toBe('zh-CN');
+    expect(resolveUiLocale('system', 'zh_Hant')).toBe('zh-CN');
+    expect(resolveUiLocale('system', 'ZH-hk')).toBe('zh-CN');
+    expect(resolveUiLocale('system', 'en-GB')).toBe('en-US');
+    expect(resolveUiLocale('system', '')).toBe('en-US');
+    expect(resolveUiLocale('system', undefined)).toBe('en-US');
+    expect(resolveUiLocale('zh-CN', 'en-US')).toBe('zh-CN');
+    expect(resolveUiLocale('en-US', 'zh-CN')).toBe('en-US');
+  });
+
+  it('defaults old and invalid language preferences to following the system', () => {
+    expect(normalizeReaderPreferences({ version: 1 }).language).toBe('system');
+    expect(normalizeReaderPreferences({ language: 'fr-FR', version: 1 }).language).toBe('system');
+    expect(normalizeReaderPreferences({ language: 'en-US', version: 1 }).language).toBe('en-US');
   });
 
   it('uses the public PlantUML server by default and restores older version-one files', () => {
@@ -81,6 +99,7 @@ describe('reader preferences', () => {
         customWidth: readerPreferenceLimits.customWidth.max,
         mode: 'custom',
       },
+      language: 'system',
       plantUml: { serverUrl: defaultPlantUmlServerUrl },
       shell: {
         contentOutlineExpanded: true,

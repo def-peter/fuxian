@@ -174,7 +174,11 @@ const finishedDocumentSchema: SanitizeSchema = {
       ['className', /^language-./, 'math-display', 'math-inline'],
       ...(defaultSchema.attributes?.code ?? []),
     ],
-    div: [['className', 'callout-header'], ...(defaultSchema.attributes?.div ?? [])],
+    div: [
+      ['className', 'callout-header'],
+      ['dataCalloutDefaultTitle', ...calloutTypes],
+      ...(defaultSchema.attributes?.div ?? []),
+    ],
   },
   clobberPrefix: rawHtmlIdPrefix,
   protocols: {
@@ -285,7 +289,12 @@ const transformCallouts: Plugin<[], MarkdownRoot> = () => (tree) => {
       type: 'paragraph',
       data: {
         hName: 'div',
-        hProperties: { className: ['callout-header'] },
+        hProperties: {
+          className: ['callout-header'],
+          ...(title.length === 0 && calloutAliases[normalizedSourceType]
+            ? { dataCalloutDefaultTitle: type }
+            : {}),
+        },
       },
       children:
         title.length > 0
