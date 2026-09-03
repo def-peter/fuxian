@@ -25,6 +25,18 @@ pnpm verify:package
 
 `package:mac` builds unsigned DMG and ZIP artifacts. `package:win` must run on Windows. Outputs use `release/`.
 
+## Build a Windows test version
+
+From a clean, synchronized `main` branch, run:
+
+```bash
+pnpm release:test --wait
+```
+
+This dispatches **Build Windows test installer** without changing either package manifest, committing a version, creating a tag, or publishing a GitHub Release. CI assigns an isolated version such as `0.1.9-test.123` only inside its runner, executes the Windows release-critical tests, builds the unsigned NSIS installer, and uploads it as an Actions artifact for 30 days.
+
+The helper prints the workflow URL and artifact name. Open that run, find **Artifacts**, and download `fuxian-windows-x64-test-<run-number>`. Test artifacts contain only the installer: they exclude `latest.yml`, blockmaps, and all other updater metadata, so installed stable versions cannot discover them. Use `--dry-run` for preflight checks or `--yes` to skip confirmation.
+
 ## Publish a version
 
 Install and authenticate the GitHub CLI once, then run the release helper from a clean, synchronized `main` branch:

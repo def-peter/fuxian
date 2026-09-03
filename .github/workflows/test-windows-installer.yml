@@ -1,0 +1,60 @@
+name: Build Windows test installer
+run-name: 'Windows test installer #${{ github.run_number }} · ${{ github.sha }}'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-windows-installer-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-windows:
+    name: Windows x64 test installer
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run static and unit checks
+        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+
+      - name: Verify Windows workflows
+        run: pnpm test:e2e:release
+
+      - name: Prepare isolated test version
+        run: node scripts/prepare-test-version.mjs "${{ github.run_number }}"
+
+      - name: Build unsigned NSIS test installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+
+      - name: Verify packaged application
+        run: pnpm verify:package
+
+      - name: Smoke-test packaged application
+        run: pnpm exec playwright test tests/electron/packaged-app.spec.ts
+        env:
+          FUXIAN_PACKAGED_EXECUTABLE: release/win-unpacked/Fuxian.exe
+
+      - name: Upload Windows test installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuxian-windows-x64-test-${{ github.run_number }}
+          path: release/*-windows-x64-setup.exe
+          if-no-files-found: error
+          retention-days: 30
