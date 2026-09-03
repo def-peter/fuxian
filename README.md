@@ -13,19 +13,16 @@
 
 <p align="center">
   <a href="https://github.com/def-peter/fuxian/releases/latest"><img src="https://img.shields.io/github/v/release/def-peter/fuxian?style=flat-square" alt="最新版本" /></a>
-  <a href="https://github.com/def-peter/fuxian/releases"><img src="https://img.shields.io/github/downloads/def-peter/fuxian/total?style=flat-square" alt="下载量" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f6feb?style=flat-square" alt="支持 Windows 和 macOS" />
-  <a href="https://github.com/def-peter/fuxian/actions/workflows/release-installers.yml"><img src="https://img.shields.io/github/actions/workflow/status/def-peter/fuxian/release-installers.yml?style=flat-square&amp;label=release" alt="发布工作流" /></a>
-  <a href="https://github.com/def-peter/fuxian/stargazers"><img src="https://img.shields.io/github/stars/def-peter/fuxian?style=flat-square" alt="GitHub Stars" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT 许可证" /></a>
 </p>
 
-## ✨ 核心亮点
+## ✨ 核心功能
 
-- 📖 **阅读优先**：文字、表格、代码、公式与本地图片以完整文档呈现；多文档会话保留阅读位置，并平稳接收外部修订。
-- 📊 **四类可视化**：原生支持 [Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 与 [AntV Infographic](https://infographic.antv.vision/)，可查看源码、复制 SVG 和全屏浏览。
-- 📄 **可靠 PDF**：A4 纸张预览与 PDF 使用同一套打印布局，导出会等待公式、图片和异步图表就绪。
-- ✏️ **轻量源码编辑**：阅读与编辑模式互斥，显式保存后回到清晰完整的阅读视图，不加入实时分栏预览。
+- 📖 **打开就能读**：直接打开 `.md` 或 `.markdown` 文件，标题、表格、代码、公式和本地图片都会排版显示。
+- 📊 **图表直接显示**：[Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 代码块会显示为图表，还能全屏查看、复制源码或 SVG。
+- 📄 **导出 PDF**：支持 A4 纸张预览，可以在导出前检查分页和版式。
+- ✏️ **小改动不用换应用**：进入源码编辑模式即可修改、查找和替换文字，保存后继续阅读。
 
 浮现始终以阅读体验为核心。它不是知识库、完整 IDE 或所见即所得编辑器。
 
@@ -34,7 +31,7 @@
 前往 [GitHub Releases](https://github.com/def-peter/fuxian/releases/latest) 下载 Windows x64、macOS Apple Silicon 或 macOS Intel 版本。
 
 > [!IMPORTANT]
-> 当前安装包尚未签名。Windows 可能显示未知发布者或 SmartScreen 提示；macOS 可能需要在**系统设置 > 隐私与安全性**中手动允许打开。Linux 目前仅作为开发和 CI 平台。
+> 当前安装包尚未签名。Windows 可能显示未知发布者或 SmartScreen 提示；macOS 可能需要在**系统设置 > 隐私与安全性**中手动允许打开。
 
 ## 🛠️ 开发
 
