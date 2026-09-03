@@ -88,6 +88,10 @@ jobs:
       - name: Build NSIS installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
 
+      - name: Verify installed default-app registration
+        shell: pwsh
+        run: ./scripts/verify-windows-default-app-registration.ps1
+
       - name: Verify packaged application
         run: pnpm verify:package
 

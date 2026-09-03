@@ -10,6 +10,8 @@ import { promisify } from 'node:util';
 
 const executeFile = promisify(execFile);
 const markdownExtensions = ['md', 'markdown'] as const;
+const windowsDefaultAppRegistrationName = 'Fuxian';
+const windowsMarkdownProgId = 'Fuxian.Markdown';
 
 type SupportedPlatform = 'darwin' | 'win32';
 
@@ -37,6 +39,14 @@ export const classifyMarkdownAssociations = (
   markdown: boolean,
 ): Exclude<MarkdownDefaultAppState, 'unavailable'> =>
   md && markdown ? 'default' : md || markdown ? 'partial' : 'not-default';
+
+export const isWindowsMarkdownAssociation = (
+  association: { command?: unknown; progId?: unknown },
+  executablePath: string,
+): boolean =>
+  association.progId === windowsMarkdownProgId &&
+  typeof association.command === 'string' &&
+  association.command.toLocaleLowerCase().includes(executablePath.toLocaleLowerCase());
 
 const testStatus = (
   state: MarkdownDefaultAppState,
@@ -69,13 +79,7 @@ const queryWindowsAssociation = async (
     script,
   ]);
   const association = JSON.parse(stdout) as { command?: unknown; progId?: unknown };
-  if (typeof association.command !== 'string' || typeof association.progId !== 'string') {
-    return false;
-  }
-  const command = association.command.toLocaleLowerCase();
-  return (
-    association.progId === 'Markdown 文档' && command.includes(executablePath.toLocaleLowerCase())
-  );
+  return isWindowsMarkdownAssociation(association, executablePath);
 };
 
 const appleScriptArguments = (path: string): string[] => [
@@ -198,9 +202,12 @@ export const createMarkdownDefaultAppService = (
       }
       try {
         if (dependencies.platform === 'win32') {
-          await dependencies.openExternal('ms-settings:defaultapps?registeredAppUser=Fuxian');
+          await dependencies.openExternal(
+            `ms-settings:defaultapps?registeredAppUser=${encodeURIComponent(windowsDefaultAppRegistrationName)}`,
+          );
           return {
-            message: '已打开 Windows 默认应用设置，请确认 .md 与 .markdown 均选择浮现。',
+            message:
+              '已打开 Windows 默认应用设置。若系统未定位到浮现，请搜索 Fuxian，再确认 .md 与 .markdown 均选择浮现。',
             status: 'opened',
           };
         }

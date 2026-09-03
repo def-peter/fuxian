@@ -18,13 +18,14 @@ win:
     - ext:
         - md
         - markdown
-      name: Markdown 文档
+      name: Fuxian.Markdown
       description: Markdown 源文档
       icon: markdown-file.ico
   target:
     - nsis
 nsis:
   artifactName: fuxian-${version}-windows-${arch}-setup.${ext}
+  include: build/installer.nsh
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

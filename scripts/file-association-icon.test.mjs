@@ -5,6 +5,7 @@ import { parse } from 'yaml';
 
 const rootUrl = new URL('../', import.meta.url);
 const configUrl = new URL('electron-builder.yml', rootUrl);
+const windowsInstallerIncludeUrl = new URL('build/installer.nsh', rootUrl);
 const windowsIconUrl = new URL('build/markdown-file.ico', rootUrl);
 const macIconUrl = new URL('build/markdown-file.icns', rootUrl);
 
@@ -54,7 +55,7 @@ describe('Markdown file association icons', () => {
     expect(config.win.fileAssociations).toEqual([
       {
         ext: ['md', 'markdown'],
-        name: 'Markdown 文档',
+        name: 'Fuxian.Markdown',
         description: 'Markdown 源文档',
         icon: 'markdown-file.ico',
       },
@@ -67,6 +68,31 @@ describe('Markdown file association icons', () => {
         icon: 'markdown-file.icns',
       },
     ]);
+    expect(config.nsis.include).toBe('build/installer.nsh');
+  });
+
+  it('registers Fuxian as a per-user Windows default-app candidate', async () => {
+    const installerInclude = await readFile(windowsInstallerIncludeUrl, 'utf8');
+
+    expect(installerInclude).toContain(
+      'WriteRegStr HKCU "Software\\RegisteredApplications" "Fuxian"',
+    );
+    expect(installerInclude).toContain(
+      'WriteRegStr HKCU "Software\\Fuxian\\Capabilities" "ApplicationName" "Fuxian"',
+    );
+    expect(installerInclude).toContain(
+      'WriteRegStr HKCU "Software\\Fuxian\\Capabilities" "ApplicationDescription"',
+    );
+    expect(installerInclude).toContain(
+      'WriteRegStr HKCU "Software\\Fuxian\\Capabilities\\FileAssociations" ".md" "Fuxian.Markdown"',
+    );
+    expect(installerInclude).toContain(
+      'WriteRegStr HKCU "Software\\Fuxian\\Capabilities\\FileAssociations" ".markdown" "Fuxian.Markdown"',
+    );
+    expect(installerInclude).toContain(
+      'DeleteRegValue HKCU "Software\\RegisteredApplications" "Fuxian"',
+    );
+    expect(installerInclude).toContain('DeleteRegKey HKCU "Software\\Fuxian\\Capabilities"');
   });
 
   it('contains every Windows Explorer icon size', async () => {
