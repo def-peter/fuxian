@@ -58,6 +58,7 @@ import {
   removeUnavailableDocument,
   setUnavailableDocumentMessage,
   updateReadingPosition,
+  updateSourceDocumentRevision,
   type FinishedSourceDocument,
   type LoadingSessionDocument,
   type SessionDocument,
@@ -276,7 +277,8 @@ export function App(): React.JSX.Element {
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
-      document.status === 'available' && document.document.path === session.activeDocumentPath,
+      document.status === 'available' &&
+      document.latestSourceDocument.path === session.activeDocumentPath,
   );
   const activeLoadingDocument = session.openDocuments.find(
     (document): document is LoadingSessionDocument =>
@@ -293,7 +295,7 @@ export function App(): React.JSX.Element {
       }
     : undefined;
   const promotedRevision = activeDocument
-    ? promotedRevisions.get(activeDocument.document.path)
+    ? promotedRevisions.get(activeDocument.latestSourceDocument.path)
     : undefined;
   const visibleFrame = promotedRevision ?? sessionFrame;
   const visibleFrameId = visibleFrame?.id;
@@ -407,7 +409,7 @@ export function App(): React.JSX.Element {
       const currentItem = sessionRef.current.openDocuments.find(
         (item) =>
           item.status !== 'unavailable' &&
-          (item.status === 'available' ? item.document.path : item.path) === event.path,
+          (item.status === 'available' ? item.latestSourceDocument.path : item.path) === event.path,
       );
       if (!currentItem) return;
       const statusTimer = updatedStatusTimers.current.get(event.path);
@@ -436,6 +438,16 @@ export function App(): React.JSX.Element {
           });
         }
         return;
+      }
+
+      if (currentItem.status === 'available') {
+        const nextSession = updateSourceDocumentRevision(
+          sessionRef.current,
+          event.path,
+          event.result.document,
+        );
+        sessionRef.current = nextSession;
+        setSession(nextSession);
       }
 
       try {
@@ -503,17 +515,62 @@ export function App(): React.JSX.Element {
       const saved = completeSourceEditSave(buffer, result.document);
       commitSourceEdit(saved);
       await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
-      beginExternalRevision({
-        path: buffer.path,
-        result: { document: result.document, status: 'available' },
-        revision: 0,
+      const currentItem = sessionRef.current.openDocuments.find(
+        (item): item is SessionDocument =>
+          item.status === 'available' && item.latestSourceDocument.path === buffer.path,
+      );
+      pendingRevisionRefs.current.delete(buffer.path);
+      setPendingRevisions((current) => {
+        const next = new Map(current);
+        next.delete(buffer.path);
+        return next;
       });
+      setPromotedRevisions((current) => {
+        const next = new Map(current);
+        next.delete(buffer.path);
+        return next;
+      });
+      setExternalRevisionStatuses((current) => {
+        const next = new Map(current);
+        next.delete(buffer.path);
+        return next;
+      });
+      if (currentItem) {
+        try {
+          const finished = finishSourceDocument(result.document);
+          const nextSession = applyFinishedDocumentRevision(
+            sessionRef.current,
+            buffer.path,
+            finished,
+            currentItem.readingPosition,
+          );
+          sessionRef.current = nextSession;
+          setSession(nextSession);
+        } catch (error) {
+          const nextSession = updateSourceDocumentRevision(
+            sessionRef.current,
+            buffer.path,
+            result.document,
+          );
+          sessionRef.current = nextSession;
+          setSession(nextSession);
+          setExternalRevisionStatuses((current) =>
+            new Map(current).set(buffer.path, {
+              detail:
+                error instanceof Error
+                  ? `源码已保存，但无法生成阅读内容：${error.message}`
+                  : '源码已保存，但无法生成阅读内容。',
+              state: 'failed',
+            }),
+          );
+        }
+      }
       return true;
     } catch {
       commitSourceEdit(failSourceEditSave(buffer, '应用暂时无法保存文档，请重试。'));
       return false;
     }
-  }, [beginExternalRevision, commitSourceEdit]);
+  }, [commitSourceEdit]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -524,8 +581,8 @@ export function App(): React.JSX.Element {
   }, [sourceEdit]);
 
   useEffect(() => {
-    visibleFrameIdRef.current = visibleFrame?.id;
-  }, [visibleFrame?.id]);
+    visibleFrameIdRef.current = sourceEdit ? undefined : visibleFrame?.id;
+  }, [sourceEdit, visibleFrame?.id]);
 
   useEffect(() => window.fuxian.onExternalRevision(beginExternalRevision), [beginExternalRevision]);
 
@@ -549,7 +606,7 @@ export function App(): React.JSX.Element {
   const openWatchConfiguration = JSON.stringify(
     session.openDocuments.flatMap((document) =>
       document.status === 'available'
-        ? [{ path: document.document.path, resourceUrls: document.resourceUrls }]
+        ? [{ path: document.latestSourceDocument.path, resourceUrls: document.resourceUrls }]
         : document.status === 'loading'
           ? [{ path: document.path, resourceUrls: [] }]
           : [],
@@ -602,17 +659,20 @@ export function App(): React.JSX.Element {
         let nextSession = createRestoredDocumentSession(result.session, restored, Date.now());
         const recoveryDraft = drafts.find((draft) =>
           nextSession.openDocuments.some(
-            (item) => item.status === 'available' && item.document.path === draft.path,
+            (item) => item.status === 'available' && item.latestSourceDocument.path === draft.path,
           ),
         );
         if (recoveryDraft) {
           const recoveryDocument = nextSession.openDocuments.find(
             (item): item is SessionDocument =>
-              item.status === 'available' && item.document.path === recoveryDraft.path,
+              item.status === 'available' && item.latestSourceDocument.path === recoveryDraft.path,
           );
           if (recoveryDocument) {
             nextSession = activateDocument(nextSession, recoveryDraft.path);
-            const buffer = createSourceEditBuffer(recoveryDocument.document, recoveryDraft);
+            const buffer = createSourceEditBuffer(
+              recoveryDocument.latestSourceDocument,
+              recoveryDraft,
+            );
             sourceEditRef.current = buffer;
             setSourceEdit(buffer);
             if (!isSourceEditDirty(buffer)) {
@@ -1124,7 +1184,7 @@ export function App(): React.JSX.Element {
   const performCloseOpenDocument = (path: string): void => {
     const closingDocument = session.openDocuments.find(
       (document): document is SessionDocument =>
-        document.status === 'available' && document.document.path === path,
+        document.status === 'available' && document.latestSourceDocument.path === path,
     );
     if (closingDocument) recentDocumentCache.current.set(path, closingDocument);
     const position =
@@ -1260,13 +1320,13 @@ export function App(): React.JSX.Element {
     const position = getReadingController()?.getReadingPosition();
     if (position) {
       setSession((current) =>
-        updateReadingPosition(current, activeDocument.document.path, position),
+        updateReadingPosition(current, activeDocument.latestSourceDocument.path, position),
       );
     }
     resetActiveDocumentControls();
     setArticleStructureMapOpen(false);
     setContentOutlineSheetOpen(false);
-    commitSourceEdit(createSourceEditBuffer(activeDocument.document));
+    commitSourceEdit(createSourceEditBuffer(activeDocument.latestSourceDocument));
   };
 
   const cancelPendingSourceAction = (): void => {
@@ -1466,7 +1526,8 @@ export function App(): React.JSX.Element {
   const startPdfExport = async (): Promise<void> => {
     const path = sessionRef.current.activeDocumentPath;
     const document = sessionRef.current.openDocuments.find(
-      (item): item is SessionDocument => item.status === 'available' && item.document.path === path,
+      (item): item is SessionDocument =>
+        item.status === 'available' && item.latestSourceDocument.path === path,
     );
     const controller = finishedDocumentController.current;
     if (
@@ -1822,11 +1883,11 @@ export function App(): React.JSX.Element {
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
                     <span
-                      aria-label={`${activeDocument.document.name}，${activeDocument.document.path}`}
+                      aria-label={`${activeDocument.latestSourceDocument.name}，${activeDocument.latestSourceDocument.path}`}
                       className="truncate text-sm font-semibold"
-                      title={activeDocument.document.path}
+                      title={activeDocument.latestSourceDocument.path}
                     >
-                      {activeDocument.document.name}
+                      {activeDocument.latestSourceDocument.name}
                     </span>
                     {sourceEdit ? (
                       <span
@@ -2187,7 +2248,7 @@ export function App(): React.JSX.Element {
                                 viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
                                 draggingFiles && 'pointer-events-none',
                               )}
-                              key={activeDocument.document.path}
+                              key={activeDocument.latestSourceDocument.path}
                               onActiveHeadingChange={setActiveHeadingId}
                               onControllerChange={(controller) => {
                                 paperPreviewController.current = controller;
@@ -2211,7 +2272,7 @@ export function App(): React.JSX.Element {
                                 setSession((current) =>
                                   updateReadingPosition(
                                     current,
-                                    activeDocument.document.path,
+                                    activeDocument.latestSourceDocument.path,
                                     position,
                                   ),
                                 );
@@ -2279,7 +2340,7 @@ export function App(): React.JSX.Element {
                         <ContentOutline
                           activeHeadingId={activeHeadingId}
                           headings={activeDocument.headings}
-                          key={activeDocument.document.path}
+                          key={activeDocument.latestSourceDocument.path}
                           onNavigate={(id) => getReadingController()?.scrollToHeading(id)}
                           onOpenStructureMap={() => setArticleStructureMapOpen(true)}
                         />
@@ -2318,7 +2379,7 @@ export function App(): React.JSX.Element {
                 />
                 {articleStructureMapOpen ? (
                   <ArticleStructureMapDialog
-                    documentName={activeDocument.document.name}
+                    documentName={activeDocument.latestSourceDocument.name}
                     headings={activeDocument.headings}
                     onOpenChange={setArticleStructureMapOpen}
                     open
@@ -2346,7 +2407,7 @@ export function App(): React.JSX.Element {
                       <ContentOutline
                         activeHeadingId={activeHeadingId}
                         headings={activeDocument.headings}
-                        key={`sheet:${activeDocument.document.path}`}
+                        key={`sheet:${activeDocument.latestSourceDocument.path}`}
                         onNavigate={(id) => {
                           getReadingController()?.scrollToHeading(id);
                           setContentOutlineSheetOpen(false);

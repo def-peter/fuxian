@@ -281,20 +281,31 @@ export function DocumentSessionSidebar({
               document.status !== 'unavailable' ? (
                 <DocumentItem
                   active={
-                    (document.status === 'available' ? document.document.path : document.path) ===
-                    activeDocumentPath
+                    (document.status === 'available'
+                      ? document.latestSourceDocument.path
+                      : document.path) === activeDocumentPath
                   }
-                  document={document.status === 'available' ? document.document : document}
-                  key={document.status === 'available' ? document.document.path : document.path}
+                  document={
+                    document.status === 'available' ? document.latestSourceDocument : document
+                  }
+                  key={
+                    document.status === 'available'
+                      ? document.latestSourceDocument.path
+                      : document.path
+                  }
                   loading={document.status === 'loading'}
                   onActivate={() =>
                     onActivate(
-                      document.status === 'available' ? document.document.path : document.path,
+                      document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path,
                     )
                   }
                   onClose={() =>
                     onClose(
-                      document.status === 'available' ? document.document.path : document.path,
+                      document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path,
                     )
                   }
                 />

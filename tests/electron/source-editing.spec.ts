@@ -55,6 +55,129 @@ test('edits and explicitly saves Markdown before returning to the finished docum
   }
 });
 
+test('shows an explicitly saved revision with an inline diagram failure', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-render-failure-')));
+  const sourcePath = join(directory, 'diagram.md');
+  const validSource = [
+    '# Valid revision',
+    '',
+    '```mermaid',
+    'flowchart LR',
+    '  A --> B',
+    '```',
+  ].join('\n');
+  const invalidSource = [
+    '# Invalid revision',
+    '',
+    '```mermaid',
+    'this is not valid mermaid syntax !!!',
+    '```',
+  ].join('\n');
+  await writeFile(sourcePath, validSource, 'utf8');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SOURCE_DRAFTS_FILE: join(directory, 'source-recovery-drafts.json'),
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await page.getByRole('button', { name: '打开 Markdown' }).click();
+    let finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    await expect(
+      finishedDocument.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    const editor = page.locator('.cm-content');
+    await editor.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.insertText(invalidSource);
+    await page.getByRole('radio', { name: '阅读成品文档' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
+    await expect.poll(() => readFile(sourcePath, 'utf8')).toBe(invalidSource);
+
+    finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    await expect(finishedDocument.getByRole('heading', { name: 'Invalid revision' })).toBeVisible({
+      timeout: 15_000,
+    });
+    const failedDiagram = finishedDocument.locator('[data-render-task-kind="mermaid"]');
+    await expect(failedDiagram).toHaveAttribute('data-render-state', 'failed');
+    await expect(failedDiagram.getByText('无法呈现图表')).toBeVisible();
+    await expect(page.getByText('更新失败', { exact: true })).toHaveCount(0);
+
+    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    expect(await editor.innerText()).toContain('this is not valid mermaid syntax !!!');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('edits the latest external source while retaining controls on the prior finished revision', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-external-source-')));
+  const sourcePath = join(directory, 'diagram.md');
+  const validSource = [
+    '# Valid revision',
+    '',
+    '```mermaid',
+    'flowchart LR',
+    '  A --> B',
+    '```',
+  ].join('\n');
+  const invalidSource = [
+    '# Invalid revision',
+    '',
+    '```mermaid',
+    'this is not valid mermaid syntax !!!',
+    '```',
+  ].join('\n');
+  await writeFile(sourcePath, validSource, 'utf8');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SOURCE_DRAFTS_FILE: join(directory, 'source-recovery-drafts.json'),
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await page.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    await expect(
+      finishedDocument.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await writeFile(sourcePath, invalidSource, 'utf8');
+    await expect(page.getByText('更新失败', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(finishedDocument.getByRole('heading', { name: 'Valid revision' })).toBeVisible();
+
+    await page.getByRole('radio', { name: '编辑 Markdown 源码' }).click();
+    const editor = page.locator('.cm-content');
+    expect(await editor.innerText()).toContain('this is not valid mermaid syntax !!!');
+
+    await page.getByRole('radio', { name: '阅读成品文档' }).click();
+    await finishedDocument.getByRole('button', { name: '查看图表源码' }).click();
+    await expect(page.getByLabel('Mermaid 图表源码')).toContainText('flowchart LR');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('guards document switching and preserves both sides of an external conflict', async () => {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-conflict-')));
   const firstPath = join(directory, 'first.md');

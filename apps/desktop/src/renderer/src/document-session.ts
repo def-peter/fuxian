@@ -23,6 +23,7 @@ export interface FinishedSourceDocument {
 
 export interface SessionDocument extends FinishedSourceDocument {
   lastOpenedAt: number;
+  latestSourceDocument: SourceDocumentData;
   readingPosition: ReadingPosition;
   status: 'available';
 }
@@ -59,10 +60,22 @@ export type RestoredFinishedDocument =
     };
 
 const itemPath = (item: OpenDocumentItem): string =>
-  item.status === 'available' ? item.document.path : item.path;
+  item.status === 'available' ? item.latestSourceDocument.path : item.path;
 
 const itemName = (item: OpenDocumentItem): string =>
-  item.status === 'available' ? item.document.name : item.name;
+  item.status === 'available' ? item.latestSourceDocument.name : item.name;
+
+const createSessionDocument = (
+  document: FinishedSourceDocument,
+  lastOpenedAt: number,
+  readingPosition: ReadingPosition,
+): SessionDocument => ({
+  ...document,
+  lastOpenedAt,
+  latestSourceDocument: document.document,
+  readingPosition,
+  status: 'available',
+});
 
 const toReference = (item: OpenDocumentItem): PersistedDocumentReference => ({
   lastOpenedAt: item.lastOpenedAt,
@@ -104,12 +117,11 @@ export const createRestoredDocumentSession = (
 ): DocumentSession => {
   const openDocuments: OpenDocumentItem[] = restoredDocuments.map((restored) =>
     restored.status === 'available'
-      ? {
-          ...restored.document,
-          lastOpenedAt: restored.reference.lastOpenedAt,
-          readingPosition: restored.reference.readingPosition,
-          status: 'available',
-        }
+      ? createSessionDocument(
+          restored.document,
+          restored.reference.lastOpenedAt,
+          restored.reference.readingPosition,
+        )
       : {
           ...restored.reference,
           message: restored.message,
@@ -163,21 +175,11 @@ export const addDocumentsToSession = (
     if (!document) {
       return item;
     }
-    return {
-      ...document,
-      lastOpenedAt: now,
-      readingPosition: item.readingPosition,
-      status: 'available',
-    };
+    return createSessionDocument(document, now, item.readingPosition);
   });
   for (const document of incoming.values()) {
     if (!existingPaths.has(document.document.path)) {
-      openDocuments.push({
-        ...document,
-        lastOpenedAt: now,
-        readingPosition: createInitialReadingPosition(),
-        status: 'available',
-      });
+      openDocuments.push(createSessionDocument(document, now, createInitialReadingPosition()));
     }
   }
 
@@ -288,6 +290,7 @@ export const applyFinishedDocumentRevision = (
           ? {
               ...document,
               lastOpenedAt: item.lastOpenedAt,
+              latestSourceDocument: document.document,
               readingPosition,
               status: 'available',
             }
@@ -295,6 +298,23 @@ export const applyFinishedDocumentRevision = (
       ),
   };
 };
+
+export const updateSourceDocumentRevision = (
+  session: DocumentSession,
+  path: string,
+  latestSourceDocument: SourceDocumentData,
+): DocumentSession => ({
+  ...session,
+  activeDocumentPath:
+    session.activeDocumentPath === path ? latestSourceDocument.path : session.activeDocumentPath,
+  openDocuments: session.openDocuments
+    .filter((item) => itemPath(item) === path || itemPath(item) !== latestSourceDocument.path)
+    .map((item): OpenDocumentItem =>
+      item.status === 'available' && itemPath(item) === path
+        ? { ...item, latestSourceDocument }
+        : item,
+    ),
+});
 
 export const beginReopenRecentDocument = (
   session: DocumentSession,
@@ -306,12 +326,7 @@ export const beginReopenRecentDocument = (
   if (!recentDocument) return session;
 
   const item: OpenDocumentItem = cachedDocument
-    ? {
-        ...cachedDocument,
-        lastOpenedAt: now,
-        readingPosition: recentDocument.readingPosition,
-        status: 'available',
-      }
+    ? createSessionDocument(cachedDocument, now, recentDocument.readingPosition)
     : { ...recentDocument, lastOpenedAt: now, status: 'loading' };
   return {
     activeDocumentPath: path,
@@ -362,12 +377,7 @@ export const recoverUnavailableDocument = (
     )
     .map((item): OpenDocumentItem =>
       itemPath(item) === unavailablePath
-        ? {
-            ...document,
-            lastOpenedAt: unavailable.lastOpenedAt,
-            readingPosition: unavailable.readingPosition,
-            status: 'available',
-          }
+        ? createSessionDocument(document, unavailable.lastOpenedAt, unavailable.readingPosition)
         : item,
     );
 
@@ -392,12 +402,7 @@ export const reopenRecentDocument = (
 
   const item: OpenDocumentItem =
     'document' in result
-      ? {
-          ...result,
-          lastOpenedAt: now,
-          readingPosition: recentDocument.readingPosition,
-          status: 'available',
-        }
+      ? createSessionDocument(result, now, recentDocument.readingPosition)
       : { ...recentDocument, message: result.message, status: 'unavailable' };
 
   return {

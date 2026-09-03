@@ -14,6 +14,7 @@ import {
   recentDocumentMaxAgeMs,
   reopenRecentDocument,
   updateReadingPosition,
+  updateSourceDocumentRevision,
   type FinishedSourceDocument,
 } from './document-session';
 
@@ -73,8 +74,29 @@ describe('document session', () => {
     expect(updated.openDocuments[0]).toMatchObject({
       html: '<h1>Revised</h1>',
       lastOpenedAt: 42,
+      latestSourceDocument: revision.document,
       readingPosition,
       resourceUrls: revision.resourceUrls,
+    });
+  });
+
+  it('tracks the latest source revision independently from the stable finished document', () => {
+    const original = addDocumentsToSession(
+      createDocumentSession(),
+      [finishedDocument('/docs/reader.md')],
+      42,
+    );
+    const latestSourceDocument = {
+      ...finishedDocument('/docs/reader.md').document,
+      source: '# Invalid revision\n\n```mermaid\nnot a diagram\n```',
+    };
+
+    const updated = updateSourceDocumentRevision(original, '/docs/reader.md', latestSourceDocument);
+
+    expect(updated.openDocuments[0]).toMatchObject({
+      document: { source: '# /docs/reader.md' },
+      html: '<h1>/docs/reader.md</h1>',
+      latestSourceDocument,
     });
   });
 
