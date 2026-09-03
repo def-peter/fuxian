@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import {
+  paperPageMarginBlockMillimeters,
+  paperPageMarginInlineMillimeters,
+} from '../../apps/desktop/src/renderer/src/paper-pagination';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -86,6 +90,38 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
         Math.max(1, fitScale.innerHeight - 40) / ((297 / 25.4) * 96),
       ),
       5,
+    );
+    const paperMargins = await pages.first().evaluate((page) => {
+      const content = page.querySelector<HTMLElement>('.pagedjs_page_content');
+      if (!content) throw new Error('Paged.js content box is missing.');
+      const pageBox = page.getBoundingClientRect();
+      const contentBox = content.getBoundingClientRect();
+      const scale = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--paper-preview-scale'),
+      );
+      return {
+        blockEnd: (pageBox.bottom - contentBox.bottom) / scale,
+        blockStart: (contentBox.top - pageBox.top) / scale,
+        inlineEnd: (pageBox.right - contentBox.right) / scale,
+        inlineStart: (contentBox.left - pageBox.left) / scale,
+      };
+    });
+    const pixelsPerMillimeter = 96 / 25.4;
+    expect(paperMargins.blockStart).toBeCloseTo(
+      paperPageMarginBlockMillimeters * pixelsPerMillimeter,
+      0,
+    );
+    expect(paperMargins.blockEnd).toBeCloseTo(
+      paperPageMarginBlockMillimeters * pixelsPerMillimeter,
+      0,
+    );
+    expect(paperMargins.inlineStart).toBeCloseTo(
+      paperPageMarginInlineMillimeters * pixelsPerMillimeter,
+      0,
+    );
+    expect(paperMargins.inlineEnd).toBeCloseTo(
+      paperPageMarginInlineMillimeters * pixelsPerMillimeter,
+      0,
     );
     await expect(window.getByRole('radio', { name: '实际大小' })).toHaveCount(0);
     await expect(window.getByRole('radio', { name: '适合宽度' })).toHaveCount(0);

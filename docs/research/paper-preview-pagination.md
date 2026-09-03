@@ -39,7 +39,7 @@ Vivliostyle 的官方 Viewer 明确区分 `renderAllPages=true` 的精确打印/
 4. 图表源码/全屏按钮不要进入分页流。当前 toolbar 会占据正文高度；纸张模式应由 iframe 外 overlay 或页边距 action rail 锚定到图表，否则屏幕断点会因“不打印的按钮”与 PDF 不一致。
 5. 缩放只作用于分页完成后的 pages viewport；`fit width`、`100%` 不能改变 A4 page area，窗口变窄时缩放整页并保留最小外边距。
 
-默认 CSS 使用 `@page { size: A4; margin: 18mm 16mm; }` 作为首轮视觉原型值；这是产品默认，不是标准规定值，应在 Pencil/实机评审后锁定。现有 `document width: A4` 继续表示连续模式宽度，不能复用为纸张模式状态。
+首轮视觉原型曾使用 `@page { size: A4; margin: 18mm 16mm; }`。经正文、宽表格、代码和多图表文档复审后，产品默认锁定为 `@page { size: A4; margin: 14mm 12mm; }`：版心由 `178 × 261 mm` 增至 `186 × 269 mm`，面积增加约 `7.7%`，同时保留高于常见打印机不可打印边缘的安全留白。现有 `document width: A4` 继续表示连续模式宽度，不能复用为纸张模式状态。
 
 ## PDF 一致性策略
 

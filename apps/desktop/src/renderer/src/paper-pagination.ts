@@ -6,13 +6,15 @@ import {
 
 export const paperPageWidthPixels = (210 / 25.4) * 96;
 export const paperPageHeightPixels = (297 / 25.4) * 96;
+export const paperPageMarginBlockMillimeters = 14;
+export const paperPageMarginInlineMillimeters = 12;
 const maximumRowsPerTableFragment = 8;
 const maximumTableRowsHeightPixels = 780;
 
 export const paperPagedMediaCss = `
 @page {
   size: A4 portrait;
-  margin: 18mm 16mm;
+  margin: ${paperPageMarginBlockMillimeters}mm ${paperPageMarginInlineMillimeters}mm;
 }
 
 .finished-document {

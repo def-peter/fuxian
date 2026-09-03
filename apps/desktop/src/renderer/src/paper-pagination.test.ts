@@ -1,6 +1,12 @@
 import { parseHTML } from 'linkedom';
 import { describe, expect, it } from 'vitest';
-import { applyPaperTheme, splitLongTables } from './paper-pagination';
+import {
+  applyPaperTheme,
+  paperPagedMediaCss,
+  paperPageMarginBlockMillimeters,
+  paperPageMarginInlineMillimeters,
+  splitLongTables,
+} from './paper-pagination';
 
 const createTable = (rowCount: number): string => `
   <main>
@@ -46,6 +52,12 @@ describe('paper table preparation', () => {
 });
 
 describe('paper theme', () => {
+  it('uses the compact reviewed A4 page margins', () => {
+    expect(paperPageMarginBlockMillimeters).toBe(14);
+    expect(paperPageMarginInlineMillimeters).toBe(12);
+    expect(paperPagedMediaCss).toMatch(/@page\s*\{[^}]*margin: 14mm 12mm;/s);
+  });
+
   it('keeps the code theme independent from document appearance', () => {
     const { document } = parseHTML('<main />');
 
