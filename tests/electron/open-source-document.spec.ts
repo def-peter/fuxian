@@ -403,11 +403,27 @@ test('a reader can manage multiple open and recent documents without duplicates'
     );
 
     await session.getByRole('button', { name: '关闭“basic.md”' }).click();
+    await finishedDocument.locator('body').evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await expect
+      .poll(() => finishedDocument.locator('body').evaluate(() => window.scrollY))
+      .toBeGreaterThan(0);
     await session.getByRole('button', { name: '关闭“showcase.md”' }).click();
     const startView = window.getByRole('main');
     await expect(startView.getByRole('heading', { name: '最近查看' })).toBeVisible();
-    await expect(startView.getByRole('button', { name: 'basic.md' })).toBeVisible();
-    await expect(startView.getByRole('button', { name: 'showcase.md' })).toBeVisible();
+    await expect(startView.getByRole('button', { exact: true, name: 'basic.md' })).toBeVisible();
+    await expect(startView.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
+    await startView.getByRole('button', { name: '移除“basic.md”的查看记录' }).click();
+    await expect(startView.getByRole('button', { exact: true, name: 'basic.md' })).toHaveCount(0);
+    await expect(readFile(sourceDocumentPath, 'utf8')).resolves.toContain('A finished document');
+    await startView.getByRole('button', { exact: true, name: 'showcase.md' }).click();
+    await expect(
+      finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(() => finishedDocument.locator('body').evaluate(() => window.scrollY))
+      .toBe(0);
   } finally {
     await electronApp.close();
   }
@@ -497,6 +513,12 @@ test('dropping multiple Markdown documents adds them to the document session', a
 
   try {
     const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await expect(
+      window
+        .frameLocator('iframe[data-finished-document="active"]')
+        .getByRole('heading', { level: 1, name: 'A finished document' }),
+    ).toBeVisible();
     await window.evaluate(() => {
       const input = document.createElement('input');
       input.id = 'e2e-dropped-documents';
@@ -517,9 +539,55 @@ test('dropping multiple Markdown documents adds them to the document session', a
       return transfer;
     });
 
+    const samplePoints = await window.evaluate(() => {
+      const documentFrame = document.querySelector<HTMLIFrameElement>(
+        'iframe[data-finished-document="active"]',
+      );
+      const displayControls = document.querySelector<HTMLElement>(
+        '[data-document-display-controls]',
+      );
+      return [documentFrame, displayControls].map((element) => {
+        if (!element) throw new Error('A drag-overlay sample target is missing.');
+        const bounds = element.getBoundingClientRect();
+        return {
+          x: Math.round(bounds.left + bounds.width / 2),
+          y: Math.round(bounds.top + bounds.height / 2),
+        };
+      });
+    });
+    const capturePixels = async (): Promise<number[][]> =>
+      Promise.all(
+        samplePoints.map((point) =>
+          electronApp.evaluate(async ({ BrowserWindow }, samplePoint) => {
+            const browserWindow = BrowserWindow.getAllWindows().find(
+              (candidate) => !candidate.isDestroyed(),
+            );
+            if (!browserWindow) throw new Error('The reader window is unavailable.');
+            const image = await browserWindow.capturePage({
+              height: 1,
+              width: 1,
+              x: samplePoint.x,
+              y: samplePoint.y,
+            });
+            return [...image.toBitmap().subarray(0, 4)];
+          }, point),
+        ),
+      );
+    const pixelsBeforeDrag = await capturePixels();
+
     const dropTarget = window.locator('[data-session-root]');
     await dropTarget.dispatchEvent('dragenter', { dataTransfer });
     await expect(window.getByText('松开以打开文档')).toBeVisible();
+    const pixelsDuringDrag = await capturePixels();
+    const colorDifferences = pixelsBeforeDrag.map((before, index) =>
+      before.reduce(
+        (difference, channel, channelIndex) =>
+          difference + Math.abs(channel - pixelsDuringDrag[index]![channelIndex]!),
+        0,
+      ),
+    );
+    expect(colorDifferences[0]).toBeGreaterThan(12);
+    expect(colorDifferences[1]).toBeGreaterThan(12);
     await dropTarget.dispatchEvent('drop', { dataTransfer });
 
     const session = window.getByRole('complementary', { name: '文档会话' });

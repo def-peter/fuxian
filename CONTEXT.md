@@ -29,12 +29,16 @@ One open or recent document represented in the document-session list. It identif
 _Avoid_: File row, file node
 
 **Recent document**:
-A previously opened source document retained as history but not currently part of the document session. Fuxian retains at most the ten most recently opened documents for thirty days, including their reading positions.
+A previously viewed source document retained only as reopenable history, not as part of the document session. It keeps document identity and last-viewed time, but no reading, rendering, update, or editing state; Fuxian retains at most the ten most recent entries for thirty days.
 _Avoid_: Open document, file directory
 
 **Reading position**:
-The restorable location reached by the user within a document. It is anchored to the nearest heading with an offset and falls back to relative document progress when that heading no longer exists.
+The restorable location reached by the user within an open document's session state. It is anchored to the nearest heading with an offset, falls back to relative document progress when that heading no longer exists, persists across application restarts, and is discarded when the document is explicitly closed.
 _Avoid_: Scroll position, progress percentage
+
+**Close document**:
+The explicit removal of an open document from the document session. It leaves a recent-document history entry but discards the document's reading, rendering, update, and editing state; quitting Fuxian is not equivalent to closing its open documents.
+_Avoid_: Quit application, remove recent record
 
 **External revision**:
 A stable change written to an open source document by another process while Fuxian is running. A burst of writes settles into one external revision rather than many user-visible updates; it is distinct from an external conflict with unsaved local work.

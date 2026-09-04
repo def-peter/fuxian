@@ -182,7 +182,11 @@ describe('document theme preferences', () => {
   it('keeps all content constrained by the finished-document width', () => {
     const css = createDocumentThemeCss(preferences);
     expect(css).toContain('width: min(100%, var(--document-width))');
-    expect(css).toContain('padding: 72px var(--document-inline-padding) 120px');
+    expect(css).toContain('--document-block-start-padding: 48px');
+    expect(css).toContain(
+      'padding: var(--document-block-start-padding) var(--document-inline-padding) 120px',
+    );
+    expect(css).toMatch(/@media \(max-width: 700px\)[\s\S]*--document-block-start-padding: 32px;/);
     expect(css).toContain('--document-inline-padding: clamp(32px, 5vw, 48px)');
     expect(css).toContain('--document-width: 1050px');
     expect(css).toContain(':root[data-appearance="dark"]');

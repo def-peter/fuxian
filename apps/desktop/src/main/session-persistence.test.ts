@@ -25,7 +25,13 @@ const sessionFixture = (): PersistedDocumentSession => ({
       },
     },
   ],
-  recentDocuments: [],
+  recentDocuments: [
+    {
+      lastOpenedAt: 1_787_788_700_000,
+      name: 'recent.md',
+      path: '/docs/recent.md',
+    },
+  ],
   version: 1,
 });
 

@@ -79,10 +79,15 @@ test('long document names, adaptive document width, and outline controls remain 
       .evaluate((body) => ({
         body: body.getBoundingClientRect().width,
         heading: document.querySelector('h1')?.getBoundingClientRect().toJSON(),
+        firstContentTop: document
+          .querySelector('.finished-document > :first-child')
+          ?.getBoundingClientRect().top,
         viewport: document.documentElement.clientWidth,
       }));
     expect.soft(documentWidths.body).toBeGreaterThanOrEqual(iframeWidth - 8);
     expect.soft(documentWidths.heading?.width).toBeGreaterThanOrEqual(iframeWidth - 112);
+    expect.soft(documentWidths.firstContentTop).toBeGreaterThanOrEqual(40);
+    expect.soft(documentWidths.firstContentTop).toBeLessThanOrEqual(56);
 
     const outline = window.getByRole('complementary', { name: '大纲' });
     const outlineBox = await outline.evaluate((element) =>

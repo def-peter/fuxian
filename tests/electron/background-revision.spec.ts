@@ -76,7 +76,7 @@ test.afterEach(async () => {
   );
 });
 
-test('keeps inactive documents current, cancels stale work, and reopens cached content', async () => {
+test('keeps inactive documents current, cancels stale work, and freshly reopens recent content', async () => {
   test.setTimeout(90_000);
   const slowServer = await startSlowServer();
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-background-'));
@@ -125,9 +125,10 @@ test('keeps inactive documents current, cancels stale work, and reopens cached c
     await window.getByRole('button', { name: '关闭“second.md”' }).click();
     await writeFile(secondPath, slowDiagramSource('Second writing again'));
     await window.getByRole('button', { name: 'second.md', exact: true }).click();
+    await expect(window.getByRole('main', { name: '正在准备文档' })).toBeVisible();
     await expect(
       finishedDocument.getByRole('heading', { name: 'Second newest revision' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(window.getByText('正在更新...')).toBeVisible();
     const cachedReopenResponse = await slowServer.nextRequest();
     await writeFile(secondPath, '# Second reopened revision\n\nFinished after reopen.');

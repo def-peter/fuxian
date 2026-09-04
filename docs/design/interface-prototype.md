@@ -21,13 +21,13 @@ Design constraints:
 
 Primary desktop review frame: `1440 x 900`, with an additional approximately `1024 x 768` constrained-width state. Measurements are starting points for Pencil, not implementation constants.
 
-| Region            |   Starting size | Responsibility                                                     |
-| ----------------- | --------------: | ------------------------------------------------------------------ |
-| Toolbar           |      44 px high | TOC toggle, filename, find, export, overflow menu                  |
-| Document session  |     216 px wide | Open documents, recent documents, reading progress, recovery state |
-| Document viewport | Remaining space | Scroll container for the isolated document iframe                  |
-| Reading column    |      760-900 px | Adaptive, A4, or user-controlled document width                    |
-| Content outline   |     216 px wide | Current document headings and active-section indicator             |
+| Region            |   Starting size | Responsibility                                            |
+| ----------------- | --------------: | --------------------------------------------------------- |
+| Toolbar           |      44 px high | TOC toggle, filename, find, export, overflow menu         |
+| Document session  |     216 px wide | Open documents, recent history, update and recovery state |
+| Document viewport | Remaining space | Scroll container for the isolated document iframe         |
+| Reading column    |      760-900 px | Adaptive, A4, or user-controlled document width           |
+| Content outline   |     216 px wide | Current document headings and active-section indicator    |
 
 The document session occupies the left side, the finished document remains dominant in the center, and the content outline occupies the right side. Both side regions are independently collapsible.
 
@@ -69,13 +69,19 @@ Reading --> Loading : 当前文件被外部修改
 Reading --> Reading : 非当前文件被移动或删除并清理记录
 Reading --> Empty : 最后一份文件被移动或删除
 Reading --> Reading : 切换当前会话中的文档
+Reading --> Reading : 关闭文档并切换到下一份
+Reading --> Empty : 关闭最后一份文档
 Reading --> Exporting : 导出 PDF
 Exporting --> Reading : 成功、失败或取消
-Reading --> Empty : 关闭会话中的最后一份文档
+Reading --> Exited : 退出并保存会话
+Exited --> Restoring : 再次启动
 
 note right of Reading
 图片或图表失败时显示正文内错误占位，
 不切换到全局错误页面。
+
+主动关闭会清除该文档的会话状态；
+退出软件则保留全部打开文档及阅读位置。
 end note
 @enduml
 ```
@@ -137,17 +143,19 @@ The operating system owns window controls and the application menu. macOS keeps 
 - Open documents and recent documents are session navigation, not a representation of the filesystem hierarchy.
 - Restart and crash recovery restore the previously open documents, the active document, and each document's reading position.
 - Open and recent documents appear on the left; the active document's content outline appears on the right.
-- Document items show identity, active state, external-revision state, and recovery state, but never display reading progress. Recent documents still retain their reading positions after they leave the active session.
+- Document items show identity, active state, external-revision state, and recovery state, but never display reading progress. Recent documents retain only identity and last-viewed time, not document-session state.
 - Reading progress is not displayed as a percentage, progress bar, or bottom status bar. The viewport scrollbar communicates spatial progress with low contrast while idle and restrained emphasis during interaction; the content outline communicates semantic position.
 - Reading positions use the nearest heading and an offset, with relative document progress as a fallback after content changes.
 - Missing files are removed from both `正在查看` and `最近查看` during restoration, after a failed recent reopen, or after the file watcher confirms a stable deletion. The active document falls back to the next available item or the start view. Temporarily unreadable files remain identifiable instead of being deleted. A missing file with an unsaved source edit or recovery draft remains until the reader resolves the local work explicitly.
-- Recent documents contain at most the ten most recently opened documents and expire thirty days after their last open time.
+- Recent documents contain at most the ten most recently viewed documents and expire thirty days after their last-viewed time.
 - The current successful document remains visible while a revision renders; replacement is atomic, restores the reading position, and falls back to the previous successful version on failure.
 - External-revision status appears temporarily beside the filename as `正在更新...` and `已更新 · time`; failures remain visible with retry and details actions.
 - When the reader is already near the end, appended content continues to follow. Otherwise the reading position remains stable and a `有新内容` action appears. Text selection disables automatic following.
 - External revisions do not highlight changed paragraphs in the finished document.
 - The document-session sidebar places the collapsible `正在查看` section above the collapsible `最近查看` section in one scroll region.
-- Closing a document moves it to recent history without clearing its reading position. Reopening it returns it to the open-document set. Quitting Fuxian preserves the open-document set rather than closing it.
+- The close action on a `正在查看` item uses the tooltip `关闭当前文档`. It moves the document to `最近查看` and discards its reading position, successful render snapshot, update state, source-editor selection, and other document-session state. Dirty edits and recovery drafts must still be resolved before closing.
+- The remove action on a `最近查看` item uses the tooltip `移除查看记录`. It removes the history entry immediately without confirmation and never deletes or modifies the local source file. Its placement and close icon match the equivalent action in `正在查看`.
+- Reopening a document from `最近查看` creates a fresh open-document session at the top of the document. Quitting Fuxian is different from closing documents: it preserves the open-document set, active document, and their restorable reading positions for the next launch.
 - The default document theme uses a sans-serif UI, heading, and 15px body face, plus a monospace code face. Readers may switch the finished document body to the serif preset without changing application-shell typography.
 - Document typography settings include a serif or sans-serif body preset, body size, and line height. Application-shell typography remains fixed.
 - Code highlighting is a global document preference independent of application and document appearance. Fuxian Light is the default; readers may explicitly choose Fuxian Dark, GitHub Light, or GitHub Dark, including a dark code surface inside a light document. Theme choices show representative palette swatches and update the Settings document sample immediately before the user returns to reading.
@@ -156,7 +164,7 @@ The operating system owns window controls and the application menu. macOS keeps 
 - The default light application shell uses one **white-paper flat** palette across the main and settings windows: `#F0F1F2` for the window canvas and document stage, `#F6F6F7` for quiet navigation regions, pure white for toolbars, panels, overlays, and framed document surfaces, `#E4E6E8` separators, `#24282C` primary text, and near-black primary commands. Hover and selection use restrained neutral surfaces; blue is reserved for keyboard focus and deliberate emphasis, while red is reserved for destructive errors. The finished-document theme remains independently owned by `document-theme`; author-defined content and diagram colors remain unchanged.
 - Every open document is watched for external revisions. The active document renders immediately; inactive open documents render at low priority, cancel obsolete work, and retain only the latest revision task.
 - Switching to an inactive document whose latest render is incomplete shows its last successful version immediately with `正在更新...` until the latest version is ready.
-- Opening a closed document during external writes shows its cached successful version with `正在同步最新内容...` when available, or a stable loading skeleton otherwise. The first settled revision replaces that state atomically.
+- Reopening a recent document always starts a fresh session with a stable loading skeleton while its current disk revision settles. Closed render snapshots are not reused.
 - Opening diagram source temporarily replaces the right-side content outline with a wider source drawer. Closing the drawer restores the content outline without changing document position.
 - Settings use a separate desktop window with general, appearance, document, PlantUML, and “关于与更新” sections. General settings report `.md` and `.markdown` default-app status separately and only open the operating system's confirmation workflow after an explicit user action; the state refreshes when the window regains focus.
 - Packaged Windows and macOS builds check the stable update channel after a short non-blocking startup delay. Development builds show that updates are unavailable instead of contacting the production feed.
@@ -170,6 +178,7 @@ The operating system owns window controls and the application menu. macOS keeps 
 - The content outline shows headings H1-H3 by default. Deeper headings remain collapsed under their parents, and the active heading is kept visible automatically.
 - `Ctrl/Cmd + F` expands an in-header find control with match count, previous, next, and close actions.
 - File selection supports multiple Markdown documents. Dropping multiple documents adds all of them to the session, and attempting to open an already-open document activates its existing document item.
+- Dragging files over the main window shows one restrained full-window drop target above the document iframe, paper preview, and shell controls. Existing content remains in place beneath it and does not change until files are dropped.
 - Vega-Lite accepts only the canonical `vega-lite` fence with JSON and bounded `data.values`. It renders locally in cancellable workers, rejects external resources and nondeterministic capabilities, and preserves author styling.
 - AntV Infographic accepts only the canonical `infographic` fence and renders supported official built-in templates in a cancellable worker. Static word-cloud, illustration, and `sequence-interaction` layouts are supported; editor interaction remains disabled. Local Lucide/MDI resources are preferred, while online search and SVG loading are restricted to reviewed official-service and Alibaba CDN paths. Downloaded SVG is sanitized and embedded; arbitrary URLs, resource objects, arbitrary attributes, and animation remain disabled. Official template layout and author styling are preserved, and screen, full-screen view, SVG copying, and PDF export share one sanitized snapshot.
 - PDF export waits for required snapshots in the active finished-document revision to settle, then reuses its sanitized PlantUML and Vega-Lite SVG snapshots. It does not recompile Vega-Lite in the export window.

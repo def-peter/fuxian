@@ -1,4 +1,8 @@
-import type { PersistedDocumentReference, SourceDocumentData } from '@fuxian/shared-types';
+import type {
+  PersistedDocumentReference,
+  PersistedRecentDocumentReference,
+  SourceDocumentData,
+} from '@fuxian/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   applyFinishedDocumentRevision,
@@ -13,6 +17,7 @@ import {
   forgetDocument,
   pruneRecentDocuments,
   recentDocumentMaxAgeMs,
+  removeRecentDocument,
   reopenRecentDocument,
   updateReadingPosition,
   updateSourceDocumentRevision,
@@ -44,6 +49,12 @@ const reference = (
     headingOffset: headingId ? 24 : 0,
     relativeProgress: headingId ? 0.4 : 0,
   },
+});
+
+const recentReference = (path: string, lastOpenedAt: number): PersistedRecentDocumentReference => ({
+  lastOpenedAt,
+  name: path.split('/').at(-1) ?? path,
+  path,
 });
 
 const openPaths = (session: ReturnType<typeof createDocumentSession>): string[] =>
@@ -106,10 +117,9 @@ describe('document session', () => {
       lastOpenedAt: 40,
       name: 'reader.md',
       path: '/docs/reader.md',
-      readingPosition: { headingOffset: 8, relativeProgress: 0.6 },
     };
     const session = { ...createDocumentSession(), recentDocuments: [recent] };
-    const loading = beginReopenRecentDocument(session, recent.path, undefined, 50);
+    const loading = beginReopenRecentDocument(session, recent.path, 50);
     expect(loading).toMatchObject({
       activeDocumentPath: recent.path,
       openDocuments: [{ path: recent.path, status: 'loading' }],
@@ -120,7 +130,7 @@ describe('document session', () => {
       loading,
       recent.path,
       finishedDocument(recent.path),
-      recent.readingPosition,
+      { headingOffset: 0, relativeProgress: 0 },
     );
     expect(loaded.openDocuments[0]).toMatchObject({
       document: { path: recent.path },
@@ -141,12 +151,10 @@ describe('document session', () => {
       lastOpenedAt: 40,
       name: 'linked-reader.md',
       path: aliasPath,
-      readingPosition: { headingOffset: 0, relativeProgress: 0.25 },
     };
     const loading = beginReopenRecentDocument(
       { ...createDocumentSession(), recentDocuments: [recent] },
       aliasPath,
-      undefined,
       50,
     );
 
@@ -154,7 +162,7 @@ describe('document session', () => {
       loading,
       aliasPath,
       finishedDocument(canonicalPath),
-      recent.readingPosition,
+      { headingOffset: 0, relativeProgress: 0 },
     );
 
     expect(loaded.activeDocumentPath).toBe(canonicalPath);
@@ -174,7 +182,7 @@ describe('document session', () => {
     expect(reopened.activeDocumentPath).toBe('/docs/second.md');
   });
 
-  it('switches, closes, and reopens documents while retaining the reading position', () => {
+  it('discards document-session state when a document is closed and reopened', () => {
     const now = Date.UTC(2026, 7, 27);
     const added = addDocumentsToSession(
       createDocumentSession(),
@@ -196,16 +204,15 @@ describe('document session', () => {
     );
 
     expect(closed.activeDocumentPath).toBe('/docs/first.md');
-    expect(closed.recentDocuments[0]?.path).toBe('/docs/second.md');
-    expect(closed.recentDocuments[0]?.readingPosition).toEqual({
-      headingId: 'details',
-      headingOffset: 36,
-      relativeProgress: 0.6,
+    expect(closed.recentDocuments[0]).toEqual({
+      lastOpenedAt: now + 1,
+      name: 'second.md',
+      path: '/docs/second.md',
     });
     expect(reopened.activeDocumentPath).toBe('/docs/second.md');
     expect(reopened.openDocuments[1]).toMatchObject({
       html: expect.stringContaining('/docs/second.md'),
-      readingPosition: { headingId: 'details' },
+      readingPosition: { headingOffset: 0, relativeProgress: 0 },
       status: 'available',
     });
     expect(reopened.recentDocuments).toHaveLength(0);
@@ -216,8 +223,8 @@ describe('document session', () => {
     const first = reference('/docs/first.md', now - 2);
     const missing = reference('/docs/missing.md', now - 1);
     const active = reference('/docs/active.md', now, 'chapter-two');
-    const recentMissing = reference('/docs/recent-missing.md', now - 3);
-    const recentAvailable = reference('/docs/recent.md', now - 4);
+    const recentMissing = recentReference('/docs/recent-missing.md', now - 3);
+    const recentAvailable = recentReference('/docs/recent.md', now - 4);
     const persisted = {
       activeDocumentPath: active.path,
       openDocuments: [first, missing, active],
@@ -255,7 +262,10 @@ describe('document session', () => {
     const open = addDocumentsToSession(createDocumentSession(), [first, deleted], now);
     const session = {
       ...open,
-      recentDocuments: [reference('/docs/deleted.md', now - 1), reference('/docs/recent.md', now)],
+      recentDocuments: [
+        recentReference('/docs/deleted.md', now - 1),
+        recentReference('/docs/recent.md', now),
+      ],
     };
 
     const forgotten = forgetDocument(session, deleted.document.path);
@@ -263,6 +273,28 @@ describe('document session', () => {
     expect(openPaths(forgotten)).toEqual([first.document.path]);
     expect(forgotten.activeDocumentPath).toBe(first.document.path);
     expect(forgotten.recentDocuments.map(({ path }) => path)).toEqual(['/docs/recent.md']);
+  });
+
+  it('removes a recent-history entry without affecting open documents', () => {
+    const now = Date.UTC(2026, 7, 27);
+    const open = addDocumentsToSession(
+      createDocumentSession(),
+      [finishedDocument('/docs/open.md')],
+      now,
+    );
+    const session = {
+      ...open,
+      recentDocuments: [
+        recentReference('/docs/remove.md', now),
+        recentReference('/docs/keep.md', now - 1),
+      ],
+    };
+
+    const removed = removeRecentDocument(session, '/docs/remove.md');
+
+    expect(openPaths(removed)).toEqual(['/docs/open.md']);
+    expect(removed.activeDocumentPath).toBe('/docs/open.md');
+    expect(removed.recentDocuments).toEqual([recentReference('/docs/keep.md', now - 1)]);
   });
 
   it('falls back to the first available document when the persisted active document is unavailable', () => {
@@ -298,9 +330,9 @@ describe('document session', () => {
   it('keeps at most ten recent documents and expires entries after thirty days', () => {
     const now = Date.UTC(2026, 7, 27);
     const recentDocuments = Array.from({ length: 12 }, (_, index) =>
-      reference(`/docs/${index}.md`, now - index),
+      recentReference(`/docs/${index}.md`, now - index),
     );
-    recentDocuments.push(reference('/docs/expired.md', now - recentDocumentMaxAgeMs - 1));
+    recentDocuments.push(recentReference('/docs/expired.md', now - recentDocumentMaxAgeMs - 1));
 
     const pruned = pruneRecentDocuments(recentDocuments, now);
 
@@ -309,5 +341,13 @@ describe('document session', () => {
       Array.from({ length: 10 }, (_, index) => `/docs/${index}.md`),
     );
     expect(pruned.some(({ path }) => path === '/docs/expired.md')).toBe(false);
+  });
+
+  it('strips legacy reading positions from restored recent-history entries', () => {
+    const now = Date.UTC(2026, 7, 27);
+
+    const pruned = pruneRecentDocuments([reference('/docs/legacy.md', now, 'old-position')], now);
+
+    expect(pruned).toEqual([recentReference('/docs/legacy.md', now)]);
   });
 });

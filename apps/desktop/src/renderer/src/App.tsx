@@ -58,6 +58,7 @@ import {
   failLoadingDocument,
   forgetDocument,
   recoverUnavailableDocument,
+  removeRecentDocument,
   removeUnavailableDocument,
   setUnavailableDocumentMessage,
   updateReadingPosition,
@@ -275,7 +276,6 @@ export function App(): React.JSX.Element {
   const sessionRef = useRef(session);
   const diagramLayoutReadingPosition = useRef<ReadingPosition | undefined>(undefined);
   const pendingRevisionRefs = useRef(new Map<string, FinishedDocumentFrameRevision>());
-  const recentDocumentCache = useRef(new Map<string, FinishedSourceDocument>());
   const visibleFrameIdRef = useRef<string | undefined>(undefined);
   const updatedStatusTimers = useRef(new Map<string, number>());
   const pdfExportDismissTimer = useRef<number | undefined>(undefined);
@@ -344,7 +344,6 @@ export function App(): React.JSX.Element {
 
   const forgetMissingDocument = useCallback((path: string): void => {
     const wasActive = sessionRef.current.activeDocumentPath === path;
-    recentDocumentCache.current.delete(path);
     pendingRevisionRefs.current.delete(path);
     setPendingRevisions((current) => {
       const next = new Map(current);
@@ -1122,12 +1121,46 @@ export function App(): React.JSX.Element {
           next.delete(path);
           return next;
         });
-        setExternalRevisionStatuses((current) =>
-          new Map(current).set(path, {
-            detail: error instanceof Error ? error.message : t('新版本无法完整呈现。'),
-            state: 'failed',
-          }),
+        const detail = error instanceof Error ? error.message : t('新版本无法完整呈现。');
+        const loadingItem = sessionRef.current.openDocuments.find(
+          (item): item is LoadingSessionDocument => item.status === 'loading' && item.path === path,
         );
+        if (!loadingItem) {
+          setExternalRevisionStatuses((current) =>
+            new Map(current).set(path, { detail, state: 'failed' }),
+          );
+          return;
+        }
+
+        const documentPath = frame.document.document.path;
+        const active = sessionRef.current.activeDocumentPath === path;
+        setPromotedRevisions((current) => {
+          const next = new Map(current);
+          next.delete(path);
+          if (active) {
+            next.set(documentPath, { ...frame, sessionPath: documentPath, staging: false });
+          }
+          return next;
+        });
+        const nextSession = applyFinishedDocumentRevision(
+          sessionRef.current,
+          path,
+          frame.document,
+          frame.readingPosition,
+        );
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        setExternalRevisionStatuses((current) => {
+          const next = new Map(current);
+          next.delete(path);
+          next.set(documentPath, { detail, state: 'failed' });
+          return next;
+        });
+        if (active) {
+          visibleFrameIdRef.current = frame.id;
+          finishedDocumentController.current = controller;
+          setActiveHeadingId(frame.readingPosition.headingId ?? frame.document.headings[0]?.id);
+        }
       });
   };
 
@@ -1257,15 +1290,6 @@ export function App(): React.JSX.Element {
   };
 
   const performCloseOpenDocument = (path: string): void => {
-    const closingDocument = session.openDocuments.find(
-      (document): document is SessionDocument =>
-        document.status === 'available' && document.latestSourceDocument.path === path,
-    );
-    if (closingDocument) recentDocumentCache.current.set(path, closingDocument);
-    const position =
-      path === session.activeDocumentPath
-        ? getReadingController()?.getReadingPosition()
-        : undefined;
     if (path === session.activeDocumentPath) {
       resetActiveDocumentControls();
     }
@@ -1289,11 +1313,7 @@ export function App(): React.JSX.Element {
     if (statusTimer) window.clearTimeout(statusTimer);
     updatedStatusTimers.current.delete(path);
     setSession((current) => {
-      const next = closeDocument(
-        position ? updateReadingPosition(current, path, position) : current,
-        path,
-        Date.now(),
-      );
+      const next = closeDocument(current, path, Date.now());
       sessionRef.current = next;
       return next;
     });
@@ -1388,6 +1408,14 @@ export function App(): React.JSX.Element {
 
   const closeOpenDocument = (path: string): void => {
     requestSourceAction({ kind: 'close', path });
+  };
+
+  const removeRecentHistoryEntry = (path: string): void => {
+    setSession((current) => {
+      const next = removeRecentDocument(current, path);
+      sessionRef.current = next;
+      return next;
+    });
   };
 
   const enterSourceEditing = (): void => {
@@ -1498,12 +1526,7 @@ export function App(): React.JSX.Element {
       currentPath && currentPosition
         ? updateReadingPosition(sessionRef.current, currentPath, currentPosition)
         : sessionRef.current;
-    const reopened = beginReopenRecentDocument(
-      positioned,
-      path,
-      recentDocumentCache.current.get(path),
-      Date.now(),
-    );
+    const reopened = beginReopenRecentDocument(positioned, path, Date.now());
     sessionRef.current = reopened;
     setSession(reopened);
     setOpening(true);
@@ -1812,6 +1835,7 @@ export function App(): React.JSX.Element {
             : undefined,
         )
       }
+      onRemoveRecent={removeRecentHistoryEntry}
       onRemoveUnavailable={(path) =>
         setSession((current) => removeUnavailableDocument(current, path))
       }
@@ -2595,24 +2619,47 @@ export function App(): React.JSX.Element {
                         </h2>
                         <div className="mt-2 flex flex-col">
                           {startRecentDocuments.map((document) => (
-                            <Tooltip key={document.path}>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className="flex min-h-10 items-center gap-2 border-b px-1 text-left text-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                                  onClick={() => void reopenDocument(document.path)}
-                                  type="button"
-                                >
-                                  <FileText
-                                    aria-hidden="true"
-                                    className="size-4 shrink-0 text-muted-foreground"
-                                  />
-                                  <span className="truncate">{document.name}</span>
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="right" sideOffset={6}>
-                                {document.path}
-                              </TooltipContent>
-                            </Tooltip>
+                            <div
+                              className="group flex min-h-10 min-w-0 items-center border-b"
+                              key={document.path}
+                            >
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    className="flex min-w-0 flex-1 items-center gap-2 px-1 text-left text-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                                    onClick={() => void reopenDocument(document.path)}
+                                    type="button"
+                                  >
+                                    <FileText
+                                      aria-hidden="true"
+                                      className="size-4 shrink-0 text-muted-foreground"
+                                    />
+                                    <span className="truncate">{document.name}</span>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" sideOffset={30}>
+                                  {document.path}
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    aria-label={t('移除“{name}”的查看记录', {
+                                      name: document.name,
+                                    })}
+                                    className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                                    onClick={() => removeRecentHistoryEntry(document.path)}
+                                    size="icon-xs"
+                                    variant="ghost"
+                                  >
+                                    <X aria-hidden="true" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" sideOffset={6}>
+                                  {t('移除查看记录')}
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                           ))}
                         </div>
                       </section>
@@ -2625,7 +2672,7 @@ export function App(): React.JSX.Element {
         </ResizablePanelGroup>
 
         {draggingFiles ? (
-          <div className="pointer-events-none absolute inset-2 flex items-center justify-center border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">
+          <div className="pointer-events-none absolute inset-2 z-[60] flex items-center justify-center border-2 border-dashed border-primary bg-background/95 text-sm font-medium text-primary backdrop-blur-[1px]">
             {t('松开以打开文档')}
           </div>
         ) : null}

@@ -71,6 +71,7 @@ export const documentThemeCss = `
   --document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --document-body-size: 15px;
   --document-line-height: 1.85;
+  --document-block-start-padding: 48px;
   --document-inline-padding: clamp(16px, 2vw, 24px);
   --document-width: 100%;
   --code-background: #f7f8fa;
@@ -243,7 +244,7 @@ body {
   width: min(100%, var(--document-width));
   min-width: 0;
   margin: 0 auto;
-  padding: 72px var(--document-inline-padding) 120px;
+  padding: var(--document-block-start-padding) var(--document-inline-padding) 120px;
 }
 
 h1,
@@ -1260,8 +1261,12 @@ svg {
 }
 
 @media (max-width: 700px) {
+  :root {
+    --document-block-start-padding: 32px;
+  }
+
   .finished-document {
-    padding: 48px 20px 88px;
+    padding: var(--document-block-start-padding) 20px 88px;
   }
 }
 

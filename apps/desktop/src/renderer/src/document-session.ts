@@ -1,6 +1,7 @@
 import type { DocumentHeading } from '@fuxian/markdown-renderer';
 import type {
   PersistedDocumentReference,
+  PersistedRecentDocumentReference,
   PersistedDocumentSession,
   ReadingPosition,
   SourceDocumentUnavailableReason,
@@ -41,7 +42,7 @@ export interface LoadingSessionDocument extends PersistedDocumentReference {
 
 export type OpenDocumentItem =
   LoadingSessionDocument | SessionDocument | UnavailableSessionDocument;
-export type RecentDocument = PersistedDocumentReference;
+export type RecentDocument = PersistedRecentDocumentReference;
 
 export interface DocumentSession {
   activeDocumentPath: string | undefined;
@@ -92,6 +93,15 @@ const toReference = (item: OpenDocumentItem): PersistedDocumentReference => ({
   readingPosition: item.readingPosition,
 });
 
+const toRecentReference = (
+  item: OpenDocumentItem,
+  lastOpenedAt = item.lastOpenedAt,
+): RecentDocument => ({
+  lastOpenedAt,
+  name: itemName(item),
+  path: itemPath(item),
+});
+
 export const createDocumentSession = (): DocumentSession => ({
   activeDocumentPath: undefined,
   openDocuments: [],
@@ -115,7 +125,8 @@ export const pruneRecentDocuments = (
       return true;
     })
     .sort((left, right) => right.lastOpenedAt - left.lastOpenedAt)
-    .slice(0, recentDocumentLimit);
+    .slice(0, recentDocumentLimit)
+    .map(({ lastOpenedAt, name, path }) => ({ lastOpenedAt, name, path }));
 };
 
 export const createRestoredDocumentSession = (
@@ -262,7 +273,7 @@ export const closeDocument = (
     openDocuments,
     recentDocuments: pruneRecentDocuments(
       [
-        toReference(closingDocument),
+        toRecentReference(closingDocument, now),
         ...session.recentDocuments.filter((item) => item.path !== path),
       ],
       now,
@@ -282,6 +293,11 @@ export const forgetDocument = (session: DocumentSession, path: string): Document
     recentDocuments: session.recentDocuments.filter((document) => document.path !== path),
   };
 };
+
+export const removeRecentDocument = (session: DocumentSession, path: string): DocumentSession => ({
+  ...session,
+  recentDocuments: session.recentDocuments.filter((document) => document.path !== path),
+});
 
 export const removeUnavailableDocument = (
   session: DocumentSession,
@@ -351,15 +367,17 @@ export const updateSourceDocumentRevision = (
 export const beginReopenRecentDocument = (
   session: DocumentSession,
   path: string,
-  cachedDocument: FinishedSourceDocument | undefined,
   now: number,
 ): DocumentSession => {
   const recentDocument = session.recentDocuments.find((document) => document.path === path);
   if (!recentDocument) return session;
 
-  const item: OpenDocumentItem = cachedDocument
-    ? createSessionDocument(cachedDocument, now, recentDocument.readingPosition)
-    : { ...recentDocument, lastOpenedAt: now, status: 'loading' };
+  const item: LoadingSessionDocument = {
+    ...recentDocument,
+    lastOpenedAt: now,
+    readingPosition: createInitialReadingPosition(),
+    status: 'loading',
+  };
   return {
     activeDocumentPath: path,
     openDocuments: [
@@ -434,9 +452,10 @@ export const reopenRecentDocument = (
 
   const item: OpenDocumentItem =
     'document' in result
-      ? createSessionDocument(result, now, recentDocument.readingPosition)
+      ? createSessionDocument(result, now, createInitialReadingPosition())
       : {
           ...recentDocument,
+          readingPosition: createInitialReadingPosition(),
           message: result.message,
           reason: 'unreadable',
           status: 'unavailable',

@@ -1,5 +1,6 @@
 import type {
   PersistedDocumentReference,
+  PersistedRecentDocumentReference,
   PersistedDocumentSession,
   ReadingPosition,
 } from '@fuxian/shared-types';
@@ -49,6 +50,21 @@ const isDocumentReference = (value: unknown): value is PersistedDocumentReferenc
   );
 };
 
+const isRecentDocumentReference = (value: unknown): value is PersistedRecentDocumentReference => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const reference = value as Partial<PersistedRecentDocumentReference>;
+  return (
+    typeof reference.name === 'string' &&
+    reference.name.length > 0 &&
+    typeof reference.path === 'string' &&
+    reference.path.length > 0 &&
+    typeof reference.lastOpenedAt === 'number' &&
+    Number.isFinite(reference.lastOpenedAt)
+  );
+};
+
 export const isPersistedDocumentSession = (value: unknown): value is PersistedDocumentSession => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -62,7 +78,7 @@ export const isPersistedDocumentSession = (value: unknown): value is PersistedDo
     session.openDocuments.every(isDocumentReference) &&
     Array.isArray(session.recentDocuments) &&
     session.recentDocuments.length <= 10 &&
-    session.recentDocuments.every(isDocumentReference)
+    session.recentDocuments.every(isRecentDocumentReference)
   ) {
     const openPaths = session.openDocuments.map(({ path }) => path);
     const recentPaths = session.recentDocuments.map(({ path }) => path);

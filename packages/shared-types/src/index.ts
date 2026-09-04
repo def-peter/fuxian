@@ -428,10 +428,16 @@ export interface PersistedDocumentReference {
   readingPosition: ReadingPosition;
 }
 
+export interface PersistedRecentDocumentReference {
+  lastOpenedAt: number;
+  name: string;
+  path: string;
+}
+
 export interface PersistedDocumentSession {
   activeDocumentPath?: string;
   openDocuments: PersistedDocumentReference[];
-  recentDocuments: PersistedDocumentReference[];
+  recentDocuments: PersistedRecentDocumentReference[];
   version: 1;
 }
 

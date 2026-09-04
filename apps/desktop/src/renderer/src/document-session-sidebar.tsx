@@ -35,6 +35,7 @@ interface DocumentSessionSidebarProps {
   onLocate(path: string): void;
   onOpen(): void;
   onOpenSettings(): void;
+  onRemoveRecent(path: string): void;
   onRemoveUnavailable(path: string): void;
   onReopen(path: string): void;
   onRetry(path: string): void;
@@ -52,11 +53,13 @@ interface UnavailableDocumentItemProps {
 }
 
 interface DocumentItemProps {
+  actionAccessibleLabel?: string;
+  actionLabel?: string;
   active?: boolean;
   document: { name: string; path: string };
   loading?: boolean;
   onActivate(): void;
-  onClose?: () => void;
+  onAction?: () => void;
 }
 
 interface SidebarActionTooltipProps {
@@ -144,11 +147,13 @@ function UnavailableDocumentItem({
 }
 
 function DocumentItem({
+  actionAccessibleLabel,
+  actionLabel,
   active,
   document,
   loading,
   onActivate,
-  onClose,
+  onAction,
 }: DocumentItemProps): React.JSX.Element {
   const { t } = useLocalization();
   return (
@@ -179,12 +184,12 @@ function DocumentItem({
           {document.path}
         </TooltipContent>
       </Tooltip>
-      {onClose ? (
-        <SidebarActionTooltip label={t('关闭“{name}”', { name: document.name })}>
+      {onAction && actionAccessibleLabel && actionLabel ? (
+        <SidebarActionTooltip label={actionLabel}>
           <Button
-            aria-label={t('关闭“{name}”', { name: document.name })}
+            aria-label={actionAccessibleLabel}
             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-            onClick={onClose}
+            onClick={onAction}
             size="icon-xs"
             variant="ghost"
           >
@@ -232,6 +237,7 @@ export function DocumentSessionSidebar({
   onLocate,
   onOpen,
   onOpenSettings,
+  onRemoveRecent,
   onRemoveUnavailable,
   onReopen,
   onRetry,
@@ -289,6 +295,13 @@ export function DocumentSessionSidebar({
             {openDocuments.map((document) =>
               document.status !== 'unavailable' ? (
                 <DocumentItem
+                  actionAccessibleLabel={t('关闭“{name}”', {
+                    name:
+                      document.status === 'available'
+                        ? document.latestSourceDocument.name
+                        : document.name,
+                  })}
+                  actionLabel={t('关闭当前文档')}
                   active={
                     (document.status === 'available'
                       ? document.latestSourceDocument.path
@@ -310,7 +323,7 @@ export function DocumentSessionSidebar({
                         : document.path,
                     )
                   }
-                  onClose={() =>
+                  onAction={() =>
                     onClose(
                       document.status === 'available'
                         ? document.latestSourceDocument.path
@@ -334,9 +347,12 @@ export function DocumentSessionSidebar({
           <SessionSection count={recentDocuments.length} title={t('最近查看')}>
             {recentDocuments.map((document) => (
               <DocumentItem
+                actionAccessibleLabel={t('移除“{name}”的查看记录', { name: document.name })}
+                actionLabel={t('移除查看记录')}
                 document={document}
                 key={document.path}
                 onActivate={() => onReopen(document.path)}
+                onAction={() => onRemoveRecent(document.path)}
               />
             ))}
           </SessionSection>
