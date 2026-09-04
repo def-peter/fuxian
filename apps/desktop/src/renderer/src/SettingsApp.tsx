@@ -368,7 +368,7 @@ export function SettingsApp(): React.JSX.Element {
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[164px_292px_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-cols-[168px_292px_minmax(0,1fr)]">
         <nav
           aria-label={t('设置分区')}
           className="border-r border-line-subtle bg-surface-sidebar p-2"

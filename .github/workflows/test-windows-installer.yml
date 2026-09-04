@@ -36,6 +36,8 @@ jobs:
 
       - name: Verify Windows workflows
         run: pnpm test:e2e:release
+        env:
+          FUXIAN_E2E_SYSTEM_LOCALE: zh-CN
 
       - name: Prepare isolated test version
         run: node scripts/prepare-test-version.mjs "${{ github.run_number }}"
