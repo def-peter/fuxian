@@ -145,6 +145,8 @@ Repeated visual behavior belongs in shared components, preferably through CVA va
 3. Main and settings windows consume the same light semantic contract without window-local palette overrides.
 4. Shell regions use explicit surface, text, border, interaction, and status roles.
 5. Role-based assertions, contrast checks, and representative Electron screenshots protect the contract.
-6. Dark mode retains independent semantic mappings for later visual refinement.
+6. Dark mode uses its own reviewed cool-neutral mappings; semantic success, warning, danger, focus, and progress colors remain intentionally distinct.
+
+Structural palette changes follow ADR 0022. The application shell and finished document coordinate visually while retaining separate token contracts across the iframe boundary.
 
 Each migration step must remain independently reviewable and must not cross into the finished-document iframe.

@@ -26,8 +26,8 @@ const lightPalette = {
   '--ring': '#1976c9',
   '--secondary': '#e9eef3',
   '--selected': '#e9eef3',
-  '--success': '#59645f',
-  '--warning': '#6d767e',
+  '--success': '#2f7d55',
+  '--warning': '#946315',
 } as const;
 
 const lightShellRoles = {
@@ -37,6 +37,8 @@ const lightShellRoles = {
   '--interactive-hover': '#eeeeef',
   '--interactive-selected': '#e9eef3',
   '--interactive-selected-foreground': '#2d3439',
+  '--status-progress': '#2b67cd',
+  '--status-update': '#52708a',
   '--surface-overlay': '#fff',
   '--surface-panel': '#fff',
   '--surface-shell': '#f0f1f2',
@@ -45,6 +47,23 @@ const lightShellRoles = {
   '--surface-toolbar': '#fff',
   '--text-primary': '#24282c',
   '--text-secondary': '#626b74',
+} as const;
+
+const darkShellRoles = {
+  '--border-subtle': '#373c42',
+  '--focus-ring': '#62a9e9',
+  '--interactive-hover': '#30353b',
+  '--interactive-primary': '#dce1e5',
+  '--status-danger': '#e07870',
+  '--status-progress': '#78b7ed',
+  '--status-success': '#72c997',
+  '--status-warning': '#e0b874',
+  '--surface-panel': '#212428',
+  '--surface-shell': '#1b1d20',
+  '--surface-sidebar': '#25282c',
+  '--text-on-command': '#1b1d20',
+  '--text-primary': '#e7e9eb',
+  '--text-secondary': '#aeb4bb',
 } as const;
 
 const shadcnAliases = {
@@ -219,6 +238,58 @@ test('applies one semantic light palette to every shell window', async () => {
     ).toBeGreaterThan(4.5);
     expect(contrastRatio(lightPalette['--input'], lightPalette['--card'])).toBeGreaterThan(3);
     expect(contrastRatio(lightPalette['--ring'], lightPalette['--card'])).toBeGreaterThan(3);
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('keeps dark shell structure neutral while reserving blue and semantic status colors', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-dark-shell-palette-'));
+  const sourcePath = join(directory, 'dark-shell-palette.md');
+  const preferencesPath = join(directory, 'preferences.json');
+  await writeFile(sourcePath, '# Dark shell palette\n\nNeutral structure with deliberate accents.');
+  await writeFile(
+    preferencesPath,
+    JSON.stringify({ ...createDefaultReaderPreferences(), appearance: 'dark' }),
+  );
+
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: preferencesPath,
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const readerWindow = await electronApp.firstWindow();
+    await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
+    await expect(readerWindow.locator('html')).toHaveClass(/dark/);
+    const resolvedRoles = await readerWindow.evaluate((tokens) => {
+      const style = getComputedStyle(document.documentElement);
+      return Object.fromEntries(
+        tokens.map((token) => [token, style.getPropertyValue(token).trim()]),
+      );
+    }, Object.keys(darkShellRoles));
+
+    expect(resolvedRoles).toEqual(darkShellRoles);
+    expect(
+      contrastRatio(darkShellRoles['--text-primary'], darkShellRoles['--surface-shell']),
+    ).toBeGreaterThan(4.5);
+    expect(
+      contrastRatio(darkShellRoles['--text-secondary'], darkShellRoles['--surface-sidebar']),
+    ).toBeGreaterThan(4.5);
+    expect(
+      contrastRatio(darkShellRoles['--text-on-command'], darkShellRoles['--interactive-primary']),
+    ).toBeGreaterThan(4.5);
+    expect(
+      contrastRatio(darkShellRoles['--focus-ring'], darkShellRoles['--surface-panel']),
+    ).toBeGreaterThan(3);
   } finally {
     await electronApp.close();
     await rm(directory, { force: true, recursive: true });

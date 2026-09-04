@@ -6,6 +6,7 @@ import {
   paperPagedMediaCss,
   paperPageMarginBlockMillimeters,
   paperPageMarginInlineMillimeters,
+  paperRuntimeCss,
   splitLongTables,
 } from './paper-pagination';
 
@@ -88,5 +89,13 @@ describe('paper theme', () => {
 
     expect(document.documentElement.dataset.appearance).toBe('light');
     expect(document.documentElement.dataset.codeTheme).toBe('github-dark');
+  });
+
+  it('uses document-theme tokens for paper elevation and status styling', () => {
+    expect(paperRuntimeCss).toContain('0 2px 12px var(--document-paper-shadow)');
+    expect(paperRuntimeCss).toContain('border: 1px solid var(--document-border)');
+    expect(paperRuntimeCss).toContain('color: var(--document-muted)');
+    expect(paperRuntimeCss).toContain('0 1px 5px var(--document-overlay-shadow)');
+    expect(paperRuntimeCss).not.toMatch(/#d8dddf|#566166|rgb\(20 30 34/);
   });
 });

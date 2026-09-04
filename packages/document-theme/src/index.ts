@@ -42,20 +42,20 @@ export const createDocumentThemeCss = (preferences: DocumentThemePreferences): s
 
 export const documentThemeCss = `
 :root {
-  --document-background: #fcfdfd;
-  --document-foreground: #202826;
-  --document-heading: #18211f;
-  --document-muted: #52605c;
-  --document-border: #d8dfdd;
-  --document-border-strong: #bac9c3;
-  --document-quote-border: #4e585d;
+  --document-background: #fcfcfd;
+  --document-foreground: #25282c;
+  --document-heading: #1f2327;
+  --document-muted: #626b74;
+  --document-border: #e4e6e8;
+  --document-border-strong: #c8cdd2;
+  --document-quote-border: #5f6871;
   --document-primary: #2b67cd;
   --document-primary-hover: #1f55b5;
   --document-link: #3f4b55;
   --document-link-hover: #25292d;
   --document-selection: #d0e7fc;
   --document-selection-current: #f3d77d;
-  --document-subtle: #f8faf9;
+  --document-subtle: #f7f8f9;
   --document-raised: #ffffff;
   --document-table-heading: #f0f1f2;
   --document-inline-code: #f0f1f2;
@@ -63,6 +63,9 @@ export const documentThemeCss = `
   --document-error: #74372f;
   --document-error-border: #cbaea8;
   --document-error-background: #fbf7f6;
+  --document-paper-shadow: rgb(31 35 39 / 14%);
+  --document-paper-edge-shadow: rgb(31 35 39 / 9%);
+  --document-overlay-shadow: rgb(31 35 39 / 10%);
   --document-scrollbar-thumb-idle: color-mix(in srgb, var(--document-muted) 12%, transparent);
   --document-scrollbar-thumb-active: color-mix(in srgb, var(--document-muted) 42%, transparent);
   --document-body-font: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -70,14 +73,14 @@ export const documentThemeCss = `
   --document-line-height: 1.85;
   --document-inline-padding: clamp(16px, 2vw, 24px);
   --document-width: 100%;
-  --code-background: #f7faf8;
-  --code-toolbar: #edf2ef;
-  --code-foreground: #27312e;
-  --code-muted: #66746f;
-  --code-border: #d4ddda;
-  --code-hover: #e3ebe7;
-  --code-accent: #25684f;
-  --syntax-comment: #71807a;
+  --code-background: #f7f8fa;
+  --code-toolbar: #f0f1f3;
+  --code-foreground: #25292e;
+  --code-muted: #626b74;
+  --code-border: #dfe3e7;
+  --code-hover: #e9ecef;
+  --code-accent: #2b67cd;
+  --syntax-comment: #737c85;
   --syntax-keyword: #9a3f36;
   --syntax-string: #236348;
   --syntax-title: #315e82;
@@ -125,39 +128,42 @@ export const documentThemeCss = `
 }
 
 :root[data-appearance="dark"] {
-  --document-background: #171c1b;
-  --document-foreground: #d9e0dd;
-  --document-heading: #f1f4f3;
-  --document-muted: #aab5b1;
-  --document-border: #3a4541;
-  --document-border-strong: #596762;
-  --document-quote-border: #aeb6bc;
+  --document-background: #191b1e;
+  --document-foreground: #dfe3e6;
+  --document-heading: #f5f6f7;
+  --document-muted: #aeb5bc;
+  --document-border: #363b40;
+  --document-border-strong: #555d65;
+  --document-quote-border: #aab2ba;
   --document-primary: #8dbcf3;
   --document-primary-hover: #b7d8fa;
   --document-link: #c4cbd0;
-  --document-link-hover: #f1f4f3;
+  --document-link-hover: #f5f6f7;
   --document-selection: #294f7f;
   --document-selection-current: #776520;
-  --document-subtle: #1b2220;
-  --document-raised: #252c2a;
-  --document-table-heading: #25282c;
+  --document-subtle: #1f2226;
+  --document-raised: #262a2e;
+  --document-table-heading: #262a2e;
   --document-inline-code: #25282c;
   --document-inline-code-border: #3a3f44;
   --document-error: #f0aaa0;
   --document-error-border: #8d5149;
   --document-error-background: #2b201f;
+  --document-paper-shadow: rgb(0 0 0 / 32%);
+  --document-paper-edge-shadow: rgb(0 0 0 / 18%);
+  --document-overlay-shadow: rgb(0 0 0 / 24%);
   color-scheme: dark;
 }
 
 :root[data-code-theme="fuxian-dark"] {
-  --code-background: #181e1c;
-  --code-toolbar: #222a27;
-  --code-foreground: #d8dfdc;
-  --code-muted: #96a39e;
-  --code-border: #35413d;
-  --code-hover: #2c3632;
-  --code-accent: #a2cfba;
-  --syntax-comment: #96a39e;
+  --code-background: #191b1f;
+  --code-toolbar: #22262b;
+  --code-foreground: #dfe3e7;
+  --code-muted: #9ba3ab;
+  --code-border: #343a40;
+  --code-hover: #2b3036;
+  --code-accent: #82b7ee;
+  --syntax-comment: #9ba3ab;
   --syntax-keyword: #e58f82;
   --syntax-string: #8bc9a9;
   --syntax-title: #8eb9dc;
@@ -303,6 +309,11 @@ li {
 
 p {
   margin: 0 0 20px;
+}
+
+em {
+  font-style: italic;
+  font-synthesis: style;
 }
 
 ul,
@@ -651,7 +662,7 @@ code {
   height: clamp(160px, 25vw, 240px);
   overflow: hidden;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--document-code) 28%, var(--document-background));
+  background: color-mix(in srgb, var(--document-subtle) 72%, var(--document-background));
 }
 
 .render-task-skeleton-diagram {
@@ -833,7 +844,7 @@ code {
   border: 1px solid var(--document-border);
   border-radius: 3px;
   color: var(--document-muted);
-  background: var(--document-code);
+  background: var(--document-subtle);
   font-size: 13px;
   line-height: 1.65;
 }

@@ -208,8 +208,8 @@ body {
 @media screen {
   .paper-preview-pages .pagedjs_page {
     box-shadow:
-      0 2px 12px rgb(20 30 34 / 14%),
-      0 1px 2px rgb(20 30 34 / 9%) !important;
+      0 2px 12px var(--document-paper-shadow),
+      0 1px 2px var(--document-paper-edge-shadow) !important;
   }
 }
 
@@ -223,12 +223,12 @@ body {
   right: 14px;
   z-index: 2;
   padding: 5px 8px;
-  border: 1px solid #d8dddf;
+  border: 1px solid var(--document-border);
   border-radius: 4px;
-  color: #566166;
-  background: rgb(255 255 255 / 92%);
+  color: var(--document-muted);
+  background: color-mix(in srgb, var(--document-raised) 92%, transparent);
   font: 12px/1.4 Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  box-shadow: 0 1px 5px rgb(20 30 34 / 10%);
+  box-shadow: 0 1px 5px var(--document-overlay-shadow);
 }
 
 .paper-preview-status[hidden] {

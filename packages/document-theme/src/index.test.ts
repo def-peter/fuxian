@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { createDocumentThemeCss, documentThemeCss, getDocumentThemeVariables } from './index';
 
+const relativeLuminance = (hex: string): number => {
+  const channels = hex
+    .slice(1)
+    .match(/../g)!
+    .map((channel) => Number.parseInt(channel, 16) / 255)
+    .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
+  return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
+};
+
+const contrastRatio = (first: string, second: string): number => {
+  const [lighter, darker] = [relativeLuminance(first), relativeLuminance(second)].sort(
+    (a, b) => b - a,
+  );
+  return (lighter! + 0.05) / (darker! + 0.05);
+};
+
 const preferences = {
   appearance: 'dark' as const,
   bodyFamily: 'sans-serif' as const,
@@ -20,6 +36,10 @@ describe('document theme preferences', () => {
     expect(documentThemeCss).toContain('--document-line-height: 1.85;');
   });
 
+  it('allows browsers to synthesize a visible italic face for emphasized text', () => {
+    expect(documentThemeCss).toMatch(/em\s*\{[^}]*font-style: italic;[^}]*font-synthesis: style;/s);
+  });
+
   it('uses dedicated neutral colors for finished-document links', () => {
     expect(documentThemeCss).toContain('--document-link: #3f4b55;');
     expect(documentThemeCss).toContain('--document-link-hover: #25292d;');
@@ -32,6 +52,39 @@ describe('document theme preferences', () => {
     expect(documentThemeCss).toMatch(
       /a:focus-visible\s*\{[^}]*outline: 2px solid color-mix\(in srgb, var\(--document-link\) 55%, transparent\);/s,
     );
+  });
+
+  it('uses cool neutral structural tokens in light and dark documents', () => {
+    for (const token of [
+      '--document-background: #fcfcfd;',
+      '--document-foreground: #25282c;',
+      '--document-heading: #1f2327;',
+      '--document-muted: #626b74;',
+      '--document-border: #e4e6e8;',
+      '--document-border-strong: #c8cdd2;',
+      '--document-subtle: #f7f8f9;',
+    ]) {
+      expect(documentThemeCss).toContain(token);
+    }
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-background: #191b1e;[^}]*--document-foreground: #dfe3e6;[^}]*--document-muted: #aeb5bc;[^}]*--document-border: #363b40;[^}]*--document-subtle: #1f2226;/s,
+    );
+  });
+
+  it('keeps document and Fuxian code-theme text above WCAG contrast thresholds', () => {
+    for (const [foreground, background] of [
+      ['#25282c', '#fcfcfd'],
+      ['#626b74', '#fcfcfd'],
+      ['#3f4b55', '#fcfcfd'],
+      ['#25292e', '#f7f8fa'],
+      ['#626b74', '#f0f1f3'],
+      ['#dfe3e6', '#191b1e'],
+      ['#aeb5bc', '#191b1e'],
+      ['#dfe3e7', '#191b1f'],
+      ['#9ba3ab', '#22262b'],
+    ]) {
+      expect(contrastRatio(foreground!, background!)).toBeGreaterThan(4.5);
+    }
   });
 
   it('uses the logo blue family for document accents and selection', () => {
@@ -47,9 +100,9 @@ describe('document theme preferences', () => {
   });
 
   it('uses a dedicated graphite token for ordinary blockquotes', () => {
-    expect(documentThemeCss).toContain('--document-quote-border: #4e585d;');
+    expect(documentThemeCss).toContain('--document-quote-border: #5f6871;');
     expect(documentThemeCss).toMatch(
-      /:root\[data-appearance="dark"\][^}]*--document-quote-border: #aeb6bc;/s,
+      /:root\[data-appearance="dark"\][^}]*--document-quote-border: #aab2ba;/s,
     );
     expect(documentThemeCss).toMatch(
       /blockquote\s*\{[^}]*border-left: 3px solid var\(--document-quote-border\);/s,
@@ -62,7 +115,7 @@ describe('document theme preferences', () => {
   it('uses a neutral table heading without zebra-striped body rows', () => {
     expect(documentThemeCss).toContain('--document-table-heading: #f0f1f2;');
     expect(documentThemeCss).toMatch(
-      /:root\[data-appearance="dark"\][^}]*--document-table-heading: #25282c;/s,
+      /:root\[data-appearance="dark"\][^}]*--document-table-heading: #262a2e;/s,
     );
     expect(documentThemeCss).toMatch(/th\s*\{[^}]*background: var\(--document-table-heading\);/s);
     expect(documentThemeCss).not.toContain('tbody tr:nth-child(even)');
@@ -138,8 +191,13 @@ describe('document theme preferences', () => {
   it('keeps four curated code themes independent from document appearance', () => {
     const css = createDocumentThemeCss(preferences);
 
-    expect(css).toContain('--code-background: #f7faf8;');
+    expect(css).toContain('--code-background: #f7f8fa;');
+    expect(css).toContain('--code-toolbar: #f0f1f3;');
+    expect(css).toContain('--code-border: #dfe3e7;');
     expect(css).toContain(':root[data-code-theme="fuxian-dark"]');
+    expect(css).toMatch(
+      /:root\[data-code-theme="fuxian-dark"\][^}]*--code-background: #191b1f;[^}]*--code-toolbar: #22262b;[^}]*--code-border: #343a40;[^}]*--syntax-string: #8bc9a9;/s,
+    );
     expect(css).toContain(':root[data-code-theme="github-light"]');
     expect(css).toContain(':root[data-code-theme="github-dark"]');
     expect(css).toMatch(
@@ -151,6 +209,15 @@ describe('document theme preferences', () => {
     expect(css).toContain('color: var(--syntax-keyword);');
     expect(css).toContain('color: var(--syntax-string);');
     expect(css).not.toMatch(/data-appearance="dark"[^}]+\.hljs/s);
+  });
+
+  it('provides neutral paper elevation tokens for the pagination runtime', () => {
+    expect(documentThemeCss).toContain('--document-paper-shadow: rgb(31 35 39 / 14%);');
+    expect(documentThemeCss).toContain('--document-paper-edge-shadow: rgb(31 35 39 / 9%);');
+    expect(documentThemeCss).toContain('--document-overlay-shadow: rgb(31 35 39 / 10%);');
+    expect(documentThemeCss).toMatch(
+      /:root\[data-appearance="dark"\][^}]*--document-paper-shadow: rgb\(0 0 0 \/ 32%\);[^}]*--document-overlay-shadow: rgb\(0 0 0 \/ 24%\);/s,
+    );
   });
 
   it('animates only completed formulas and diagrams with reduced-motion support', () => {
