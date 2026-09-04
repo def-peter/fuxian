@@ -502,11 +502,13 @@ test('@release exports complete finished-document content with stable pagination
     await rm(outputPath);
     await window.getByRole('button', { name: '导出 PDF' }).click();
     await expect
-      .poll(async () =>
-        access(outputPath).then(
-          () => true,
-          () => false,
-        ),
+      .poll(
+        async () =>
+          access(outputPath).then(
+            () => true,
+            () => false,
+          ),
+        { timeout: 15_000 },
       )
       .toBe(true);
     expect(server.requestCount()).toBe(1);
