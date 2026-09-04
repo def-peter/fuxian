@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN" data-appearance="light" data-page-mode="continuous" data-variant="A">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Callout 样式对照原型</title>
+    <style>
+      /* PROTOTYPE: Three Callout directions, switchable with ?variant=A|B|C. */
+      :root {
+        --canvas: #eef1f0;
+        --paper: #fcfdfd;
+        --text: #202826;
+        --heading: #18211f;
+        --muted: #52605c;
+        --border: #d8dfdd;
+        --quote: #4e585d;
+        --surface: #f7f9f8;
+        --shadow: 0 12px 35px rgb(28 38 35 / 9%);
+        color: var(--text);
+        background: var(--canvas);
+        font-family: Inter, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        font-synthesis: none;
+      }
+
+      :root[data-appearance='dark'] {
+        --canvas: #111615;
+        --paper: #171c1b;
+        --text: #d9e0dd;
+        --heading: #f1f4f3;
+        --muted: #aab5b1;
+        --border: #3a4541;
+        --quote: #aeb6bc;
+        --surface: #1c2321;
+        --shadow: 0 14px 40px rgb(0 0 0 / 28%);
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 720px;
+        margin: 0;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .prototype-header {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        display: flex;
+        height: 48px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+        background: color-mix(in srgb, var(--paper) 92%, transparent);
+        backdrop-filter: blur(14px);
+      }
+
+      .prototype-title {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+
+      .prototype-title strong {
+        color: var(--heading);
+        font-size: 14px;
+        font-weight: 680;
+      }
+
+      .prototype-title span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .view-controls {
+        display: flex;
+        gap: 6px;
+      }
+
+      .view-controls button {
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        background: var(--paper);
+        cursor: pointer;
+      }
+
+      .view-controls button:hover {
+        color: var(--heading);
+        background: var(--surface);
+      }
+
+      .document-stage {
+        padding: 28px;
+      }
+
+      .document {
+        width: min(100%, 940px);
+        min-height: calc(100vh - 104px);
+        margin: 0 auto;
+        padding: 56px 68px 96px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+      }
+
+      :root[data-page-mode='paper'] .document {
+        width: 794px;
+        min-height: 1123px;
+        padding: 72px 76px 104px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        color: var(--heading);
+        font-size: 30px;
+        letter-spacing: 0;
+        line-height: 1.28;
+      }
+
+      .lede {
+        margin: 0 0 36px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.8;
+      }
+
+      .callout-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .callout,
+      .ordinary-quote {
+        --accent: #3d7fa0;
+        --accent-soft: #f2f8fb;
+        --accent-line: #c8dde8;
+        break-inside: avoid;
+      }
+
+      .callout[data-family='guidance'] {
+        --accent: #21856f;
+        --accent-soft: #f0faf6;
+        --accent-line: #bee4d7;
+      }
+
+      .callout[data-family='important'] {
+        --accent: #2b67cd;
+        --accent-soft: #f1f6ff;
+        --accent-line: #bfd2f3;
+      }
+
+      .callout[data-family='positive'] {
+        --accent: #2e8a55;
+        --accent-soft: #f1faf4;
+        --accent-line: #c4e4cf;
+      }
+
+      .callout[data-family='risk'] {
+        --accent: #ad7411;
+        --accent-soft: #fff9eb;
+        --accent-line: #ead5a4;
+      }
+
+      .callout[data-family='danger'] {
+        --accent: #c04c46;
+        --accent-soft: #fff3f1;
+        --accent-line: #efc7c3;
+      }
+
+      .callout[data-family='quote'] {
+        --accent: #616d78;
+        --accent-soft: #f5f7f8;
+        --accent-line: #d1d8dd;
+      }
+
+      :root[data-appearance='dark'] .callout,
+      :root[data-appearance='dark'] .ordinary-quote {
+        --accent: #78c8ef;
+        --accent-soft: #18252c;
+        --accent-line: #2d566a;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='guidance'] {
+        --accent: #61d0ac;
+        --accent-soft: #182720;
+        --accent-line: #2d6252;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='important'] {
+        --accent: #7eaeff;
+        --accent-soft: #19253a;
+        --accent-line: #345785;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='positive'] {
+        --accent: #70d68c;
+        --accent-soft: #19271d;
+        --accent-line: #356443;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='risk'] {
+        --accent: #f1c15f;
+        --accent-soft: #2c2517;
+        --accent-line: #725b2c;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='danger'] {
+        --accent: #ff958d;
+        --accent-soft: #2f1e1d;
+        --accent-line: #7a3f3c;
+      }
+
+      :root[data-appearance='dark'] .callout[data-family='quote'] {
+        --accent: #c7d0d8;
+        --accent-soft: #222629;
+        --accent-line: #515b62;
+      }
+
+      .callout-header {
+        display: flex;
+        align-items: center;
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 680;
+        line-height: 1.45;
+      }
+
+      .callout-icon {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
+      }
+
+      .phosphor-icon {
+        display: none;
+        width: 19px;
+        height: 19px;
+        flex-basis: 19px;
+        fill: currentColor;
+        stroke: none;
+      }
+
+      :root[data-variant='D'] .callout-icon:not(.phosphor-icon) {
+        display: none;
+      }
+
+      :root[data-variant='D'] .phosphor-icon {
+        display: block;
+      }
+
+      .callout-body {
+        font-size: 15px;
+        line-height: 1.78;
+      }
+
+      .callout-body p {
+        margin: 0;
+      }
+
+      .callout-body p + p,
+      .callout-body p + ul,
+      .callout-body ul + p {
+        margin-top: 10px;
+      }
+
+      .callout-body ul {
+        margin-bottom: 0;
+        padding-left: 22px;
+      }
+
+      .callout-body code {
+        padding: 1px 4px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: var(--surface);
+        font-size: 0.9em;
+      }
+
+      .callout-body a {
+        color: inherit;
+        text-decoration-color: color-mix(in srgb, currentColor 48%, transparent);
+        text-underline-offset: 3px;
+      }
+
+      .ordinary-quote {
+        margin: 26px 0 0;
+        padding: 2px 0 2px 22px;
+        border-left: 3px solid var(--quote);
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.78;
+      }
+
+      /* A: a quiet reading marker with no surrounding panel. */
+      :root[data-variant='A'] .callout {
+        padding: 4px 0 4px 18px;
+        border-left: 2px solid var(--accent);
+      }
+
+      :root[data-variant='A'] .callout-header {
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      :root[data-variant='A'] .callout-body {
+        color: var(--text);
+      }
+
+      /* B: one soft panel and one hairline; no competing accent rail. */
+      :root[data-variant='B'] .callout,
+      :root[data-variant='D'] .callout {
+        padding: 14px 16px 15px;
+        border: 1px solid color-mix(in srgb, var(--accent-line) 78%, var(--border));
+        border-radius: 5px;
+        background: color-mix(in srgb, var(--accent-soft) 84%, var(--paper));
+      }
+
+      :root[data-variant='B'] .callout-header,
+      :root[data-variant='D'] .callout-header {
+        gap: 9px;
+        margin-bottom: 7px;
+      }
+
+      :root[data-variant='B'] .callout-body,
+      :root[data-variant='D'] .callout-body {
+        color: var(--text);
+      }
+
+      /* C: icon-led editorial hierarchy with a short rule, no enclosing card. */
+      :root[data-variant='C'] .callout {
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr);
+        column-gap: 10px;
+        row-gap: 6px;
+        padding: 5px 0 8px;
+      }
+
+      :root[data-variant='C'] .callout-header {
+        display: contents;
+      }
+
+      :root[data-variant='C'] .callout-icon {
+        grid-column: 1;
+        margin-top: 2px;
+      }
+
+      :root[data-variant='C'] .callout-title {
+        grid-column: 2;
+        padding-bottom: 6px;
+        border-bottom: 1px solid color-mix(in srgb, var(--accent-line) 68%, transparent);
+      }
+
+      :root[data-variant='C'] .callout-body {
+        grid-column: 2;
+        color: var(--text);
+      }
+
+      .prototype-switcher {
+        position: fixed;
+        z-index: 20;
+        bottom: 18px;
+        left: 50%;
+        display: grid;
+        grid-template-columns: 34px minmax(190px, auto) 34px;
+        align-items: center;
+        padding: 5px;
+        border: 1px solid rgb(255 255 255 / 16%);
+        border-radius: 7px;
+        color: #f4f7f6;
+        background: #202725;
+        box-shadow: 0 10px 28px rgb(0 0 0 / 28%);
+      }
+
+      .prototype-switcher button {
+        display: grid;
+        width: 34px;
+        height: 30px;
+        place-items: center;
+        border: 0;
+        border-radius: 4px;
+        color: inherit;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .prototype-switcher button:hover {
+        background: rgb(255 255 255 / 10%);
+      }
+
+      .variant-label {
+        padding: 0 12px;
+        text-align: center;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      @media print {
+        .prototype-header,
+        .prototype-switcher {
+          display: none;
+        }
+
+        .document-stage {
+          padding: 0;
+        }
+
+        .document {
+          width: 100%;
+          padding: 0;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="prototype-header">
+      <div class="prototype-title">
+        <strong>Callout 视觉对照</strong>
+        <span>临时原型 · 同内容比较</span>
+      </div>
+      <div class="view-controls">
+        <button id="toggle-theme" type="button">切换深色</button>
+        <button id="toggle-page" type="button">切换 A4</button>
+      </div>
+    </header>
+
+    <main class="document-stage">
+      <article class="document">
+        <h1>发布准备说明</h1>
+        <p class="lede">以下七类 Callout 使用同一套语义色；B 与 D 可直接比较线性图标和双色图标。</p>
+
+        <section class="callout-grid">
+          <aside class="callout" data-family="neutral">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4M12 8h.01"></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path d="M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z" opacity="0.2"></path>
+                <path
+                  d="M144,176a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176Zm88-48A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128ZM124,96a12,12,0,1,0-12-12A12,12,0,0,0,124,96Z"
+                ></path>
+              </svg>
+              <span class="callout-title">补充说明</span>
+            </div>
+            <div class="callout-body">
+              <p>阅读应聚焦成品，背景信息只需要在恰当的位置被看见。</p>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="guidance">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M9 18h6M10 22h4M8.5 14.5A7 7 0 1 1 15.5 14.5c-.9.7-1.5 1.5-1.5 2.5h-4c0-1-.6-1.8-1.5-2.5Z"
+                ></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M208,104a79.86,79.86,0,0,1-30.59,62.92A24.29,24.29,0,0,0,168,186v6a8,8,0,0,1-8,8H96a8,8,0,0,1-8-8v-6a24.11,24.11,0,0,0-9.3-19A79.87,79.87,0,0,1,48,104.45C47.76,61.09,82.72,25,126.07,24A80,80,0,0,1,208,104Z"
+                  opacity="0.2"
+                ></path>
+                <path
+                  d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"
+                ></path>
+              </svg>
+              <span class="callout-title">更高效的做法</span>
+            </div>
+            <div class="callout-body">
+              <p>保持源码清晰，让图表、公式和正文能够一起稳定交付。</p>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="important">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m12 3-1.8 4.4L6 9.2l4.2 1.8L12 15.4l1.8-4.4L18 9.2l-4.2-1.8L12 3Z"></path>
+                <path
+                  d="m5 16-.9 2.1L2 19l2.1.9L5 22l.9-2.1L8 19l-2.1-.9L5 16ZM19 14l-1.2 2.8L15 18l2.8 1.2L19 22l1.2-2.8L23 18l-2.8-1.2L19 14Z"
+                ></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M194.82,151.43l-55.09,20.3-20.3,55.09a7.92,7.92,0,0,1-14.86,0l-20.3-55.09-55.09-20.3a7.92,7.92,0,0,1,0-14.86l55.09-20.3,20.3-55.09a7.92,7.92,0,0,1,14.86,0l20.3,55.09,55.09,20.3A7.92,7.92,0,0,1,194.82,151.43Z"
+                  opacity="0.2"
+                ></path>
+                <path
+                  d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z"
+                ></path>
+              </svg>
+              <span class="callout-title">关键约束</span>
+            </div>
+            <div class="callout-body">
+              <p>导出前必须等待所有异步图表进入 <code>export-ready</code> 状态。</p>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="positive">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="m8 12 2.7 2.7L16 9.5"></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path d="M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z" opacity="0.2"></path>
+                <path
+                  d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"
+                ></path>
+              </svg>
+              <span class="callout-title">检查通过</span>
+            </div>
+            <div class="callout-body">
+              <p>文档已经完成解析、渲染和 PDF 输出校验。</p>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="risk">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+                ></path>
+                <path d="M12 9v4M12 17h.01"></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22c6.3-11,22.52-11,28.82,0l87.46,151.87C236,202.79,228.08,216,215.46,216Z"
+                  opacity="0.2"
+                ></path>
+                <path
+                  d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"
+                ></path>
+              </svg>
+              <span class="callout-title">发布前检查</span>
+            </div>
+            <div class="callout-body">
+              <p><strong>请确认以下事项：</strong></p>
+              <ul>
+                <li>已完成源文档备份</li>
+                <li>已验证图表与本地图片</li>
+                <li>已检查最终 PDF 分页</li>
+              </ul>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="danger">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2 2 12l10 10 10-10L12 2Z"></path>
+                <path d="M12 8v5M12 17h.01"></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M229.67,133.62l-96,96a7.94,7.94,0,0,1-11.24,0l-96-96a7.94,7.94,0,0,1,0-11.24l96.05-96a7.94,7.94,0,0,1,11.24,0l96,96.05A7.94,7.94,0,0,1,229.67,133.62Z"
+                  opacity="0.2"
+                ></path>
+                <path
+                  d="M128,72a8,8,0,0,1,8,8v56a8,8,0,0,1-16,0V80A8,8,0,0,1,128,72ZM116,172a12,12,0,1,0,12-12A12,12,0,0,0,116,172Zm124-44a15.85,15.85,0,0,1-4.67,11.28l-96.05,96.06a16,16,0,0,1-22.56,0h0l-96-96.06a16,16,0,0,1,0-22.56l96.05-96.06a16,16,0,0,1,22.56,0l96.05,96.06A15.85,15.85,0,0,1,240,128Zm-16,0L128,32,32,128,128,224h0Z"
+                ></path>
+              </svg>
+              <span class="callout-title">资源已阻止</span>
+            </div>
+            <div class="callout-body">
+              <p>不可信脚本与未经授权的本地资源不会进入成品文档。</p>
+            </div>
+          </aside>
+
+          <aside class="callout" data-family="quote">
+            <div class="callout-header">
+              <svg class="callout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 21c3 0 7-1 7-8V5c0-1.25-.75-2-2-2H4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2h2c0 4-3 4-3 4v4ZM15 21c3 0 7-1 7-8V5c0-1.25-.75-2-2-2h-4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2h2c0 4-3 4-3 4v4Z"
+                ></path>
+              </svg>
+              <svg class="callout-icon phosphor-icon" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M108,72v72H40a8,8,0,0,1-8-8V72a8,8,0,0,1,8-8h60A8,8,0,0,1,108,72Zm108-8H156a8,8,0,0,0-8,8v64a8,8,0,0,0,8,8h68V72A8,8,0,0,0,216,64Z"
+                  opacity="0.2"
+                ></path>
+                <path
+                  d="M100,56H40A16,16,0,0,0,24,72v64a16,16,0,0,0,16,16h60v8a32,32,0,0,1-32,32,8,8,0,0,0,0,16,48.05,48.05,0,0,0,48-48V72A16,16,0,0,0,100,56Zm0,80H40V72h60ZM216,56H156a16,16,0,0,0-16,16v64a16,16,0,0,0,16,16h60v8a32,32,0,0,1-32,32,8,8,0,0,0,0,16,48.05,48.05,0,0,0,48-48V72A16,16,0,0,0,216,56Zm0,80H156V72h60Z"
+                ></path>
+              </svg>
+              <span class="callout-title">引用</span>
+            </div>
+            <div class="callout-body">
+              <p>好的阅读器应该让工具退到内容之后。</p>
+            </div>
+          </aside>
+        </section>
+
+        <blockquote class="ordinary-quote">
+          普通引用不带类型标题和图标，保持独立的引用语义。
+        </blockquote>
+      </article>
+    </main>
+
+    <nav class="prototype-switcher" aria-label="原型方案切换">
+      <button id="previous" type="button" aria-label="上一个方案">&#8592;</button>
+      <div class="variant-label" aria-live="polite"></div>
+      <button id="next" type="button" aria-label="下一个方案">&#8594;</button>
+    </nav>
+
+    <script>
+      const variants = [
+        { key: 'A', name: '极简左侧线' },
+        { key: 'B', name: '轻量面板' },
+        { key: 'C', name: '图标标题型' },
+        { key: 'D', name: '轻量面板 · 双色图标' },
+      ];
+      const params = new URLSearchParams(window.location.search);
+      let index = Math.max(
+        0,
+        variants.findIndex(({ key }) => key === (params.get('variant') ?? 'A').toUpperCase()),
+      );
+
+      const renderVariant = () => {
+        const variant = variants[index];
+        document.documentElement.dataset.variant = variant.key;
+        document.querySelector('.variant-label').textContent = `${variant.key} · ${variant.name}`;
+        params.set('variant', variant.key);
+        history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+      };
+
+      const move = (step) => {
+        index = (index + step + variants.length) % variants.length;
+        renderVariant();
+      };
+
+      document.querySelector('#previous').addEventListener('click', () => move(-1));
+      document.querySelector('#next').addEventListener('click', () => move(1));
+      document.querySelector('#toggle-theme').addEventListener('click', (event) => {
+        const dark = document.documentElement.dataset.appearance === 'dark';
+        document.documentElement.dataset.appearance = dark ? 'light' : 'dark';
+        event.currentTarget.textContent = dark ? '切换深色' : '切换浅色';
+      });
+      document.querySelector('#toggle-page').addEventListener('click', (event) => {
+        const paper = document.documentElement.dataset.pageMode === 'paper';
+        document.documentElement.dataset.pageMode = paper ? 'continuous' : 'paper';
+        event.currentTarget.textContent = paper ? '切换 A4' : '切换无界';
+      });
+      document.addEventListener('keydown', (event) => {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+        if (event.key === 'ArrowLeft') move(-1);
+        if (event.key === 'ArrowRight') move(1);
+      });
+      renderVariant();
+    </script>
+  </body>
+</html>
