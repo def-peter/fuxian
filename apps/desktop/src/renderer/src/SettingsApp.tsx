@@ -333,6 +333,10 @@ export function SettingsApp(): React.JSX.Element {
     void window.fuxian.openAppUpdateRelease();
   };
 
+  const openProjectHomepage = (): void => {
+    void window.fuxian.openProjectHomepage();
+  };
+
   const refreshMarkdownDefaultAppStatus = (): void => {
     setDefaultAppLoading(true);
     void window.fuxian
@@ -510,6 +514,10 @@ export function SettingsApp(): React.JSX.Element {
                   </p>
                 </div>
               </div>
+              <Button className="mt-4" onClick={openProjectHomepage} size="sm" variant="outline">
+                <ExternalLink data-icon="inline-start" />
+                {t('项目主页')}
+              </Button>
 
               <Separator className="my-5" />
               <div aria-live="polite" className="flex flex-col gap-4">

@@ -50,16 +50,26 @@ test('the packaged application is isolated, forwards open requests, and restores
     await expect
       .poll(() =>
         electronApp?.evaluate(({ BrowserWindow, app }) => {
-          const preferences = BrowserWindow.getAllWindows()[0]?.webContents.getLastWebPreferences();
+          const browserWindow = BrowserWindow.getAllWindows()[0];
+          const preferences = browserWindow?.webContents.getLastWebPreferences();
           return {
+            autoHideMenuBar: browserWindow?.isMenuBarAutoHide(),
             contextIsolation: preferences?.contextIsolation,
             isPackaged: app.isPackaged,
+            menuBarVisible: browserWindow?.isMenuBarVisible(),
             nodeIntegration: preferences?.nodeIntegration,
             sandbox: preferences?.sandbox,
           };
         }),
       )
-      .toEqual({ contextIsolation: true, isPackaged: true, nodeIntegration: false, sandbox: true });
+      .toEqual({
+        autoHideMenuBar: false,
+        contextIsolation: true,
+        isPackaged: true,
+        menuBarVisible: process.platform !== 'win32',
+        nodeIntegration: false,
+        sandbox: true,
+      });
     await expect(window.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute(
       'content',
       /script-src 'self';.*connect-src 'self';/,

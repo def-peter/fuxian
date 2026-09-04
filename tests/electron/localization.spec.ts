@@ -135,6 +135,13 @@ test('manual language selection applies live, persists, and never translates doc
         app.evaluate(() => Reflect.get(globalThis, '__fuxianOpenedExternalUrls') as unknown),
       )
       .toEqual([]);
+    await settings.getByRole('button', { name: 'About & Updates', exact: true }).click();
+    await settings.getByRole('button', { name: 'Project Homepage', exact: true }).click();
+    await expect
+      .poll(() =>
+        app.evaluate(() => Reflect.get(globalThis, '__fuxianOpenedExternalUrls') as unknown),
+      )
+      .toEqual(['https://github.com/def-peter/fuxian']);
     await expect
       .poll(async () => JSON.parse(await readFile(join(directory, 'preferences.json'), 'utf8')))
       .toMatchObject({ language: 'en-US' });

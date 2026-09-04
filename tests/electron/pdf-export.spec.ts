@@ -385,6 +385,19 @@ test('@release exports complete finished-document content with stable pagination
     const visibleVegaLiteSnapshot = await visibleVegaLite.evaluate((svg) => svg.outerHTML);
     await window.getByRole('button', { name: '导出 PDF' }).click();
     const exportWindow = await findExportWindow(electronApp);
+    const exportWindowMenu = await electronApp.evaluate(({ BrowserWindow }) => {
+      const browserWindow = BrowserWindow.getAllWindows().find((candidate) =>
+        candidate.webContents.getURL().includes('view=pdf-export'),
+      );
+      return {
+        autoHide: browserWindow?.isMenuBarAutoHide(),
+        visible: browserWindow?.isMenuBarVisible(),
+      };
+    });
+    expect(exportWindowMenu).toEqual({
+      autoHide: false,
+      visible: process.platform !== 'win32',
+    });
     const exportSnapshot = await exportWindow.evaluate(
       (timeoutMilliseconds) =>
         new Promise<{

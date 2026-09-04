@@ -80,6 +80,7 @@ import {
   type MarkdownDefaultAppService,
 } from './markdown-default-app';
 import { productName, translate, type MessageKey, type MessageValues } from '../localization';
+import { configureWindowMenu } from './window-menu-policy';
 
 const { autoUpdater } = electronUpdater;
 
@@ -958,6 +959,9 @@ const registerDesktopHandlers = (
     },
   );
   ipcMain.handle(desktopIpcChannels.loadReaderPreferences, () => preferencesPersistence.load());
+  ipcMain.handle(desktopIpcChannels.openProjectHomepage, () =>
+    openExternalUrl('https://github.com/def-peter/fuxian'),
+  );
   ipcMain.handle(desktopIpcChannels.openSettings, (_event, value: unknown) => {
     createSettingsWindow(isSettingsSectionId(value) ? value : undefined);
   });
@@ -1156,8 +1160,8 @@ const openExternalUrl = async (url: string): Promise<void> => {
   }
 };
 
-const createPdfExportWindow = (): BrowserWindow =>
-  new BrowserWindow({
+const createPdfExportWindow = (): BrowserWindow => {
+  const window = new BrowserWindow({
     height: 1123,
     show: false,
     width: 794,
@@ -1169,6 +1173,9 @@ const createPdfExportWindow = (): BrowserWindow =>
       sandbox: true,
     },
   });
+  configureWindowMenu(window, process.platform);
+  return window;
+};
 
 const loadPdfExportWindow = (window: BrowserWindow, exportId: string): void => {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
@@ -1200,6 +1207,7 @@ const createWindow = (): BrowserWindow => {
       sandbox: true,
     },
   });
+  configureWindowMenu(window, process.platform);
   configureE2EWindow(window);
 
   window.on('page-title-updated', (event) => {
@@ -1305,6 +1313,7 @@ const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
       sandbox: true,
     },
   });
+  configureWindowMenu(window, process.platform);
   configureE2EWindow(window);
   settingsWindow = window;
   window.once('ready-to-show', () => revealInteractiveWindow(window));
@@ -1384,7 +1393,11 @@ const createApplicationMenu = (): Menu => {
         ...(!app.isPackaged
           ? [
               { type: 'separator' as const },
-              { label: mainText('切换开发者工具'), role: 'toggleDevTools' as const },
+              {
+                accelerator: 'CmdOrCtrl+Shift+I',
+                label: mainText('切换开发者工具'),
+                role: 'toggleDevTools' as const,
+              },
             ]
           : []),
         { type: 'separator' },
@@ -1465,7 +1478,12 @@ const applyApplicationLocale = (preferences: ReaderPreferences): void => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.setTitle(mainText('浮现设置'));
   }
-  if (applicationMenuReady) Menu.setApplicationMenu(createApplicationMenu());
+  if (applicationMenuReady) {
+    Menu.setApplicationMenu(createApplicationMenu());
+    for (const browserWindow of BrowserWindow.getAllWindows()) {
+      configureWindowMenu(browserWindow, process.platform);
+    }
+  }
 };
 
 app.setName('Fuxian');

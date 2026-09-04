@@ -177,6 +177,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
   },
   openAppUpdateRelease: async (): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateOpenRelease),
+  openProjectHomepage: async (): Promise<void> =>
+    ipcRenderer.invoke(desktopIpcChannels.openProjectHomepage),
   openSettings: async (section?: SettingsSectionId): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.openSettings, section),
   openMarkdownDefaultAppSettings: async (): Promise<OpenMarkdownDefaultAppSettingsResult> =>

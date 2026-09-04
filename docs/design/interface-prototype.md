@@ -109,7 +109,7 @@ Right side:
 2. Find in document, enter editing, and export PDF, in that order.
 3. Content outline and lower-frequency commands.
 
-The operating system owns window controls and the application menu. The content layout should remain consistent across macOS and Windows.
+The operating system owns window controls and the application menu. macOS keeps its system menu visible; Windows permanently hides the native menu bar to preserve vertical space. The menu remains installed internally so accelerators and native editing roles continue to work, while settings, updates, and the project homepage remain available in the application shell. The content layout should remain consistent across platforms.
 
 ## Confirmed Prototype Decisions
 

@@ -10,7 +10,7 @@ const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 
-test('E2E windows render without appearing or taking system focus by default', async () => {
+test('E2E windows preserve platform chrome without appearing or taking focus', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-window-mode-'));
   const sourcePath = join(directory, 'hidden-window.md');
   await writeFile(sourcePath, '# Hidden E2E window\n\nRendered in the background.');
@@ -30,28 +30,43 @@ test('E2E windows render without appearing or taking system focus by default', a
     const page = await electronApp.firstWindow();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: '打开 Markdown' }).click();
+    await expect(
+      page
+        .frameLocator('iframe[data-finished-document="active"]')
+        .getByRole('heading', { name: 'Hidden E2E window' }),
+    ).toBeVisible();
     await page.getByRole('button', { name: '设置' }).click();
     await expect.poll(() => electronApp.windows().length).toBe(2);
-    const state = await electronApp.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().map((window) => ({
+    const state = await electronApp.evaluate(({ BrowserWindow, Menu }) => ({
+      openAccelerator: Menu.getApplicationMenu()
+        ?.items.flatMap((item) => item.submenu?.items ?? [])
+        .find((item) => item.accelerator === 'CmdOrCtrl+O')?.accelerator,
+      windows: BrowserWindow.getAllWindows().map((window) => ({
         backgroundThrottling: window.webContents.getBackgroundThrottling(),
         focused: window.isFocused(),
+        menuBarAutoHide: window.isMenuBarAutoHide(),
+        menuBarVisible: window.isMenuBarVisible(),
         settings: window.webContents.getURL().includes('view=settings'),
         visible: window.isVisible(),
       })),
-    );
+    }));
 
-    expect(state).toEqual(
+    expect(state.openAccelerator).toBe('CmdOrCtrl+O');
+    expect(state.windows).toEqual(
       expect.arrayContaining([
         {
           backgroundThrottling: false,
           focused: false,
+          menuBarAutoHide: false,
+          menuBarVisible: process.platform !== 'win32',
           settings: false,
           visible: false,
         },
         {
           backgroundThrottling: false,
           focused: false,
+          menuBarAutoHide: false,
+          menuBarVisible: process.platform !== 'win32',
           settings: true,
           visible: false,
         },

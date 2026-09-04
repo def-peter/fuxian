@@ -22,6 +22,7 @@ export const desktopIpcChannels = {
   loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
+  openProjectHomepage: 'fuxian:project-homepage:open',
   openSettings: 'fuxian:settings:open',
   openMarkdownDefaultAppSettings: 'fuxian:default-app:open-settings',
   openSourceDocuments: 'fuxian:source-documents:open',
@@ -548,6 +549,7 @@ export interface FuxianDesktopBridge {
   onSettingsSectionRequested(listener: (section: SettingsSectionId) => void): () => void;
   openDroppedSourceDocuments(files: File[]): Promise<OpenSourceDocumentsResult>;
   openAppUpdateRelease(): Promise<AppUpdateStatus>;
+  openProjectHomepage(): Promise<void>;
   openSettings(section?: SettingsSectionId): Promise<void>;
   openMarkdownDefaultAppSettings(): Promise<OpenMarkdownDefaultAppSettingsResult>;
   openSourceDocuments(): Promise<OpenSourceDocumentsResult>;
