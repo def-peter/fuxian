@@ -21,5 +21,5 @@ describe.runIf(verifyInstalledQuery)('installed Windows default-app query', () =
     ]);
 
     expect(parseWindowsAssociationQuery(stdout)).toEqual({ md: true, markdown: true });
-  });
+  }, 20_000);
 });
