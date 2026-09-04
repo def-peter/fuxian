@@ -76,7 +76,9 @@ test('the packaged application is isolated, forwards open requests, and restores
     );
 
     await waitForSecondaryInstance(executable, [userDataArgument, secondPath, firstPath]);
-    const session = window.getByRole('complementary', { name: '文档会话' });
+    const session = window.getByRole('complementary', {
+      name: /^(Document session|文档会话)$/u,
+    });
     await expect(session.getByRole('button', { exact: true, name: 'first.md' })).toHaveCount(1);
     await expect(session.getByRole('button', { exact: true, name: 'second.markdown' })).toHaveCount(
       1,
@@ -90,10 +92,12 @@ test('the packaged application is isolated, forwards open requests, and restores
     electronApp = await electron.launch({ executablePath: executable, args: [userDataArgument] });
     window = await electronApp.firstWindow();
     await expect(
-      window.getByRole('complementary', { name: '文档会话' }).getByRole('button', {
-        exact: true,
-        name: 'second.markdown',
-      }),
+      window
+        .getByRole('complementary', { name: /^(Document session|文档会话)$/u })
+        .getByRole('button', {
+          exact: true,
+          name: 'second.markdown',
+        }),
     ).toHaveAttribute('aria-current', 'page');
   } finally {
     await electronApp?.close().catch(() => undefined);
