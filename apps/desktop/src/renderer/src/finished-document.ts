@@ -396,7 +396,8 @@ export function bindFinishedDocument(
     '.callout-header[data-callout-default-title]',
   )) {
     const key = calloutTitleKeys[header.dataset.calloutDefaultTitle ?? ''];
-    if (key) header.textContent = t(key);
+    const title = header.querySelector<HTMLElement>('.callout-title');
+    if (key && title) title.textContent = t(key);
   }
   for (const error of frameDocument.querySelectorAll<HTMLElement>('.resource-error')) {
     const title = error.querySelector<HTMLElement>('.resource-error-title');

@@ -34,6 +34,7 @@ test('renders restrained callout families in continuous and paper modes', async 
 
     await expect(callouts).toHaveCount(8);
     await expect(finishedDocument.getByRole('note')).toHaveCount(8);
+    await expect(finishedDocument.locator('svg.callout-icon')).toHaveCount(8);
     await expect(finishedDocument.locator('blockquote:not(.callout)')).toHaveCount(1);
     await expect(
       finishedDocument.locator('[data-callout-type="warning"] .callout-header'),
@@ -46,17 +47,25 @@ test('renders restrained callout families in continuous and paper modes', async 
       elements.map((element) => {
         const calloutStyle = getComputedStyle(element);
         const header = element.querySelector('.callout-header');
-        const iconStyle = header ? getComputedStyle(header, '::before') : undefined;
+        const icon = header?.querySelector<SVGElement>('svg.callout-icon');
+        const iconBounds = icon?.getBoundingClientRect();
         return {
           background: calloutStyle.backgroundColor,
-          borderLeftWidth: calloutStyle.borderLeftWidth,
-          iconContent: iconStyle?.content,
+          borderWidth: calloutStyle.borderWidth,
+          iconHeight: iconBounds?.height,
+          iconShapeCount: icon?.querySelectorAll('circle, path').length,
+          iconStroke: icon ? getComputedStyle(icon).stroke : undefined,
+          iconWidth: iconBounds?.width,
         };
       }),
     );
-    expect(styles.every(({ borderLeftWidth }) => borderLeftWidth === '3px')).toBe(true);
+    expect(styles.every(({ borderWidth }) => borderWidth === '1px')).toBe(true);
     expect(styles.every(({ background }) => background !== 'rgba(0, 0, 0, 0)')).toBe(true);
-    expect(styles.every(({ iconContent }) => iconContent && iconContent !== 'none')).toBe(true);
+    expect(styles.every(({ iconHeight, iconWidth }) => iconHeight === 17 && iconWidth === 17)).toBe(
+      true,
+    );
+    expect(styles.every(({ iconShapeCount }) => iconShapeCount && iconShapeCount > 0)).toBe(true);
+    expect(styles.every(({ iconStroke }) => iconStroke && iconStroke !== 'none')).toBe(true);
     expect(new Set(styles.map(({ background }) => background)).size).toBeGreaterThanOrEqual(6);
 
     await window.getByRole('radio', { name: '纸张预览' }).click();

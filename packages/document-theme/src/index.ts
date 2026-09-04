@@ -348,102 +348,94 @@ blockquote > :last-child {
 }
 
 blockquote.callout {
-  --callout-accent: #496674;
-  --callout-border: #c8d5da;
-  --callout-background: #f5f8f9;
-  --callout-symbol: "i";
+  --callout-accent: #3d7fa0;
+  --callout-border: #c8dde8;
+  --callout-background: #f2f8fb;
   margin: 28px 0;
-  padding: 14px 18px 16px 16px;
-  border: 1px solid var(--callout-border);
-  border-left: 3px solid var(--callout-accent);
-  border-radius: 4px;
+  padding: 14px 16px 15px;
+  border: 1px solid color-mix(in srgb, var(--callout-border) 78%, var(--document-border));
+  border-radius: 5px;
   color: var(--document-foreground);
-  background: var(--callout-background);
+  background: color-mix(in srgb, var(--callout-background) 84%, var(--document-background));
   box-decoration-break: clone;
 }
 
 .callout[data-callout-family="guidance"] {
-  --callout-accent: #326b61;
-  --callout-border: #bfd4ce;
-  --callout-background: #f3f8f6;
-  --callout-symbol: "↗";
+  --callout-accent: #21856f;
+  --callout-border: #bee4d7;
+  --callout-background: #f0faf6;
 }
 
 .callout[data-callout-family="important"] {
-  --callout-accent: #3f5f86;
-  --callout-border: #c2cfdd;
-  --callout-background: #f4f7fa;
-  --callout-symbol: "!";
+  --callout-accent: #2b67cd;
+  --callout-border: #bfd2f3;
+  --callout-background: #f1f6ff;
 }
 
 .callout[data-callout-family="positive"] {
-  --callout-accent: #35664c;
-  --callout-border: #c2d4c8;
-  --callout-background: #f4f8f5;
-  --callout-symbol: "✓";
+  --callout-accent: #2e8a55;
+  --callout-border: #c4e4cf;
+  --callout-background: #f1faf4;
 }
 
 .callout[data-callout-family="risk"] {
-  --callout-accent: #8a5b18;
-  --callout-border: #dcccae;
-  --callout-background: #fbf8f1;
-  --callout-symbol: "!";
+  --callout-accent: #ad7411;
+  --callout-border: #ead5a4;
+  --callout-background: #fff9eb;
 }
 
 .callout[data-callout-family="danger"] {
-  --callout-accent: #8a453e;
-  --callout-border: #ddc1bd;
-  --callout-background: #fbf5f4;
-  --callout-symbol: "×";
+  --callout-accent: #c04c46;
+  --callout-border: #efc7c3;
+  --callout-background: #fff3f1;
 }
 
 .callout[data-callout-family="quote"] {
-  --callout-accent: #67645e;
-  --callout-border: #d0cdc6;
-  --callout-background: #f8f7f5;
-  --callout-symbol: "“";
+  --callout-accent: #616d78;
+  --callout-border: #d1d8dd;
+  --callout-background: #f5f7f8;
 }
 
 :root[data-appearance="dark"] .callout {
-  --callout-accent: #94b4c2;
-  --callout-border: #42545b;
-  --callout-background: #1b2326;
+  --callout-accent: #78c8ef;
+  --callout-border: #2d566a;
+  --callout-background: #18252c;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="guidance"] {
-  --callout-accent: #8cc1b4;
-  --callout-border: #3e5b54;
-  --callout-background: #1a2421;
+  --callout-accent: #61d0ac;
+  --callout-border: #2d6252;
+  --callout-background: #182720;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="important"] {
-  --callout-accent: #9eb8d7;
-  --callout-border: #43566c;
-  --callout-background: #1c222a;
+  --callout-accent: #7eaeff;
+  --callout-border: #345785;
+  --callout-background: #19253a;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="positive"] {
-  --callout-accent: #8fc4a3;
-  --callout-border: #405d4c;
-  --callout-background: #1a241e;
+  --callout-accent: #70d68c;
+  --callout-border: #356443;
+  --callout-background: #19271d;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="risk"] {
-  --callout-accent: #d5b06d;
-  --callout-border: #655536;
-  --callout-background: #282318;
+  --callout-accent: #f1c15f;
+  --callout-border: #725b2c;
+  --callout-background: #2c2517;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="danger"] {
-  --callout-accent: #e0a09a;
-  --callout-border: #694742;
-  --callout-background: #291e1d;
+  --callout-accent: #ff958d;
+  --callout-border: #7a3f3c;
+  --callout-background: #2f1e1d;
 }
 
 :root[data-appearance="dark"] .callout[data-callout-family="quote"] {
-  --callout-accent: #bcb7ad;
-  --callout-border: #55514a;
-  --callout-background: #22211e;
+  --callout-accent: #c7d0d8;
+  --callout-border: #515b62;
+  --callout-background: #222629;
 }
 
 .callout-header {
@@ -451,7 +443,7 @@ blockquote.callout {
   gap: 9px;
   align-items: center;
   min-height: 20px;
-  margin: 0 0 8px;
+  margin: 0 0 7px;
   color: var(--callout-accent);
   font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-size: calc(var(--document-body-size) * 0.94);
@@ -459,27 +451,19 @@ blockquote.callout {
   line-height: 1.45;
 }
 
-.callout-header::before {
-  display: grid;
+.callout-icon {
   width: 17px;
   height: 17px;
   flex: 0 0 17px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, currentColor 58%, transparent);
-  border-radius: 50%;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-  content: var(--callout-symbol);
-  font-size: 11px;
-  font-weight: 760;
-  line-height: 1;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
-.callout[data-callout-family="quote"] .callout-header::before {
-  border-color: transparent;
-  background: transparent;
-  font-family: Georgia, serif;
-  font-size: 20px;
-  line-height: 0.8;
+.callout-title {
+  min-width: 0;
 }
 
 .callout > p,
@@ -1045,6 +1029,10 @@ code {
     color: CanvasText;
     background: Canvas;
     forced-color-adjust: auto;
+  }
+
+  .callout-icon {
+    color: CanvasText;
   }
 
   .diagram-action-button:disabled {

@@ -55,7 +55,7 @@ describe('document theme preferences', () => {
       /blockquote\s*\{[^}]*border-left: 3px solid var\(--document-quote-border\);/s,
     );
     expect(documentThemeCss).toMatch(
-      /blockquote\.callout\s*\{[^}]*border-left: 3px solid var\(--callout-accent\);/s,
+      /blockquote\.callout\s*\{[^}]*border: 1px solid color-mix\(in srgb, var\(--callout-border\) 78%, var\(--document-border\)\);/s,
     );
   });
 
@@ -199,17 +199,19 @@ describe('document theme preferences', () => {
     const css = createDocumentThemeCss(preferences);
 
     expect(css).toMatch(
-      /blockquote\.callout\s*\{[^}]*border-left: 3px solid var\(--callout-accent\);[^}]*background: var\(--callout-background\);/s,
+      /blockquote\.callout\s*\{[^}]*border: 1px solid color-mix[^}]*background: color-mix\(in srgb, var\(--callout-background\) 84%, var\(--document-background\)\);/s,
     );
     expect(css).toMatch(
-      /\.callout-header::before\s*\{[^}]*content: var\(--callout-symbol\);[^}]*font-size: 11px;/s,
+      /\.callout-icon\s*\{[^}]*width: 17px;[^}]*height: 17px;[^}]*stroke: currentColor;[^}]*stroke-width: 2;/s,
     );
+    expect(css).not.toContain('.callout-header::before');
+    expect(css).not.toContain('--callout-symbol');
     for (const family of ['danger', 'guidance', 'important', 'positive', 'quote', 'risk']) {
       expect(css).toContain(`.callout[data-callout-family="${family}"]`);
     }
     expect(css).toContain(':root[data-appearance="dark"] .callout');
     expect(css).toMatch(
-      /@media \(forced-colors: active\)[\s\S]*blockquote\.callout\s*\{[^}]*border-color: CanvasText;[^}]*background: Canvas;/,
+      /@media \(forced-colors: active\)[\s\S]*blockquote\.callout\s*\{[^}]*border-color: CanvasText;[^}]*background: Canvas;[\s\S]*\.callout-icon\s*\{[^}]*color: CanvasText;/,
     );
     expect(css).toMatch(
       /@media print[\s\S]*blockquote\.callout\s*\{[^}]*print-color-adjust: exact;/,

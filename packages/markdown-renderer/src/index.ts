@@ -138,6 +138,114 @@ const calloutTitles: Record<CalloutType, string> = {
   todo: '待办',
   warning: '警告',
 };
+
+const calloutIconShapes: Record<CalloutFamily, Element[]> = {
+  danger: [
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: {
+        d: 'M12 16h.01M12 8v4m3.312-10a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z',
+      },
+      children: [],
+    },
+  ],
+  guidance: [
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: {
+        d: 'M15 14c.2-1 .7-1.7 1.5-2.5C17.5 10.6 18 9.3 18 8A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5m0 4h6m-5 4h4',
+      },
+      children: [],
+    },
+  ],
+  important: [
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: {
+        d: 'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4',
+      },
+      children: [],
+    },
+    {
+      type: 'element',
+      tagName: 'circle',
+      properties: { cx: '4', cy: '20', r: '2' },
+      children: [],
+    },
+  ],
+  neutral: [
+    {
+      type: 'element',
+      tagName: 'circle',
+      properties: { cx: '12', cy: '12', r: '10' },
+      children: [],
+    },
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: { d: 'M12 16v-4m0-4h.01' },
+      children: [],
+    },
+  ],
+  positive: [
+    {
+      type: 'element',
+      tagName: 'circle',
+      properties: { cx: '12', cy: '12', r: '10' },
+      children: [],
+    },
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: { d: 'm9 12 2 2 4-4' },
+      children: [],
+    },
+  ],
+  quote: [
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: {
+        d: 'M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2zM5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z',
+      },
+      children: [],
+    },
+  ],
+  risk: [
+    {
+      type: 'element',
+      tagName: 'path',
+      properties: {
+        d: 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4m0 4h.01',
+      },
+      children: [],
+    },
+  ],
+};
+
+const createCalloutIcon = (family: CalloutFamily): Element => ({
+  type: 'element',
+  tagName: 'svg',
+  properties: {
+    ariaHidden: 'true',
+    className: ['callout-icon'],
+    fill: 'none',
+    focusable: 'false',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: '2',
+    viewBox: '0 0 24 24',
+  },
+  children: calloutIconShapes[family].map((shape) => ({
+    ...shape,
+    properties: { ...shape.properties },
+  })),
+});
+
 const supportedImageExtensions = new Set([
   '.avif',
   '.bmp',
@@ -784,6 +892,41 @@ const enhanceCodeBlocks: Plugin<[], Root> = () => (tree) => {
   });
 };
 
+const enhanceCallouts: Plugin<[], Root> = () => (tree) => {
+  visit(tree, 'element', (node, _index, parent) => {
+    if (
+      node.tagName !== 'div' ||
+      !classNamesOf(node).includes('callout-header') ||
+      parent?.type !== 'element' ||
+      parent.tagName !== 'blockquote'
+    ) {
+      return;
+    }
+
+    const family = parent.properties.dataCalloutFamily;
+    if (
+      family !== 'danger' &&
+      family !== 'guidance' &&
+      family !== 'important' &&
+      family !== 'neutral' &&
+      family !== 'positive' &&
+      family !== 'quote' &&
+      family !== 'risk'
+    ) {
+      return;
+    }
+
+    const title: Element = {
+      type: 'element',
+      tagName: 'span',
+      properties: { className: ['callout-title'] },
+      children: node.children,
+    };
+
+    node.children = [createCalloutIcon(family), title];
+  });
+};
+
 const createMarkdownProcessor = (
   imageOptions: TransformDocumentImagesOptions,
   renderTasks: DocumentRenderTask[],
@@ -803,6 +946,7 @@ const createMarkdownProcessor = (
     .use(transformDocumentImages, imageOptions)
     .use(rehypeSlug)
     .use(rehypeHighlight, { detect: false })
+    .use(enhanceCallouts)
     .use(rehypeExternalLinks, {
       rel: ['noopener', 'noreferrer'],
       target: '_blank',

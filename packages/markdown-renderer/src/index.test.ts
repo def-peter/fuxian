@@ -99,6 +99,8 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown({ source }).html;
 
     expect(html.match(/class="callout"/g)).toHaveLength(27);
+    expect(html.match(/class="callout-icon"/g)).toHaveLength(27);
+    expect(html.match(/aria-hidden="true"/g)).toHaveLength(27);
     expect(html).toContain('<blockquote>\n<p>普通引用不会变成 Callout。</p>\n</blockquote>');
     for (const [type, aliases] of Object.entries(expectedTypes)) {
       for (const alias of aliases) {
@@ -124,7 +126,8 @@ describe('renderMarkdown', () => {
     expect(html).toContain(
       '<blockquote class="callout" data-callout-family="risk" data-callout-source="warning" data-callout-type="warning" role="note">',
     );
-    expect(html).toContain('<div class="callout-header"><strong>发布前检查</strong></div>');
+    expect(html).toMatch(/<svg[^>]*class="callout-icon"/);
+    expect(html).toContain('<span class="callout-title"><strong>发布前检查</strong></span>');
     expect(html).toContain('<p>请确认 <a href="https://example.com/backup"');
     expect(html).toContain('<li>已备份数据</li>');
     expect(html).toContain('class="code-block"');
@@ -145,7 +148,8 @@ describe('renderMarkdown', () => {
     expect(html).toContain('data-callout-family="neutral"');
     expect(html).toContain('data-callout-source="architecture-decision"');
     expect(html).toContain('data-callout-type="note"');
-    expect(html).toContain('<div class="callout-header">Architecture-Decision</div>');
+    expect(html).toMatch(/<div class="callout-header"><svg[^>]*class="callout-icon"/);
+    expect(html).toContain('<span class="callout-title">Architecture-Decision</span></div>');
     expect(html).toContain('<p>保留未知类型的正文。</p>');
     expect(html).toContain('<p>[!bad marker]\n这仍然是普通引用。</p>');
   });
