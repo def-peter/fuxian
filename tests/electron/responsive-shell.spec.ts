@@ -79,7 +79,7 @@ test('adapts the reader shell without losing independent region preferences', as
     await resizeWindow(window, { height: 900, width: 1_440 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const shell = window.locator('[data-session-root]');
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(shell).toHaveAttribute('data-shell-layout', 'wide');
     const documentSession = window.getByRole('complementary', { name: '文档会话' });
     await expect(documentSession).toBeVisible();

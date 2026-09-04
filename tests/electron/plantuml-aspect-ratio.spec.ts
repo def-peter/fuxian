@@ -80,7 +80,7 @@ test('PlantUML diagrams preserve wide and tall viewBox ratios in every document 
         await window.setViewportSize({ height: 900, width: 1_600 });
         await window.getByRole('button', { name: '打开 Markdown' }).click();
         const diagrams = window
-          .frameLocator('iframe[title="Finished document"]')
+          .frameLocator('iframe[data-finished-document="active"]')
           .locator('[data-render-task-kind="plantuml"]');
         await expect(diagrams).toHaveCount(2);
         await expect(diagrams.nth(1).locator('.render-task-output > svg')).toBeVisible({

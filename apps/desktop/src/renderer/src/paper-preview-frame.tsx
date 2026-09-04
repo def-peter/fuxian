@@ -2,6 +2,7 @@ import type { RenderRevisionSnapshot } from '@fuxian/render-protocol';
 import type { ReadingPosition } from '@fuxian/shared-types';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { useLocalization } from '@/localization-context';
 import type {
   FindResult,
   FinishedDocumentController,
@@ -56,6 +57,7 @@ export function PaperPreviewFrame({
   onReadingPositionChange,
   snapshot,
 }: PaperPreviewFrameProps): React.JSX.Element {
+  const { locale, t } = useLocalization();
   const iframe = useRef<HTMLIFrameElement>(null);
   const snapshotRef = useRef(snapshot);
   const positionRef = useRef(snapshot.initialReadingPosition);
@@ -75,14 +77,13 @@ export function PaperPreviewFrame({
   const channelId = useMemo(() => crypto.randomUUID(), []);
   const sourceUrl = useMemo(() => {
     const url = new URL(globalThis.location.href);
-    const systemLocale = url.searchParams.get('systemLocale');
     url.search = '';
-    if (systemLocale) url.searchParams.set('systemLocale', systemLocale);
     url.hash = '';
     url.searchParams.set('channelId', channelId);
+    url.searchParams.set('uiLocale', locale);
     url.searchParams.set('view', 'paper-preview');
     return url.href;
-  }, [channelId]);
+  }, [channelId, locale]);
 
   const post = useCallback(
     (message: PaperPreviewHostPayload): void => {
@@ -223,7 +224,7 @@ export function PaperPreviewFrame({
       className={cn('block size-full min-h-0 min-w-0 border-0 bg-transparent', className)}
       ref={iframe}
       src={sourceUrl}
-      title="纸张预览"
+      title={t('纸张预览')}
     />
   );
 }

@@ -48,7 +48,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByText('正文应当立即可读')).toBeVisible();
     const tasks = finishedDocument.locator('[data-render-task-kind="infographic"]');
     await expect(tasks).toHaveCount(8);

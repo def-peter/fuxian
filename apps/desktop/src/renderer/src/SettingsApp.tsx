@@ -364,7 +364,7 @@ export function SettingsApp(): React.JSX.Element {
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[132px_292px_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-cols-[164px_292px_minmax(0,1fr)]">
         <nav
           aria-label={t('设置分区')}
           className="border-r border-line-subtle bg-surface-sidebar p-2"
@@ -398,10 +398,10 @@ export function SettingsApp(): React.JSX.Element {
               <Separator className="my-5" />
 
               <Field>
-                <FieldTitle>{t('用户界面语言')}</FieldTitle>
+                <FieldTitle>{t('界面语言')}</FieldTitle>
                 <FieldDescription>{t('界面语言会立即应用到浮现的所有窗口。')}</FieldDescription>
                 <SegmentedControl
-                  aria-label={t('用户界面语言')}
+                  aria-label={t('界面语言')}
                   className="w-full"
                   onValueChange={selectLanguage}
                   type="single"
@@ -824,7 +824,7 @@ export function SettingsApp(): React.JSX.Element {
               <form onSubmit={(event) => void validateAndSavePlantUmlServer(event)}>
                 <FieldGroup>
                   <Field data-invalid={plantUmlValidation.status === 'error'}>
-                    <FieldLabel htmlFor="plantuml-server-url">{t('Server 地址')}</FieldLabel>
+                    <FieldLabel htmlFor="plantuml-server-url">{t('服务器地址')}</FieldLabel>
                     <Input
                       aria-invalid={plantUmlValidation.status === 'error'}
                       autoCapitalize="none"
@@ -846,7 +846,7 @@ export function SettingsApp(): React.JSX.Element {
                     ) : null}
                   </Field>
 
-                  <Field orientation="horizontal">
+                  <Field className="flex-wrap" orientation="horizontal">
                     <Button
                       aria-live="polite"
                       disabled={plantUmlValidation.status === 'checking'}

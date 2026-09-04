@@ -29,7 +29,7 @@ test('renders restrained callout families in continuous and paper modes', async 
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const callouts = finishedDocument.locator('blockquote.callout');
 
     await expect(callouts).toHaveCount(8);

@@ -35,8 +35,8 @@ export function ArticleStructureMapDialog({
 }: ArticleStructureMapDialogProps): React.JSX.Element {
   const { t } = useLocalization();
   const root = useMemo(
-    () => buildArticleStructureMap(headings, documentName),
-    [documentName, headings],
+    () => buildArticleStructureMap(headings, documentName, t('文章结构')),
+    [documentName, headings, t],
   );
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const markmapRef = useRef<MarkmapInstance | undefined>(undefined);
@@ -58,7 +58,7 @@ export function ArticleStructureMapDialog({
       for (const circle of svg.querySelectorAll<SVGCircleElement>('g.markmap-node > circle')) {
         const node = Reflect.get(circle, '__data__') as { payload?: { fold?: number } } | undefined;
         circle.setAttribute('aria-expanded', node?.payload?.fold ? 'false' : 'true');
-        circle.setAttribute('aria-label', '折叠或展开此标题');
+        circle.setAttribute('aria-label', t('折叠或展开此标题'));
         circle.setAttribute('role', 'button');
         circle.setAttribute('tabindex', '0');
       }

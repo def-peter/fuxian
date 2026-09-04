@@ -6,7 +6,7 @@ describe('paper preview frame navigation policy', () => {
     const main = 'http://127.0.0.1:5173/';
     expect(
       isPaperPreviewFrameUrl(
-        'http://127.0.0.1:5173/?channelId=revision-1&view=paper-preview',
+        'http://127.0.0.1:5173/?channelId=revision-1&view=paper-preview&uiLocale=zh-CN',
         main,
       ),
     ).toBe(true);
@@ -16,7 +16,13 @@ describe('paper preview frame navigation policy', () => {
     expect(isPaperPreviewFrameUrl('http://127.0.0.1:5173/?view=paper-preview', main)).toBe(false);
     expect(
       isPaperPreviewFrameUrl(
-        'http://127.0.0.1:5173/?view=paper-preview&channelId=x&extra=true',
+        'http://127.0.0.1:5173/?view=paper-preview&channelId=x&uiLocale=fr-FR',
+        main,
+      ),
+    ).toBe(false);
+    expect(
+      isPaperPreviewFrameUrl(
+        'http://127.0.0.1:5173/?view=paper-preview&channelId=x&uiLocale=en-US&extra=true',
         main,
       ),
     ).toBe(false);
@@ -25,12 +31,15 @@ describe('paper preview frame navigation policy', () => {
   it('supports the packaged file URL without trusting another file', () => {
     const main =
       'file:///Applications/Fuxian.app/Contents/Resources/app.asar/out/renderer/index.html';
-    expect(isPaperPreviewFrameUrl(`${main}?channelId=revision-1&view=paper-preview`, main)).toBe(
-      true,
-    );
     expect(
       isPaperPreviewFrameUrl(
-        'file:///tmp/index.html?channelId=revision-1&view=paper-preview',
+        `${main}?channelId=revision-1&view=paper-preview&uiLocale=en-US`,
+        main,
+      ),
+    ).toBe(true);
+    expect(
+      isPaperPreviewFrameUrl(
+        'file:///tmp/index.html?channelId=revision-1&view=paper-preview&uiLocale=en-US',
         main,
       ),
     ).toBe(false);

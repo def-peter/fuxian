@@ -92,7 +92,7 @@ test('keeps inactive documents current, cancels stale work, and reopens cached c
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByRole('heading', { name: 'First baseline' })).toBeVisible();
 
     await writeFile(secondPath, slowDiagramSource('Second pending revision'));
@@ -165,7 +165,7 @@ test('follows appended content only near the end and protects text selection', a
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const document = window.frameLocator('iframe[title="Finished document"]');
+    const document = window.frameLocator('iframe[data-finished-document="active"]');
     const distanceFromEnd = () =>
       document.locator('html').evaluate((root) => {
         const view = root.ownerDocument.defaultView!;
@@ -255,7 +255,7 @@ test('shows a stable skeleton while an uncached recent document is rendered', as
     response.end('<svg xmlns="http://www.w3.org/2000/svg"><text>Recent ready</text></svg>');
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Uncached recent revision' }),
     ).toBeVisible({ timeout: 10_000 });
   } finally {

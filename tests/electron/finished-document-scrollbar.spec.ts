@@ -43,7 +43,7 @@ test('finished-document scrollbar stays scoped, quiet, and stable while scrollin
     await window.setViewportSize({ height: 900, width: 1_440 });
     await window.emulateMedia({ colorScheme: 'light' });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const frame = window.frameLocator('iframe[title="Finished document"]');
+    const frame = window.frameLocator('iframe[data-finished-document="active"]');
     const root = frame.locator('html');
     await expect(frame.getByRole('heading', { name: 'Scrollbar behavior' })).toBeVisible();
     await expect(root).toHaveAttribute('data-appearance', 'light');

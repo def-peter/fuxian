@@ -104,7 +104,7 @@ test('shows a stable visual skeleton without exposing source while PlantUML is p
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     await pendingRequest;
-    const document = window.frameLocator('iframe[title="Finished document"]');
+    const document = window.frameLocator('iframe[data-finished-document="active"]');
     const task = document.locator('[data-render-task-kind="plantuml"]');
     await expect(task).toHaveAttribute('aria-busy', 'true');
     await expect(task.locator('.render-task-skeleton')).toBeVisible();
@@ -183,7 +183,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     const settingsWindow = await getSettingsWindow(electronApp);
     await settingsWindow.getByRole('button', { name: 'PlantUML' }).click();
     await expect(settingsWindow.getByText('PlantUML 源码会发送到上方配置的服务。')).toBeVisible();
-    const serverInput = settingsWindow.getByLabel('Server 地址');
+    const serverInput = settingsWindow.getByLabel('服务器地址');
     await serverInput.fill(newServerUrl);
     await settingsWindow.getByRole('button', { name: '验证并保存' }).click();
     await expect(settingsWindow.getByRole('button', { name: '已验证并保存' })).toBeVisible();
@@ -201,7 +201,7 @@ test('validates and saves a new server, cancels the old request, and redraws sel
     await settingsWindow.getByRole('button', { name: '验证并保存' }).click();
     await expect(settingsWindow.getByRole('status')).toHaveText('连接验证成功，地址已保存。');
 
-    const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
     const plantUmlTask = finishedDocument.locator('[data-render-task-kind="plantuml"]');
     await expect(plantUmlTask.locator('text')).toHaveText('Switched diagram');
     await expect(finishedDocument.locator('html')).toHaveAttribute(
@@ -311,7 +311,7 @@ test('shows PlantUML source, server reason, and retry when rendering fails', asy
   try {
     const readerWindow = await electronApp.firstWindow();
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
     const plantUmlTask = finishedDocument.locator('[data-render-task-kind="plantuml"]');
     await expect(plantUmlTask.getByText('无法呈现图表')).toBeVisible();
     await expect(plantUmlTask.locator('.render-task-error-detail')).toContainText('HTTP 503');

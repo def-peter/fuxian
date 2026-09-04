@@ -86,8 +86,20 @@ test('manual language selection applies live, persists, and never translates doc
   const app = await launchDesktop(directory, 'zh-CN', { sourceDocument: sourcePath });
 
   try {
+    await app.evaluate(({ shell }) => {
+      const openedUrls: string[] = [];
+      Object.defineProperty(globalThis, '__fuxianOpenedExternalUrls', {
+        configurable: true,
+        value: openedUrls,
+      });
+      shell.openExternal = async (url): Promise<void> => {
+        openedUrls.push(url);
+      };
+    });
+
     const reader = await app.firstWindow();
     await reader.getByRole('button', { name: '打开 Markdown' }).click();
+    await expect(reader.locator('iframe[title="完成文档"]')).toHaveCount(1);
     await expect(
       reader.frameLocator('iframe').getByRole('heading', { name: '中文标题' }),
     ).toBeVisible();
@@ -101,12 +113,28 @@ test('manual language selection applies live, persists, and never translates doc
     await settings.getByRole('radio', { name: 'English', exact: true }).click();
 
     await expect(reader.locator('html')).toHaveAttribute('lang', 'en-US');
+    await expect(reader.locator('iframe[title="Finished document"]')).toHaveCount(1);
     await expect(settings.locator('html')).toHaveAttribute('lang', 'en-US');
     await expect(reader.getByText('中文文档.md', { exact: true }).first()).toBeVisible();
     await expect(
       reader.frameLocator('iframe').getByRole('heading', { name: '中文标题' }),
     ).toBeVisible();
     await expect(reader.frameLocator('iframe').getByText('这是不应被翻译的正文。')).toBeVisible();
+    await reader.getByRole('radio', { name: 'Paper preview' }).click();
+    const paper = reader.frameLocator('iframe[title="Paper preview"]');
+    await expect(paper.locator('html')).toHaveAttribute('lang', 'en-US');
+    await expect(paper.locator('.paper-preview-pages')).toHaveAttribute(
+      'aria-label',
+      'Paginated finished document',
+    );
+    await expect(paper.getByRole('heading', { name: '中文标题' })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() => Reflect.get(globalThis, '__fuxianOpenedExternalUrls') as unknown),
+      )
+      .toEqual([]);
     await expect
       .poll(async () => JSON.parse(await readFile(join(directory, 'preferences.json'), 'utf8')))
       .toMatchObject({ language: 'en-US' });
@@ -132,6 +160,65 @@ test('manual Chinese preference overrides an English system locale', async () =>
     const window = await app.firstWindow();
     await expect(window.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
+  } finally {
+    await closeAndRemove(app, directory);
+  }
+});
+
+test('English settings labels stay within their controls', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-localization-layout-'));
+  const app = await launchDesktop(directory, 'en-US');
+
+  try {
+    const reader = await app.firstWindow();
+    await reader.getByRole('button', { name: 'Settings' }).click();
+    await expect.poll(() => app.windows().length).toBe(2);
+    const settings = app
+      .windows()
+      .find((window) => new URL(window.url()).searchParams.get('view') === 'settings');
+    if (!settings) throw new Error('Settings window did not open.');
+
+    await expect(settings.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+
+    const overflowingNavigationItems = await settings
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('button')
+      .evaluateAll((buttons) =>
+        buttons
+          .filter((button) => button.scrollWidth > button.clientWidth)
+          .map((button) => ({
+            available: button.clientWidth,
+            label: button.textContent?.trim(),
+            required: button.scrollWidth,
+          })),
+      );
+    expect.soft(overflowingNavigationItems).toEqual([]);
+
+    const colorMode = settings.locator('[data-slot="segmented-control"][aria-label="Color mode"]');
+    const overflowingColorModeItems = await colorMode.evaluate((control) => {
+      const controlBox = control.getBoundingClientRect();
+      return [...control.children]
+        .filter((item) => {
+          const itemBox = item.getBoundingClientRect();
+          return itemBox.left < controlBox.left || itemBox.right > controlBox.right;
+        })
+        .map((item) => ({
+          controlRight: controlBox.right,
+          itemRight: item.getBoundingClientRect().right,
+          label: item.textContent?.trim(),
+        }));
+    });
+    expect.soft(overflowingColorModeItems).toEqual([]);
+
+    await settings.getByRole('button', { name: 'PlantUML', exact: true }).click();
+    await expect(settings.getByRole('heading', { name: 'PlantUML' })).toBeVisible();
+    const plantUmlFormWidth = await settings
+      .locator('[data-settings-surface="form"]')
+      .evaluate((form) => ({
+        clientWidth: form.clientWidth,
+        scrollWidth: form.scrollWidth,
+      }));
+    expect(plantUmlFormWidth.scrollWidth).toBeLessThanOrEqual(plantUmlFormWidth.clientWidth);
   } finally {
     await closeAndRemove(app, directory);
   }

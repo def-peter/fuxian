@@ -11,7 +11,7 @@ describe('article structure map', () => {
       { depth: 2, id: 'usage', text: '使用' },
     ];
 
-    expect(buildArticleStructureMap(headings, 'guide.md')).toEqual({
+    expect(buildArticleStructureMap(headings, 'guide.md', 'Article structure')).toEqual({
       children: [
         { children: [{ children: [], content: 'macOS' }], content: '安装' },
         { children: [], content: '使用' },
@@ -26,7 +26,7 @@ describe('article structure map', () => {
       { depth: 2, id: 'second', text: '第二部分' },
     ];
 
-    expect(buildArticleStructureMap(headings, '方案.markdown')).toEqual({
+    expect(buildArticleStructureMap(headings, '方案.markdown', '文章结构')).toEqual({
       children: [
         { children: [], content: '第一部分' },
         { children: [], content: '第二部分' },
@@ -40,11 +40,12 @@ describe('article structure map', () => {
       buildArticleStructureMap(
         [{ depth: 1, id: 'unsafe', text: '<img src=x onerror="bad()"> & notes' }],
         'unsafe.md',
+        'Article structure',
       ),
     ).toMatchObject({ content: '&lt;img src=x onerror=&quot;bad()&quot;&gt; &amp; notes' });
   });
 
   it('does not create a structure map without headings', () => {
-    expect(buildArticleStructureMap([], 'empty.md')).toBeUndefined();
+    expect(buildArticleStructureMap([], 'empty.md', 'Article structure')).toBeUndefined();
   });
 });

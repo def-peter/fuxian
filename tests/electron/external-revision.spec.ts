@@ -95,7 +95,7 @@ test('coalesces writes, keeps the successful document visible, and cancels stale
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const currentDocument = window.frameLocator('iframe[title="Finished document"]');
+    const currentDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const anchor = currentDocument.getByRole('heading', { name: 'Reading anchor' });
     await anchor.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     const anchorTop = await anchor.evaluate((element) => element.getBoundingClientRect().top);
@@ -121,7 +121,7 @@ test('coalesces writes, keeps the successful document visible, and cancels stale
     await writeFile(sourcePath, revisionSource('Newest stable revision', 34));
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Newest stable revision' }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(window.getByText(/已更新 ·/)).toBeVisible();
@@ -130,7 +130,7 @@ test('coalesces writes, keeps the successful document visible, and cancels stale
       .poll(async () =>
         Math.abs(
           (await window
-            .frameLocator('iframe[title="Finished document"]')
+            .frameLocator('iframe[data-finished-document="active"]')
             .getByRole('heading', { name: 'Reading anchor' })
             .evaluate((element) => element.getBoundingClientRect().top)) - anchorTop,
         ),
@@ -141,7 +141,7 @@ test('coalesces writes, keeps the successful document visible, and cancels stale
       '<svg xmlns="http://www.w3.org/2000/svg"><text>obsolete response</text></svg>',
     );
     await expect(
-      window.frameLocator('iframe[title="Finished document"]').getByText('obsolete response'),
+      window.frameLocator('iframe[data-finished-document="active"]').getByText('obsolete response'),
     ).toHaveCount(0);
   } finally {
     await electronApp.close();
@@ -168,10 +168,10 @@ test('keeps the prior revision on failure, retries, and tracks local resource ch
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const visibleFrame = window.locator('iframe[title="Finished document"]');
+    const visibleFrame = window.locator('iframe[data-finished-document="active"]');
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Stable content' }),
     ).toBeVisible();
     await window.waitForTimeout(200);
@@ -185,7 +185,7 @@ test('keeps the prior revision on failure, retries, and tracks local resource ch
     });
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Stable content' }),
     ).toBeVisible();
     await window.getByRole('button', { name: '详情' }).click();
@@ -199,7 +199,7 @@ test('keeps the prior revision on failure, retries, and tracks local resource ch
     await window.getByRole('button', { name: '重试文档更新' }).click();
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Recovered revision' }),
     ).toBeVisible({ timeout: 10_000 });
     const revisionBeforeResourceChange = await visibleFrame.getAttribute('data-frame-revision');

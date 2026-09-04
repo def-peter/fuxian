@@ -50,9 +50,11 @@ const getSettingsWindow = async (electronApp: ElectronApplication): Promise<Page
   return settingsWindow;
 };
 
-const readDocumentVariables = (page: Page, title: string) =>
+const readDocumentVariables = (page: Page, frameTitle?: string) =>
   page
-    .frameLocator(`iframe[title="${title}"]`)
+    .frameLocator(
+      frameTitle ? `iframe[title="${frameTitle}"]` : 'iframe[data-finished-document="active"]',
+    )
     .locator('html')
     .evaluate((root) => {
       const bodyParagraph = root.querySelector('p');
@@ -82,7 +84,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
     await expect(
       readerWindow
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: '代码高亮主题' }),
     ).toBeVisible();
     const defaultTypography = {
@@ -94,14 +96,10 @@ test('preferences synchronize live, persist at their limits, and restore after r
         'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       lineHeight: '1.85',
     };
-    await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
-      .toMatchObject(defaultTypography);
+    await expect.poll(() => readDocumentVariables(readerWindow)).toMatchObject(defaultTypography);
     await readerWindow.getByRole('button', { name: '文档宽度' }).click();
     await readerWindow.getByRole('radio', { name: 'A4' }).click();
-    await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
-      .toMatchObject({ width: '794px' });
+    await expect.poll(() => readDocumentVariables(readerWindow)).toMatchObject({ width: '794px' });
 
     await readerWindow.getByRole('button', { name: '设置' }).click();
     let settingsWindow = await getSettingsWindow(electronApp);
@@ -130,7 +128,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await settingsWindow.getByRole('button', { name: '外观', exact: true }).click();
     await settingsWindow.getByRole('radio', { name: '浅色' }).click();
     await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .poll(() => readDocumentVariables(readerWindow))
       .toMatchObject({ appearance: 'light' });
 
     await settingsWindow.getByRole('button', { name: '文档', exact: true }).click();
@@ -147,7 +145,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
       .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
       .toMatchObject(darkCodeOnLightDocument);
     await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
+      .poll(() => readDocumentVariables(readerWindow))
       .toMatchObject(darkCodeOnLightDocument);
 
     await settingsWindow.getByRole('button', { name: '外观', exact: true }).click();
@@ -176,9 +174,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await expect
       .poll(() => readDocumentVariables(settingsWindow, '完成文档预览'))
       .toEqual(expectedVariables);
-    await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
-      .toEqual(expectedVariables);
+    await expect.poll(() => readDocumentVariables(readerWindow)).toEqual(expectedVariables);
     await readerWindow.getByRole('radio', { name: '纸张预览' }).click();
     await expect(readerWindow.getByText(/^\d+ 页$/)).toBeVisible({ timeout: 20_000 });
     await expect
@@ -187,14 +183,12 @@ test('preferences synchronize live, persist at their limits, and restore after r
     await readerWindow.getByRole('radio', { name: '无界阅读' }).click();
     await expect(
       readerWindow
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: '代码高亮主题' }),
     ).toBeVisible();
     await settingsWindow.close();
     await expect.poll(() => electronApp.windows().length).toBe(1);
-    await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
-      .toEqual(expectedVariables);
+    await expect.poll(() => readDocumentVariables(readerWindow)).toEqual(expectedVariables);
 
     await expect
       .poll(async () => JSON.parse(await readFile(launchOptions.preferencesFilePath, 'utf8')))
@@ -203,6 +197,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
         codeHighlight: { theme: 'github-dark' },
         documentTypography: { bodyFamily: 'sans-serif', bodySize: 22, lineHeight: 1.5 },
         documentWidth: { customWidth: 1200, mode: 'custom' },
+        language: 'system',
         plantUml: { serverUrl: 'https://www.plantuml.com/plantuml' },
         shell: {
           contentOutlineExpanded: true,
@@ -217,9 +212,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     electronApp = await launchDesktop(launchOptions);
     readerWindow = await electronApp.firstWindow();
     await expect(readerWindow.locator('html')).toHaveClass(/dark/);
-    await expect
-      .poll(() => readDocumentVariables(readerWindow, 'Finished document'))
-      .toEqual(expectedVariables);
+    await expect.poll(() => readDocumentVariables(readerWindow)).toEqual(expectedVariables);
 
     await readerWindow.getByRole('button', { name: '设置' }).click();
     settingsWindow = await getSettingsWindow(electronApp);

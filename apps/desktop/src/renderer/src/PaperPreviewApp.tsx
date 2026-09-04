@@ -1,6 +1,7 @@
 import { documentThemeCss } from '@fuxian/document-theme';
+import type { UiLocale } from '@fuxian/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { useLocalization } from '@/localization-context';
+import { createTranslator } from '../../localization';
 import { bindFinishedDocument, type FinishedDocumentController } from './finished-document';
 import {
   applyPaperTheme,
@@ -19,7 +20,10 @@ import {
   type PaperPreviewSnapshot,
 } from './paper-preview-protocol';
 
-const channelId = new URLSearchParams(globalThis.location.search).get('channelId') ?? '';
+const parameters = new URLSearchParams(globalThis.location.search);
+const channelId = parameters.get('channelId') ?? '';
+const locale: UiLocale = parameters.get('uiLocale') === 'zh-CN' ? 'zh-CN' : 'en-US';
+const t = createTranslator(locale);
 
 const postToHost = (message: PaperPreviewFramePayload): void => {
   globalThis.parent.postMessage(
@@ -40,7 +44,6 @@ const fitPaperToViewport = (): void => {
 };
 
 export function PaperPreviewApp(): React.JSX.Element {
-  const { t } = useLocalization();
   const viewport = useRef<HTMLElement>(null);
   const currentController = useRef<FinishedDocumentController | undefined>(undefined);
   const currentPagination = useRef<PaginatedDocument | undefined>(undefined);
@@ -51,6 +54,8 @@ export function PaperPreviewApp(): React.JSX.Element {
   const [status, setStatus] = useState(() => t('正在准备纸张...'));
 
   useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = t('纸张预览');
     document.documentElement.dataset.paperPreview = 'true';
     fitPaperToViewport();
     const handleResize = (): void => fitPaperToViewport();
@@ -80,6 +85,7 @@ export function PaperPreviewApp(): React.JSX.Element {
               document,
               html: snapshot.html,
               signal: abortController.signal,
+              translate: t,
             });
             if (
               disposed ||
@@ -207,7 +213,7 @@ export function PaperPreviewApp(): React.JSX.Element {
       currentPagination.current?.cleanup();
       globalThis.removeEventListener('message', handleMessage);
     };
-  }, [t]);
+  }, []);
 
   return (
     <>

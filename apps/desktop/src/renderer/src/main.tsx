@@ -20,7 +20,7 @@ const localized = (children: React.ReactNode): React.JSX.Element => (
 const renderView = async (): Promise<void> => {
   if (view === 'paper-preview') {
     const { PaperPreviewApp } = await import('./PaperPreviewApp');
-    createRoot(root).render(localized(<PaperPreviewApp />));
+    createRoot(root).render(<PaperPreviewApp />);
     return;
   }
   if (view === 'pdf-export' && exportId) {

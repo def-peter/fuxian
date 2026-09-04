@@ -46,11 +46,11 @@ test('document width modes size the whole white paper while adaptive content sta
     let window = await electronApp.firstWindow();
     await window.setViewportSize({ height: 900, width: 1_600 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const adaptivePaper = window.locator('iframe[title="Finished document"]');
+    const adaptivePaper = window.locator('iframe[data-finished-document="active"]');
     await expect(adaptivePaper).toBeVisible();
     const adaptivePaperBox = await adaptivePaper.boundingBox();
     const adaptiveContent = await window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('.finished-document')
       .evaluate((element) => {
         const style = getComputedStyle(element);
@@ -64,7 +64,7 @@ test('document width modes size the whole white paper while adaptive content sta
     window = await electronApp.firstWindow();
     await window.setViewportSize({ height: 900, width: 1_600 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const a4Paper = window.locator('iframe[title="Finished document"]');
+    const a4Paper = window.locator('iframe[data-finished-document="active"]');
     await expect(a4Paper).toBeVisible();
     const a4PaperBox = await a4Paper.boundingBox();
 
@@ -73,7 +73,7 @@ test('document width modes size the whole white paper while adaptive content sta
     window = await electronApp.firstWindow();
     await window.setViewportSize({ height: 900, width: 1_600 });
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const customPaper = window.locator('iframe[title="Finished document"]');
+    const customPaper = window.locator('iframe[data-finished-document="active"]');
     await expect(customPaper).toBeVisible();
     const customPaperBox = await customPaper.boundingBox();
 

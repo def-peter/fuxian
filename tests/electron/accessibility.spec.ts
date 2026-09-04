@@ -127,8 +127,8 @@ test('supports the core reader workflow with keyboard and assistive semantics', 
     await expect(openDocument).toBeFocused();
     await readerWindow.keyboard.press('Enter');
 
-    const frame = readerWindow.locator('iframe[title="Finished document"]');
-    const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
+    const frame = readerWindow.locator('iframe[data-finished-document="active"]');
+    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByRole('heading', { name: 'Keyboard reader' })).toBeVisible();
     await expectNoHighImpactViolations(readerWindow);
 

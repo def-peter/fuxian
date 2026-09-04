@@ -41,6 +41,7 @@ export function ExportApp({ exportId }: { exportId: string }): React.JSX.Element
           document,
           html: payload.finishedDocumentHtml,
           signal: abortController.signal,
+          translate: t,
         });
         if (disposed) return;
         viewport.current?.replaceChildren(pagination.element);

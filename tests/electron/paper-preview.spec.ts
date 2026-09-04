@@ -66,7 +66,7 @@ test('paper mode preserves finished-document behavior and matches exported PDF p
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const continuous = window.frameLocator('iframe[title="Finished document"]');
+    const continuous = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       continuous.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 15_000 });
@@ -235,7 +235,7 @@ test('paper mode keeps wide table fragments inside the printable content width',
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const continuousTable = window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('table');
     await expect(continuousTable).toBeVisible();
     await expect(continuousTable).toHaveCSS('overflow-x', 'auto');
@@ -298,7 +298,7 @@ test('paper mode preserves the finished-document link underline', async () => {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const continuousLink = window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .getByRole('link', { name: '浮现项目主页' });
     await expect(continuousLink).toHaveCSS('text-decoration-line', 'underline');
 

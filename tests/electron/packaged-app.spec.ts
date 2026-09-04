@@ -44,7 +44,7 @@ test('the packaged application is isolated, forwards open requests, and restores
     let window = await electronApp.firstWindow();
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'First packaged document' }),
     ).toBeVisible();
     await expect

@@ -3,6 +3,7 @@ import {
   getDocumentThemeVariables,
   type DocumentThemePreferences,
 } from '@fuxian/document-theme';
+import type { Translator } from '../../localization';
 
 export const paperPageWidthPixels = (210 / 25.4) * 96;
 export const paperPageHeightPixels = (297 / 25.4) * 96;
@@ -304,6 +305,7 @@ const svgFallbackSize = (svg: SVGSVGElement, axis: 'height' | 'width'): number =
 
 const makeRenderedVisualsAtomic = (
   root: ParentNode,
+  t: Translator,
 ): {
   findInvalid(destination: ParentNode): Set<string>;
   forceAllPageBreaks(): void;
@@ -399,12 +401,12 @@ const makeRenderedVisualsAtomic = (
         '[data-paper-rendered-visual]',
       );
       if (placeholders.length !== originals.size) {
-        throw new Error('分页图表占位数量不一致。');
+        throw new Error(t('分页图表占位数量不一致。'));
       }
       for (const placeholder of placeholders) {
         const id = placeholder.dataset.paperRenderedVisual;
         const renderTask = id ? originals.get(id) : undefined;
-        if (!renderTask) throw new Error('分页图表占位无法恢复。');
+        if (!renderTask) throw new Error(t('分页图表占位无法恢复。'));
         const wrapper = placeholder.closest<HTMLElement>('.paper-rendered-visual-page-break');
         if (wrapper) wrapper.replaceWith(renderTask);
         else placeholder.replaceWith(renderTask);
@@ -429,15 +431,16 @@ const createTableRowFallback = (
   document: Document,
   headers: string[],
   row: HTMLTableRowElement,
+  t: Translator,
 ): HTMLElement => {
   const fallback = document.createElement('section');
   fallback.className = 'paper-table-row-fallback';
   fallback.dataset.paperTableFallback = 'true';
-  fallback.ariaLabel = '表格中的超长内容';
+  fallback.ariaLabel = t('表格中的超长内容');
 
   const title = document.createElement('div');
   title.className = 'paper-table-row-fallback-title';
-  title.textContent = '表格内容（单行超过一页，已转为连续排版）';
+  title.textContent = t('表格内容（单行超过一页，已转为连续排版）');
   fallback.append(title);
 
   const cells = Array.from(row.children).filter(
@@ -448,7 +451,7 @@ const createTableRowFallback = (
     item.className = 'paper-table-row-fallback-cell';
     const label = document.createElement('span');
     label.className = 'paper-table-row-fallback-label';
-    label.textContent = headers[index] || `第 ${index + 1} 列`;
+    label.textContent = headers[index] || t('第 {number} 列', { number: index + 1 });
     item.append(label, ...Array.from(cell.childNodes).map((node) => node.cloneNode(true)));
     fallback.append(item);
   }
@@ -457,6 +460,7 @@ const createTableRowFallback = (
 
 export const splitLongTables = (
   root: ParentNode,
+  t: Translator,
   measureRow: (row: HTMLTableRowElement) => number = (row) => row.getBoundingClientRect().height,
 ): void => {
   for (const table of Array.from(root.querySelectorAll<HTMLTableElement>('table'))) {
@@ -490,7 +494,7 @@ export const splitLongTables = (
       const rowHeight = Math.max(1, measureRow(row));
       if (rowHeight > maximumTableRowsHeightPixels) {
         flush();
-        replacements.push(createTableRowFallback(table.ownerDocument, headers, row));
+        replacements.push(createTableRowFallback(table.ownerDocument, headers, row, t));
         continue;
       }
       if (
@@ -531,15 +535,17 @@ export const paginateFinishedDocument = async ({
   html,
   signal,
   timeoutMilliseconds = 20_000,
+  translate: t,
 }: {
   document: Document;
   html: string;
   signal?: AbortSignal;
   timeoutMilliseconds?: number;
+  translate: Translator;
 }): Promise<PaginatedDocument> => {
-  if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
+  if (signal?.aborted) throw new DOMException(t('分页任务已取消。'), 'AbortError');
   const frameWindow = document.defaultView;
-  if (!frameWindow) throw new TypeError('分页文档没有活动窗口。');
+  if (!frameWindow) throw new TypeError(t('分页文档没有活动窗口。'));
 
   const sourceStage = document.createElement('div');
   sourceStage.className = 'paper-pagination-staging';
@@ -551,7 +557,7 @@ export const paginateFinishedDocument = async ({
 
   const destination = document.createElement('section');
   destination.className = 'paper-preview-pages paper-pagination-staging';
-  destination.ariaLabel = '分页后的完成文档';
+  destination.ariaLabel = t('分页后的完成文档');
   document.body.append(destination);
 
   let previewer: import('pagedjs').Previewer | undefined;
@@ -564,15 +570,15 @@ export const paginateFinishedDocument = async ({
     await Promise.all(Array.from(source.querySelectorAll('img')).map(waitForImage));
     await document.fonts.ready;
     await waitForAnimationFrames(frameWindow, 2);
-    splitLongTables(source);
-    const renderedVisuals = makeRenderedVisualsAtomic(source);
+    splitLongTables(source, t);
+    const renderedVisuals = makeRenderedVisualsAtomic(source, t);
 
     const { Previewer } = await import('pagedjs');
     const stylesheetUrl = new URL(document.location.href).href;
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         previewer?.chunker.stop();
-        reject(new Error('纸张分页超时。'));
+        reject(new Error(t('纸张分页超时。')));
       }, timeoutMilliseconds);
     });
 
@@ -580,17 +586,17 @@ export const paginateFinishedDocument = async ({
     let attempt = 0;
     while (attempt < 3) {
       previewer = new Previewer();
-      if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
+      if (signal?.aborted) throw new DOMException(t('分页任务已取消。'), 'AbortError');
       const pagination = previewer.preview(
         source.outerHTML,
         [{ [stylesheetUrl]: documentThemeCss }, { [stylesheetUrl]: paperPagedMediaCss }],
         destination,
       );
       const flow = await Promise.race([pagination, timedOut]);
-      if (signal?.aborted) throw new DOMException('分页任务已取消。', 'AbortError');
+      if (signal?.aborted) throw new DOMException(t('分页任务已取消。'), 'AbortError');
       pageCount = destination.querySelectorAll('.pagedjs_page').length;
       if (pageCount === 0 || pageCount !== flow.total) {
-        throw new Error('分页结果不完整。');
+        throw new Error(t('分页结果不完整。'));
       }
       const invalidVisuals = renderedVisuals.findInvalid(destination);
       if (invalidVisuals.size === 0) break;
@@ -603,7 +609,7 @@ export const paginateFinishedDocument = async ({
     }
     const remainingInvalidVisuals = renderedVisuals.findInvalid(destination);
     if (!previewer || remainingInvalidVisuals.size > 0) {
-      throw new Error('图表无法完整放入纸张页面。');
+      throw new Error(t('图表无法完整放入纸张页面。'));
     }
     renderedVisuals.restore(destination);
     destination.classList.remove('paper-pagination-staging');

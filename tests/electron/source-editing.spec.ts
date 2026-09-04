@@ -45,7 +45,7 @@ test('edits and explicitly saves Markdown before returning to the finished docum
 
     await page.getByRole('button', { name: '进入阅读模式' }).click();
     await expect(
-      page.frameLocator('iframe[title="Finished document"]').getByRole('heading', {
+      page.frameLocator('iframe[data-finished-document="active"]').getByRole('heading', {
         name: 'Edited',
       }),
     ).toBeVisible({ timeout: 15_000 });
@@ -146,7 +146,7 @@ test('shows an explicitly saved revision with an inline diagram failure', async 
   try {
     const page = await electronApp.firstWindow();
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    let finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    let finishedDocument = page.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       finishedDocument.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 15_000 });
@@ -160,7 +160,7 @@ test('shows an explicitly saved revision with an inline diagram failure', async 
     await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
     await expect.poll(() => readFile(sourcePath, 'utf8')).toBe(invalidSource);
 
-    finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    finishedDocument = page.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByRole('heading', { name: 'Invalid revision' })).toBeVisible({
       timeout: 15_000,
     });
@@ -212,7 +212,7 @@ test('edits the latest external source while retaining controls on the prior fin
   try {
     const page = await electronApp.firstWindow();
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = page.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = page.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       finishedDocument.locator('[data-render-task-kind="mermaid"] .render-task-output svg'),
     ).toBeVisible({ timeout: 15_000 });

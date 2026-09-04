@@ -174,6 +174,7 @@ function FinishedDocumentFrame({
   onRemove,
   visible,
 }: FinishedDocumentFrameProps): React.JSX.Element {
+  const { t } = useLocalization();
   const element = useRef<HTMLIFrameElement>(null);
   useEffect(() => () => onRemove(frame.id), [frame.id, onRemove]);
   const surfaceWidth =
@@ -191,6 +192,7 @@ function FinishedDocumentFrame({
         visible ? 'visible z-10' : 'invisible pointer-events-none',
         draggingFiles && 'pointer-events-none',
       )}
+      data-finished-document={visible ? 'active' : 'preparing'}
       data-document-width-mode={documentWidth.mode}
       data-frame-revision={frame.id}
       onLoad={() => element.current && onLoad(frame, element.current)}
@@ -199,7 +201,7 @@ function FinishedDocumentFrame({
       srcDoc={createFinishedDocumentSource(frame.document.html)}
       style={{ width: surfaceWidth }}
       tabIndex={visible ? 0 : -1}
-      title={visible ? 'Finished document' : 'Preparing finished document'}
+      title={visible ? t('完成文档') : t('正在准备完成文档')}
     />
   );
 }
@@ -1039,12 +1041,12 @@ export function App(): React.JSX.Element {
     if (!frame.staging) return;
     void Promise.all([
       controller.whenRenderReady(),
-      waitForFinishedDocumentResources(frameDocument),
+      waitForFinishedDocumentResources(frameDocument, t),
     ])
       .then(([snapshot]) => {
         const path = frame.sessionPath;
         if (pendingRevisionRefs.current.get(path)?.id !== frame.id) return;
-        const failure = getRenderRevisionFailure(snapshot);
+        const failure = getRenderRevisionFailure(snapshot, t);
         if (failure) throw new Error(failure);
 
         const documentPath = frame.document.document.path;

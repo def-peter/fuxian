@@ -1,5 +1,6 @@
 import { parseHTML } from 'linkedom';
 import { describe, expect, it } from 'vitest';
+import { createTranslator } from '../../localization';
 import {
   applyPaperTheme,
   paperPagedMediaCss,
@@ -23,9 +24,11 @@ const createTable = (rowCount: number): string => `
 `;
 
 describe('paper table preparation', () => {
+  const zh = createTranslator('zh-CN');
+
   it('splits long Markdown tables into bounded groups with repeated headers', () => {
     const { document } = parseHTML(createTable(17));
-    splitLongTables(document, () => 40);
+    splitLongTables(document, zh, () => 40);
 
     const tables = Array.from(document.querySelectorAll('table'));
     expect(tables).toHaveLength(3);
@@ -40,7 +43,7 @@ describe('paper table preparation', () => {
 
   it('turns an individually over-height row into a labelled, content-preserving block', () => {
     const { document } = parseHTML(createTable(3));
-    splitLongTables(document, (row) => (row.textContent?.includes('内容 2') ? 900 : 40));
+    splitLongTables(document, zh, (row) => (row.textContent?.includes('内容 2') ? 900 : 40));
 
     const fallback = document.querySelector('[data-paper-table-fallback="true"]');
     expect(fallback?.textContent).toContain('单行超过一页');
@@ -48,6 +51,18 @@ describe('paper table preparation', () => {
     expect(fallback?.textContent).toContain('说明内容 2');
     expect(document.querySelectorAll('table')).toHaveLength(2);
     expect(document.querySelector('main')?.textContent).toContain('内容 3');
+  });
+
+  it('localizes application-generated fallback labels without changing table content', () => {
+    const { document } = parseHTML(`
+      <main><table><tbody><tr><td>作者内容</td></tr></tbody></table></main>
+    `);
+    splitLongTables(document, createTranslator('en-US'), () => 900);
+
+    const fallback = document.querySelector<HTMLElement>('[data-paper-table-fallback="true"]');
+    expect(fallback?.ariaLabel).toBe('Oversized table content');
+    expect(fallback?.textContent).toContain('Table content');
+    expect(fallback?.textContent).toContain('Column 1作者内容');
   });
 });
 

@@ -48,7 +48,7 @@ test('diagram source keeps its identity and can locate the owning diagram', asyn
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const diagrams = finishedDocument.locator('[data-render-task-kind="mermaid"]');
     await expect(diagrams).toHaveCount(2);
     const firstDiagram = diagrams.nth(0);

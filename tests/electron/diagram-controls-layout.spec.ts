@@ -40,7 +40,7 @@ test('diagram controls stay compact and outside the rendered graphic', async () 
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const diagram = window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('[data-render-task-kind="mermaid"]');
     await expect(diagram.locator('.render-task-output svg')).toBeVisible({ timeout: 10_000 });
     const geometry = await diagram.evaluate((element) => {

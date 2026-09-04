@@ -50,7 +50,7 @@ const selectDocumentWidth = async (page: Page, label: 'A4' | '自定义'): Promi
   await trigger.click();
   await page.getByRole('radio', { exact: true, name: label }).click();
   await page
-    .frameLocator('iframe[title="Finished document"]')
+    .frameLocator('iframe[data-finished-document="active"]')
     .locator('body')
     .click({ position: { x: 20, y: 20 } });
   await expect(page.locator('[data-slot="popover-content"]')).toBeHidden();
@@ -74,7 +74,9 @@ test('finished-document tables remain compact and readable in continuous and pap
     const page = await electronApp.firstWindow();
     await page.setViewportSize({ height: 900, width: 1_440 });
     await page.getByRole('button', { name: '打开 Markdown' }).click();
-    const continuousTable = page.frameLocator('iframe[title="Finished document"]').locator('table');
+    const continuousTable = page
+      .frameLocator('iframe[data-finished-document="active"]')
+      .locator('table');
     await expect(continuousTable).toBeVisible();
     const continuousCells = await continuousTable.locator('th, td').evaluateAll((cells) =>
       cells.map((cell) => {

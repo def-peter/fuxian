@@ -15,15 +15,16 @@ const toMindMapNode = (node: ContentOutlineNode): IPureNode => ({
   content: escapeHtml(node.heading.text),
 });
 
-const documentLabel = (name: string): string =>
-  name.replace(/\.(?:markdown|md)$/iu, '') || '文章结构';
+const documentLabel = (name: string, fallbackLabel: string): string =>
+  name.replace(/\.(?:markdown|md)$/iu, '') || fallbackLabel;
 
 export const buildArticleStructureMap = (
   headings: DocumentHeading[],
   documentName: string,
+  fallbackLabel: string,
 ): IPureNode | undefined => {
   const roots = buildContentOutline(headings).map(toMindMapNode);
   if (roots.length === 0) return undefined;
   if (roots.length === 1) return roots[0];
-  return { children: roots, content: escapeHtml(documentLabel(documentName)) };
+  return { children: roots, content: escapeHtml(documentLabel(documentName, fallbackLabel)) };
 };

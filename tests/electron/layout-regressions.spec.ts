@@ -52,7 +52,7 @@ test('long document names, adaptive document width, and outline controls remain 
     const documentWidthPopover = window.locator('[data-slot="popover-content"]');
     await expect(documentWidthPopover).toBeVisible();
     await window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('body')
       .click({ position: { x: 20, y: 20 } });
     await expect(documentWidthPopover).toBeHidden();
@@ -71,10 +71,10 @@ test('long document names, adaptive document width, and outline controls remain 
     expect.soft(titleOverflow.scrollWidth).toBeGreaterThan(titleOverflow.clientWidth);
     expect.soft(titleOverflow.textOverflow).toBe('ellipsis');
 
-    const iframe = window.locator('iframe[title="Finished document"]');
+    const iframe = window.locator('iframe[data-finished-document="active"]');
     const iframeWidth = await iframe.evaluate((element) => element.getBoundingClientRect().width);
     const documentWidths = await window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('body')
       .evaluate((body) => ({
         body: body.getBoundingClientRect().width,

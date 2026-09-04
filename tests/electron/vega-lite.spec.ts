@@ -117,7 +117,7 @@ test('keeps display math and Vega-Lite labels inside their rendered bounds', asy
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const mathOutput = finishedDocument.locator(
       '[data-render-task-kind="math-display"] > .render-task-output',
     );
@@ -254,7 +254,7 @@ test('keeps Vega-Lite snapshots stable across document lifecycle changes', async
     await window.getByRole('button', { exact: true, name: 'visuals.md' }).click();
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Multi Vega export' }),
     ).toBeVisible();
     await window.getByRole('button', { name: '导出 PDF' }).click();
@@ -282,7 +282,7 @@ test('keeps Vega-Lite snapshots stable across document lifecycle changes', async
     );
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Revised Vega export' }),
     ).toBeVisible({ timeout: 15_000 });
     await window.getByRole('button', { name: '导出 PDF' }).click();
@@ -294,7 +294,7 @@ test('keeps Vega-Lite snapshots stable across document lifecycle changes', async
     window = await electronApp.firstWindow();
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'Revised Vega export' }),
     ).toBeVisible({ timeout: 15_000 });
     await window.getByRole('button', { name: '导出 PDF' }).click();
@@ -326,7 +326,7 @@ test('renders safe Vega-Lite blocks and keeps rejected sources explicit', async 
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByText('正文应当立即可读')).toBeVisible();
     const tasks = finishedDocument.locator('[data-render-task-kind="vega-lite"]');
     await expect(tasks).toHaveCount(3);

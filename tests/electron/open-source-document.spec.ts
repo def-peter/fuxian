@@ -83,7 +83,7 @@ test('restores open-document order, active document, and reading position after 
       .getByRole('complementary', { name: '大纲' })
       .getByRole('button', { name: '本地资源' })
       .click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect
       .poll(() =>
         finishedDocument
@@ -130,7 +130,7 @@ test('restores open-document order, active document, and reading position after 
     await expect(
       restoredSession.getByRole('button', { name: /^(basic|showcase)\.md$/ }),
     ).toHaveText(['basic.md', 'showcase.md']);
-    const restoredDocument = window.frameLocator('iframe[title="Finished document"]');
+    const restoredDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect
       .poll(() => restoredDocument.locator('body').evaluate(() => Math.round(globalThis.scrollY)))
       .toBeGreaterThan(100);
@@ -169,7 +169,7 @@ test('removes missing open and recent documents while restoring a session', asyn
     const session = window.getByRole('complementary', { name: '文档会话' });
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { name: 'A finished document' }),
     ).toBeVisible();
     await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
@@ -327,7 +327,7 @@ test('a reader can open a source document from the start view', async () => {
 
     await openButton.click();
 
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       finishedDocument.getByRole('heading', { level: 1, name: 'A finished document' }),
     ).toBeVisible();
@@ -357,7 +357,7 @@ test('a reader can manage multiple open and recent documents without duplicates'
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
     const session = window.getByRole('complementary', { name: '文档会话' });
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(session.getByRole('button', { exact: true, name: 'basic.md' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -527,7 +527,7 @@ test('dropping multiple Markdown documents adds them to the document session', a
     await expect(session.getByRole('button', { exact: true, name: 'showcase.md' })).toBeVisible();
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .getByRole('heading', { level: 1, name: 'A finished document' }),
     ).toBeVisible();
   } finally {
@@ -601,7 +601,7 @@ test('a finished-document link opens outside the isolated preview', async () => 
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const link = finishedDocument.getByRole('link', { name: 'Fuxian website' });
     await expect(link).toHaveCSS('color', 'rgb(63, 75, 85)');
     await link.hover();
@@ -634,7 +634,7 @@ test('the rich showcase renders safely and copies highlighted code', async () =>
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
 
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
     ).toBeVisible();
@@ -716,7 +716,7 @@ test('preserves the generated styles of a complex Mermaid flowchart', async () =
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     const mermaidTask = finishedDocument.locator('[data-render-task-kind="mermaid"]');
     await expect(mermaidTask).toHaveAttribute('data-render-state', 'succeeded');
     const edges = mermaidTask.locator('path.flowchart-link');
@@ -762,7 +762,7 @@ test('a failed Mermaid task keeps source-aware details and can retry in place', 
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByText('Readable prose remains available.')).toBeVisible();
     const task = finishedDocument.locator('[data-render-task-kind="mermaid"]');
     await expect(task.getByText('无法呈现图表')).toBeVisible();
@@ -793,7 +793,7 @@ test('the content outline navigates nested headings and can be collapsed', async
 
     const outline = window.getByRole('complementary', { name: '大纲' });
     const session = window.getByRole('complementary', { name: '文档会话' });
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(outline).toBeVisible();
     await expect(outline.getByRole('button', { name: '稳定标题' })).toHaveCount(2);
     await expect(outline.getByRole('button', { name: 'Footnotes' })).toHaveCount(0);
@@ -856,7 +856,7 @@ test('find highlights matches without changing the finished document selection',
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(
       finishedDocument.getByRole('heading', { name: '浮现 Fuxian 富文档展示' }),
     ).toBeVisible();
@@ -941,7 +941,7 @@ test('local images stay inside the source-document trust scope and can retry', a
   try {
     const window = await electronApp.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const finishedDocument = window.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
 
     const authorizedImage = finishedDocument.getByRole('img', { name: 'Authorized' });
     await authorizedImage.scrollIntoViewIfNeeded();

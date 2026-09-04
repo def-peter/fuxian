@@ -61,7 +61,7 @@ test('downloads an available update and flushes the reading session before insta
       .getByRole('complementary', { name: '大纲' })
       .getByRole('button', { name: '本地资源' })
       .click();
-    const finishedDocument = readerWindow.frameLocator('iframe[title="Finished document"]');
+    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
     await expect
       .poll(() =>
         finishedDocument

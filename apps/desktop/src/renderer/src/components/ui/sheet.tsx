@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLocalization } from '@/localization-context';
 
 function Sheet(props: React.ComponentProps<typeof SheetPrimitive.Root>): React.JSX.Element {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -38,6 +39,7 @@ function SheetContent({
   showCloseButton?: boolean;
   side?: 'left' | 'right';
 }): React.JSX.Element {
+  const { t } = useLocalization();
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -57,7 +59,7 @@ function SheetContent({
         {showCloseButton ? (
           <SheetPrimitive.Close asChild>
             <Button
-              aria-label="关闭抽屉"
+              aria-label={t('关闭抽屉')}
               className="absolute top-2 right-2"
               size="icon-sm"
               variant="ghost"

@@ -1,5 +1,6 @@
 import type { RenderRevisionSnapshot } from '@fuxian/render-protocol';
 import { describe, expect, it } from 'vitest';
+import { createTranslator } from '../../localization';
 import {
   getRenderRevisionFailure,
   isAppendedRevision,
@@ -41,9 +42,19 @@ describe('external revision', () => {
   });
 
   it('accepts only a fully successful render revision', () => {
-    expect(getRenderRevisionFailure(snapshot('succeeded'))).toBeUndefined();
-    expect(getRenderRevisionFailure(snapshot('failed'))).toContain('invalid diagram');
-    expect(getRenderRevisionFailure(snapshot('timed-out'))).toContain('渲染失败');
-    expect(getRenderRevisionFailure(snapshot('cancelled'))).toContain('更新版本取代');
+    const zh = createTranslator('zh-CN');
+    expect(getRenderRevisionFailure(snapshot('succeeded'), zh)).toBeUndefined();
+    expect(getRenderRevisionFailure(snapshot('failed'), zh)).toContain('invalid diagram');
+    expect(getRenderRevisionFailure(snapshot('timed-out'), zh)).toContain('渲染任务失败');
+    expect(getRenderRevisionFailure(snapshot('cancelled'), zh)).toContain('更新版本取代');
+  });
+
+  it('localizes application-owned render failures while preserving technical details', () => {
+    const en = createTranslator('en-US');
+    expect(getRenderRevisionFailure(snapshot('timed-out'), en)).toBe('mermaid: Rendering failed.');
+    expect(getRenderRevisionFailure(snapshot('failed'), en)).toContain('invalid diagram');
+    expect(getRenderRevisionFailure(snapshot('cancelled'), en)).toBe(
+      'This revision was replaced by a newer version.',
+    );
   });
 });

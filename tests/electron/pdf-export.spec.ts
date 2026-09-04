@@ -235,7 +235,7 @@ test('preserves PlantUML colors in PDF', async () => {
     const response = await server.nextRequest();
     response.end(svg);
     const visibleSvg = window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('[data-render-task-kind="plantuml"] .render-task-output > svg');
     await expect(visibleSvg).toBeVisible({ timeout: 10_000 });
     await window.waitForTimeout(200);
@@ -379,7 +379,7 @@ test('@release exports complete finished-document content with stable pagination
     const visibleResponse = await server.nextRequest();
     visibleResponse.end(representativePlantUmlSvg);
     const visibleVegaLite = window
-      .frameLocator('iframe[title="Finished document"]')
+      .frameLocator('iframe[data-finished-document="active"]')
       .locator('[data-render-task-kind="vega-lite"] .render-task-output svg');
     await expect(visibleVegaLite).toBeVisible({ timeout: 15_000 });
     const visibleVegaLiteSnapshot = await visibleVegaLite.evaluate((svg) => svg.outerHTML);
@@ -601,7 +601,7 @@ test('reuses visible PlantUML diagrams without export-time requests', async () =
     }
     await expect(
       window
-        .frameLocator('iframe[title="Finished document"]')
+        .frameLocator('iframe[data-finished-document="active"]')
         .locator('[data-render-task-kind="plantuml"] .render-task-output svg'),
     ).toHaveCount(3);
 
