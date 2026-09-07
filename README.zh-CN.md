@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  简体中文 · <a href="README.md">English</a>
+  <a href="README.md">English</a> · 简体中文
 </p>
 
 ## ✨ 让 Markdown 更值得阅读

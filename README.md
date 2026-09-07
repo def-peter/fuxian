@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="README.zh-CN.md">简体中文</a> · English
+  English · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 ## ✨ Make more of your Markdown
