@@ -2,6 +2,10 @@
   <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现 Fuxian 应用图标" width="112" height="112" />
 </p>
 
+<p align="center">
+  简体中文 · <a href="README.en.md">English</a>
+</p>
+
 <h1 align="center">浮现 (Fuxian)</h1>
 
 <p align="center"><strong>让内容精彩浮现，让 Markdown 值得阅读。</strong></p>
@@ -25,6 +29,48 @@
 - ✏️ **小改动不用换应用**：进入源码编辑模式即可修改、查找和替换文字，保存后继续阅读。
 
 浮现始终以阅读体验为核心。它不是知识库、完整 IDE 或所见即所得编辑器。
+
+> **文档的终点，不是写完，而是让人看懂。**
+
+## 🖼️ 实际效果
+
+源码安静地留在背后，真正值得阅读的内容浮现在眼前。
+
+### 一篇 Markdown，也可以读得像一篇好文章
+
+标题、段落、引用、表格、清单和提示块被整理进安静、连贯的阅读版面，大纲始终在手边。
+
+![浮现中的 Markdown 阅读界面](docs/assets/readme/zh/01-finished-document.png)
+
+继续向下，任务清单、公式、代码、折叠内容和脚注仍然属于同一篇文章，不需要在工具之间来回切换。
+
+![浮现中的公式、代码、折叠内容与脚注](docs/assets/readme/zh/02-rich-markdown.png)
+
+### 从目录快速看懂结构
+
+除了沿着右侧大纲跳转，还可以把整篇文章的标题关系展开成一张大纲图。
+
+![浮现的文章大纲图](docs/assets/readme/zh/03-article-outline-map.png)
+
+### 四种图表，四种表达方式
+
+Mermaid、PlantUML、Vega-Lite 和 AntV Infographic 都会直接成为文档的一部分。每种框架都能表达丰富的结构，下面只是四个贴近工作的场景示例。需要核对时，可以随时查看源码；阅读和导出时，看到的始终是清晰的 SVG 图形。
+
+**Mermaid 示例：用思维导图梳理一场客户到访。**
+
+![浮现渲染 Mermaid 思维导图并查看源码](docs/assets/readme/zh/04-mermaid.png)
+
+**PlantUML 示例：用顺序图追踪一次代码发布。**
+
+![浮现渲染 PlantUML 顺序图并查看源码](docs/assets/readme/zh/05-plantuml.png)
+
+**Vega-Lite 示例：用六张图组成一页经营看板。**
+
+![浮现渲染 Vega-Lite 数据看板并查看源码](docs/assets/readme/zh/06-vega-lite.png)
+
+**AntV Infographic 示例：用信息图拆解新品首发的转化路径。**
+
+![浮现渲染 AntV Infographic 并查看源码](docs/assets/readme/zh/07-antv-infographic.png)
 
 ## 📥 下载
 
