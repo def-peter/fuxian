@@ -2,10 +2,6 @@
   <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现应用图标" width="112" height="112" />
 </p>
 
-<p align="center">
-  简体中文 · <a href="README.md">English</a>
-</p>
-
 <h1 align="center">浮现</h1>
 
 <p align="center"><strong>让内容精彩浮现，让 Markdown 值得阅读。</strong></p>
@@ -19,6 +15,10 @@
   <a href="https://github.com/def-peter/fuxian/releases/latest"><img src="https://img.shields.io/github/v/release/def-peter/fuxian?style=flat-square" alt="最新版本" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f6feb?style=flat-square" alt="支持 Windows 和 macOS" />
   <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT 许可证" /></a>
+</p>
+
+<p align="center">
+  简体中文 · <a href="README.md">English</a>
 </p>
 
 ## ✨ 让 Markdown 更值得阅读

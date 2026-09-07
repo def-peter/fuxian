@@ -2,10 +2,6 @@
   <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="Fuxian app icon" width="112" height="112" />
 </p>
 
-<p align="center">
-  <a href="README.zh-CN.md">简体中文</a> · English
-</p>
-
 <h1 align="center">Fuxian</h1>
 
 <p align="center"><strong>Bring content to life. Make Markdown worth reading.</strong></p>
@@ -19,6 +15,10 @@
   <a href="https://github.com/def-peter/fuxian/releases/latest"><img src="https://img.shields.io/github/v/release/def-peter/fuxian?style=flat-square" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f6feb?style=flat-square" alt="Windows and macOS" />
   <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT license" /></a>
+</p>
+
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a> · English
 </p>
 
 ## ✨ Make more of your Markdown
