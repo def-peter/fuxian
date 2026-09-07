@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { copyDiagramContent, type CopyStatus } from '@/diagram-copy';
 import type { RenderedVisualSnapshot } from '@/finished-document';
 import { useLocalization } from '@/localization-context';
@@ -21,14 +22,43 @@ const diagramKindLabel = (kind: RenderedVisualSnapshot['kind']): string =>
         ? 'PlantUML'
         : 'Vega-Lite';
 
+const useIsTextTruncated = (
+  text: string,
+): [React.RefObject<HTMLParagraphElement | null>, boolean] => {
+  const element = useRef<HTMLParagraphElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  useEffect(() => {
+    const current = element.current;
+    if (!current) return;
+    const measure = (): void => {
+      const next = current.scrollWidth > current.clientWidth;
+      setIsTruncated((previous) => (previous === next ? previous : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(current);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return [element, isTruncated];
+};
+
 interface CopyButtonProps {
   copyText(text: string): Promise<void>;
   disabled?: boolean;
   label: string;
+  size?: 'sm' | 'xs';
   text: string;
 }
 
-function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React.JSX.Element {
+function CopyButton({
+  copyText,
+  disabled,
+  label,
+  size = 'sm',
+  text,
+}: CopyButtonProps): React.JSX.Element {
   const { t } = useLocalization();
   const [status, setStatus] = useState<CopyStatus>('idle');
   return (
@@ -36,7 +66,7 @@ function CopyButton({ copyText, disabled, label, text }: CopyButtonProps): React
       aria-live="polite"
       disabled={disabled}
       onClick={() => void copyDiagramContent(copyText, text).then(setStatus)}
-      size="sm"
+      size={size}
       variant="outline"
     >
       {status === 'copied' ? (
@@ -63,10 +93,11 @@ export function DiagramSourceDrawer({
   onLocate,
 }: DiagramSourceDrawerProps): React.JSX.Element {
   const { t } = useLocalization();
+  const [contextLabel, contextLabelTruncated] = useIsTextTruncated(diagram.contextLabel);
   return (
     <aside
       aria-label={t('图表源码')}
-      className="grid h-full min-h-0 grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted"
+      className="grid h-full min-h-0 w-full min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[52px_minmax(0,1fr)_52px] border-l bg-muted"
     >
       <header className="flex items-center justify-between border-b px-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -75,7 +106,22 @@ export function DiagramSourceDrawer({
             <h2 className="truncate text-xs font-semibold">
               {t('{kind} 源码', { kind: diagramKindLabel(diagram.kind) })}
             </h2>
-            <p className="truncate text-xs text-muted-foreground">{diagram.contextLabel}</p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p
+                  className="truncate text-xs text-muted-foreground"
+                  ref={contextLabel}
+                  tabIndex={contextLabelTruncated ? 0 : undefined}
+                >
+                  {diagram.contextLabel}
+                </p>
+              </TooltipTrigger>
+              {contextLabelTruncated ? (
+                <TooltipContent align="start" side="bottom" sideOffset={6}>
+                  {diagram.contextLabel}
+                </TooltipContent>
+              ) : null}
+            </Tooltip>
           </div>
         </div>
         <Button aria-label={t('关闭图表源码')} onClick={onClose} size="icon-xs" variant="ghost">
@@ -92,15 +138,16 @@ export function DiagramSourceDrawer({
         </pre>
       </div>
       <footer className="flex items-center gap-2 border-t px-3">
-        <Button onClick={onLocate} size="sm" variant="outline">
+        <Button onClick={onLocate} size="xs" variant="outline">
           <LocateFixed aria-hidden="true" data-icon="inline-start" />
           {t('定位到图表')}
         </Button>
-        <CopyButton copyText={copyText} label={t('复制源码')} text={diagram.source} />
+        <CopyButton copyText={copyText} label={t('复制源码')} size="xs" text={diagram.source} />
         <CopyButton
           copyText={copyText}
           disabled={!diagram.svg}
           label={t('复制 SVG')}
+          size="xs"
           text={diagram.svg ?? ''}
         />
       </footer>

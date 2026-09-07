@@ -48,9 +48,11 @@ describe('rendered visual preparation', () => {
       [
         '<svg xmlns="http://www.w3.org/2000/svg">',
         '<foreignObject x="0" y="0" width="120" height="40" overflow="visible" onclick="bad()">',
-        '<span xmlns="http://www.w3.org/1999/xhtml" data-secret="x" style="display:flex;color:#262626;position:fixed;background-image:url(https://example.test/x);white-space:pre-wrap">中文标题</span>',
+        '<span xmlns="http://www.w3.org/1999/xhtml" data-secret="x" style="display:flex;color:#262626;font-family:system-ui;text-decoration:underline;position:fixed;background-image:url(https://example.test/x);white-space:pre-wrap">中文标题</span>',
         '</foreignObject>',
         '<foreignObject><div>不允许的 HTML</div></foreignObject>',
+        '<path><animate attributeName="stroke-dashoffset" from="12" to="0" dur="1.2s" repeatCount="indefinite" /></path>',
+        '<path><animate attributeName="href" from="#safe" to="https://example.test/x" dur="1s" repeatCount="indefinite" /></path>',
         '<script>alert(1)</script>',
         '</svg>',
       ].join(''),
@@ -63,9 +65,13 @@ describe('rendered visual preparation', () => {
     const style = span?.getAttribute('style') ?? '';
     expect(style).toMatch(/display:\s*flex/iu);
     expect(style).toMatch(/color:\s*(?:#262626|rgb\(38,\s*38,\s*38\))/iu);
+    expect(style).toMatch(/font-family:\s*system-ui/iu);
+    expect(style).toMatch(/text-decoration:\s*underline/iu);
     expect(style).toMatch(/white-space:\s*pre-wrap/iu);
     expect(style).not.toMatch(/position|background|url/iu);
     expect(span?.hasAttribute('data-secret')).toBe(false);
+    expect(svg.querySelectorAll('animate')).toHaveLength(1);
+    expect(svg.querySelector('animate')?.getAttribute('attributeName')).toBe('stroke-dashoffset');
     expect(svg.innerHTML).not.toMatch(/onclick|script|example\.test/iu);
   });
 
@@ -73,11 +79,38 @@ describe('rendered visual preparation', () => {
     const svg = prepareRenderedVisualSvg(
       frameDocument(),
       '<svg><foreignObject><span>hidden</span></foreignObject><text>kept</text></svg>',
-      'mermaid',
+      'plantuml',
     );
 
     expect(svg.querySelector('foreignObject')).toBeNull();
     expect(svg.querySelector('text')?.textContent).toBe('kept');
+  });
+
+  it('preserves Mermaid HTML labels, wrapping and emphasis while removing active content', () => {
+    const svg = prepareRenderedVisualSvg(
+      frameDocument(),
+      `<svg xmlns="http://www.w3.org/2000/svg"><g class="label" transform="translate(-48,-12)">
+        <foreignObject width="96" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display:table-cell;white-space:normal;max-width:96px;text-align:center;position:fixed;background-image:url(https://example.test/style)">
+          <span class="nodeLabel" style="font-size:99px"><p><strong>客户</strong><br/><em>明早到访</em></p></span>
+          <script>alert(1)</script><iframe src="https://example.test"></iframe>
+          <img src="https://example.test/x" onerror="bad()"/><input autofocus="" onfocus="bad()"/>
+          <a href="javascript:bad()" onclick="bad()">链接文字</a>
+        </div></foreignObject></g></svg>`,
+      'mermaid',
+    );
+    expect(svg.querySelector('foreignObject')?.getAttribute('width')).toBe('96');
+    expect(svg.querySelector('div')?.namespaceURI).toBe('http://www.w3.org/1999/xhtml');
+    expect((svg.querySelector('div') as HTMLElement | null)?.style.maxWidth).toBe('96px');
+    expect(svg.querySelector('div')?.getAttribute('style')).not.toMatch(/position|background|url/u);
+    expect(svg.querySelector('span')?.hasAttribute('style')).toBe(false);
+    expect(svg.querySelector('strong')?.textContent).toBe('客户');
+    expect(svg.querySelector('em')?.textContent).toBe('明早到访');
+    expect(svg.querySelector('br')).not.toBeNull();
+    expect(svg.querySelector('g')?.getAttribute('transform')).toBe('translate(-48,-12)');
+    expect(svg.querySelector('script, iframe, img, input, a')).toBeNull();
+    expect(svg.outerHTML).not.toMatch(
+      /onerror|onclick|onfocus|javascript:|position|background|url|example\.test/u,
+    );
   });
 
   it('preserves Mermaid styles and author attributes without inventing replacements', () => {

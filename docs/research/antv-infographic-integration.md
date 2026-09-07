@@ -1,6 +1,8 @@
 # AntV Infographic 浏览器与 Electron 集成评估
 
 > 调研日期：2026-08-28。资料仅采用 AntV Infographic 官方文档、官方仓库与 npm 官方包元数据。版本与体积是调研日快照。
+>
+> 最初的保守功能边界已由 ADR 0024 取代；以下内容保留为当时的调研记录。
 
 ## 结论
 
@@ -13,9 +15,9 @@ AntV Infographic 的官方输入是 Mermaid-like `Infographic Syntax`，官方�
 ## 实现与验证结果
 
 - 仅识别官方文档使用的规范 fence `infographic`；未知语言仍按普通代码块显示。
-- 固定使用 `@antv/infographic@0.2.20`。官方模板和主题必须精确匹配；动画、交互、插图、词云、自定义 design、任意 attributes 和自定义字体均被拒绝。
-- 全部真实网络请求被 Worker 拦截。`lucide/...`、`mdi/...` 和可匹配的简短图标名从随应用发布的 Iconify JSON 集合解析；未找到的图标明确失败，不回退到官方搜索服务。
-- 专用 sanitizer 精确保留官方 `foreignObject > span` 纯文本结构及有限排版样式，同时删除其他 HTML、事件、URL、图片与危险 SVG/CSS。
+- 固定使用 `@antv/infographic@0.2.20`。最初的收缩方案曾计划拒绝动画、插图、自定义 `design` 和扩展属性；该方案已被 [ADR 0024](../adr/0024-preserve-official-antv-infographic-capabilities.md) 取代。当前实现保留固定版本运行时支持的官方渲染能力，仅在 Worker、可信网络、输入体积和输出清理等系统边界执行安全控制。
+- Worker 优先从随应用发布的 Iconify JSON 集合解析 `lucide/...`、`mdi/...` 和可匹配的简短图标名；官方搜索服务和阿里资源 CDN 位于可信网络边界内。其他来源安全降级，不使整张信息图失败。
+- 专用 sanitizer 保留官方 `foreignObject > span` 文本结构、作者排版、内部 SVG 引用和已审查的官方动画，同时删除可执行内容、危险 URL 和越界 HTML。
 - 预览、全屏、复制渲染结果和 PDF 复用同一份清理后 SVG snapshot。Electron 测试确认预览与 PDF 的 SVG `outerHTML` 完全一致，且 PDF 可提取中文标题“浮现发布流程”。
 - production Electron 构建与 CSP 下渲染通过。未压缩构建产物约为：Worker 344 KB、AntV runtime 1.715 MB、Lucide 数据 589 KB、MDI 数据 2.958 MB；这些模块均按需加载，不进入首屏同步路径。
 
@@ -35,7 +37,7 @@ AntV Infographic 的官方输入是 Mermaid-like `Infographic Syntax`，官方�
 
 模板名也不应直接交给运行时。未知名称会自动选择 Levenshtein 距离最近的内置模板，而不是失败；Fuxian 应先与 `getTemplates()` 的固定集合做精确匹配。[模板解析](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/templates/registry.ts#L10-L20) [模糊匹配实现](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/templates/utils.ts#L74-L110)
 
-官方源码及发布 UMD 产物未发现 `eval()` 或 `new Function()`，所以没有已知 `unsafe-eval` 要求；但官方未声明 CSP 兼容性，仍须在 Fuxian production CSP 下实测整个依赖图。应关闭 editor、plugins、interactions 和动画，并拒绝超出静态阅读范围的配置。
+官方源码及发布 UMD 产物未发现 `eval()` 或 `new Function()`，所以没有已知 `unsafe-eval` 要求；但官方未声明 CSP 兼容性，仍须在 Fuxian production CSP 下实测整个依赖图。官方动画属于渲染输出并予以保留；editor、plugins 和编辑 interactions 属于独立创作界面，不由完成态文档语法开启。
 
 ## 资源与网络
 
@@ -66,9 +68,9 @@ MVP 应拒绝 `icon`、`illus`、remote/search/custom/data URI 和自定义字�
 
 浏览器 `render()` 是同步入口，官方 API 不接受 `AbortSignal`；`destroy()` 只能事后清理。SSR 自带的十秒 `Promise.race()` 也只是停止等待，不会中断同步 parser/layout 或已经开始的异步资源工作。[浏览器 render](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/runtime/Infographic.tsx#L82-L97) [SSR timeout](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/ssr/renderer.ts#L24-L49)
 
-因此必须保留 Vega-Lite 已验证的任务原则：revision/task id、最多两个并发任务、过期结果丢弃、超时或取消时终止隔离执行环境。但不能直接复用现有 browser Web Worker renderer：浏览器 API 依赖 `document`，SSR shim 又依赖 Node 全局。优先 spike `@antv/infographic/ssr` 在独立 Node worker thread 或 Electron utility process 中的生产打包、CSP、终止与内存回收；若坚持 Web Worker，需要验证 LinkeDOM 与 Node shim 改造，不能假设可用。
+因此必须保留 Vega-Lite 已验证的任务原则：revision/task id、最多两个并发任务、过期结果丢弃、超时或取消时终止隔离执行环境。最终实现使用 browser Web Worker 加 LinkeDOM 提供受控 DOM，并已验证生产打包、CSP、终止与内存回收路径。
 
-确定性要求：固定包版本、精确模板、静态配置、Fuxian 本地字体、禁止资源与动画，并限制 source bytes、语法深度、数据项/关系数、布局时间、SVG bytes、元素数和尺寸。个别源码路径使用随机 ID；Rough.js 已固定 seed，但仍应比较两次渲染的清理后 SVG 与截图。[随机 ID](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/utils/uuid.ts#L1-L10) [Rough seed](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/renderer/stylize/rough.ts#L13-L21)
+稳定性要求：固定包版本、精确匹配官方模板，并限制 source bytes、语法深度、数据项/关系数、布局时间、SVG bytes、元素数和尺寸。官方动画与资源不因确定性要求而禁用；屏幕和导出复用同一份安全 SVG 快照。个别源码路径使用随机 ID；Rough.js 已固定 seed，但仍应比较两次渲染的清理后 SVG 与截图。[随机 ID](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/utils/uuid.ts#L1-L10) [Rough seed](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/src/renderer/stylize/rough.ts#L13-L21)
 
 屏幕、全屏、复制和 PDF 必须复用同一份已清理 SVG snapshot，PDF 窗口不得重跑 Infographic。这样也避免浏览器 DOM 测量、字体或随机 ID 在导出路径漂移。PDF readiness 需等待隔离任务、资源清理和字体 ready。
 
@@ -78,16 +80,16 @@ npm registry 快照：`0.2.20` tarball 约 1.775 MB，unpacked 8,225,193 bytes /
 
 主包为 MIT，与 Fuxian 的开源协议兼容。[License](https://github.com/antvis/Infographic/blob/2ea1894255e4002c7735586778be86d13ec30346/LICENSE)
 
-## 首版边界
+## 当前边界
 
-production spike 已通过，首版按以下边界交付：
+production spike 已通过，当前按以下边界交付：
 
-1. canonical `infographic` fence，仅接受显式、精确、已测试的内置模板。
-2. 仅接受 bounded data 与安全主题字段；图标只来自随应用发布的 Lucide/MDI 数据。拒绝 illustrations、自定义 attributes/fonts、animation、editor 和 interactions。
+1. canonical `infographic` fence；内置模板名精确匹配固定版本运行时，同时允许官方语法支持的自定义 `design`。
+2. 保留完整主题、插图、资源对象、自定义 attributes、字体样式和 animation；输入仅受通用体积、深度、数量与原型污染限制。
 3. 在可终止的独立执行环境中渲染，并保留连续 external revision、超时和两任务并发上限。
-4. 建立 `foreignObject` 专用清理策略，验证中文换行、文本选择、键盘全屏、复制和 accessibility fallback。
-5. 固定本地字体，并确认全过程零网络、无外部 URI、无可执行属性。
+4. 建立 `foreignObject` 专用清理策略，验证中文换行、文本选择、官方动画、键盘全屏、复制和 accessibility fallback。
+5. 本地图标优先；允许经过审查的官方搜索服务与阿里资源 CDN，所有网络请求无凭据、限时、限量且返回内容再次清理。
 6. 在 adaptive、A4、自定义 document width 下验证比例；屏幕/PDF 逐字复用同一 snapshot。
 7. 每次升级 `@antv/infographic` 都重新检查 lazy chunks、打包内容、官方示例视觉、中文换行、清理器和 PDF 一致性。
 
-扩大模板、主题字段或资源范围必须另行评估，不能因为官方网页 demo 可以渲染，就绕过 Fuxian 的离线、安全、可取消和确定性边界。
+固定版本官方语法中的视觉能力不另设产品黑名单。新增网络来源或升级依赖仍需重新审查，不能因为官方网页 demo 可以访问，就绕过 Fuxian 的安全、可取消和资源边界。

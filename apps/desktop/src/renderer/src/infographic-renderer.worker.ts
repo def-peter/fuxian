@@ -3,8 +3,9 @@ import {
   collectInfographicIllustrationNames,
   invalidInfographicSource,
   maximumInfographicSvgBytes,
-  unsupportedInfographicTemplateCapability,
   validateInfographicData,
+  validateInfographicDesign,
+  validateInfographicTemplate,
   validateInfographicThemeConfig,
 } from './infographic-policy';
 import { resolveInfographicIcon } from './infographic-icons';
@@ -154,29 +155,21 @@ const setupOfflineDom = (): { container: Element; document: Document } => {
 const render = async (source: string): Promise<string> => {
   assertInfographicSourceSize(source);
   const runtime = await import('@antv/infographic');
-  const { exportToSVG, getPalettes, getTemplates, getThemes, Infographic, parseSyntax } = runtime;
+  const { exportToSVG, getTemplates, getThemes, Infographic, parseSyntax } = runtime;
   const parsed = parseSyntax(source);
   const parseProblem = parsed.errors[0] ?? parsed.warnings[0];
   if (parseProblem) {
     throw invalidInfographicSource(`第 ${parseProblem.line} 行：${parseProblem.message}`);
   }
 
-  const { data, design, template, theme, themeConfig, ...unsupported } = parsed.options;
-  if (Object.keys(unsupported).length > 0 || design !== undefined) {
-    throw invalidInfographicSource('首版只支持官方模板、data 和有限主题配置。');
-  }
-  if (typeof template !== 'string' || !getTemplates().includes(template)) {
-    throw invalidInfographicSource('必须使用名称完全匹配的官方内置模板。');
-  }
-  const unsupportedCapability = unsupportedInfographicTemplateCapability(template);
-  if (unsupportedCapability) {
-    throw invalidInfographicSource('暂不支持动画模板，以保证屏幕与 PDF 的静态结果一致。');
-  }
+  const { data, design, height, template, theme, themeConfig, width } = parsed.options;
+  validateInfographicTemplate(template, design, getTemplates());
   if (theme !== undefined && (typeof theme !== 'string' || !getThemes().includes(theme))) {
     throw invalidInfographicSource('必须使用名称完全匹配的官方内置主题。');
   }
   validateInfographicData(data);
-  validateInfographicThemeConfig(themeConfig, getPalettes());
+  validateInfographicDesign(design);
+  validateInfographicThemeConfig(themeConfig);
   onlineIllustrationQueries.clear();
   collectInfographicIllustrationNames(data).forEach((query) =>
     onlineIllustrationQueries.add(query),
@@ -187,9 +180,12 @@ const render = async (source: string): Promise<string> => {
     container,
     data: data!,
     editable: false,
-    template,
+    ...(design === undefined ? {} : { design }),
+    ...(height === undefined ? {} : { height }),
+    ...(template === undefined ? {} : { template }),
     ...(theme === undefined ? {} : { theme }),
     ...(themeConfig === undefined ? {} : { themeConfig }),
+    ...(width === undefined ? {} : { width }),
   });
   let svg: string;
   try {

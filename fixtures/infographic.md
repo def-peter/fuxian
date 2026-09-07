@@ -90,6 +90,44 @@ data
     source[Markdown 源文档] -> snapshot[安全 SVG 快照] -> output[屏幕与 PDF]
 ```
 
+## 官方完整配置
+
+```infographic
+infographic
+width 720
+height 360
+design
+  structure
+    type list-row
+    gap 24
+  item
+    type compact-card
+  title
+    type default
+data
+  title 自定义设计与完整主题
+  lists
+    - label Alpha
+      desc 保留官方设计能力
+      attributes
+        opacity 0.85
+    - label Beta
+      desc 保留官方主题能力
+theme light
+  title
+    fill #0052CC
+    font-size 30
+    font-style italic
+  item
+    label
+      fill #D4380D
+      font-weight 900
+  stylize
+    type rough
+    roughness 1
+    bowing 1
+```
+
 ## 官方命名色板与可信资源
 
 ```infographic

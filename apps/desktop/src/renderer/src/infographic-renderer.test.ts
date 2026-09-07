@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getPalettes, parseSyntax } from '@antv/infographic';
+import { getTemplates, parseSyntax } from '@antv/infographic';
 import {
   invalidInfographicSource,
-  isSupportedInfographicTemplate,
   validateInfographicData,
+  validateInfographicTemplate,
   validateInfographicThemeConfig,
 } from './infographic-policy';
 import { resolveInfographicIcon } from './infographic-icons';
@@ -39,23 +39,23 @@ class FakeWorker {
 }
 
 describe('Infographic policy', () => {
-  it('rejects remote resources, resource objects, and arbitrary attributes', () => {
+  it('accepts official resource objects and data attributes within bounded source data', () => {
     expect(() =>
       validateInfographicData({ items: [{ icon: 'https://example.test/a.svg' }] }),
-    ).toThrow(/不允许外部 URL/u);
+    ).not.toThrow();
     expect(() => validateInfographicData({ items: [{ illus: 'coffee' }] })).not.toThrow();
     expect(() =>
-      validateInfographicData({ items: [{ attributes: { onclick: 'bad()' } }] }),
-    ).toThrow(/不支持 attributes/u);
+      validateInfographicData({ items: [{ attributes: { opacity: 0.8 } }] }),
+    ).not.toThrow();
     expect(() =>
       validateInfographicData({ items: [{ icon: { source: 'remote', value: 'example.test' } }] }),
-    ).toThrow(/图标和插图只支持/u);
+    ).not.toThrow();
     expect(() =>
       validateInfographicData({ items: [{ illus: { source: 'remote', value: 'example.test' } }] }),
-    ).toThrow(/图标和插图只支持/u);
+    ).not.toThrow();
   });
 
-  it('accepts official basic data and a bounded color theme', () => {
+  it('accepts the complete official theme schema', () => {
     expect(() =>
       validateInfographicData({
         lists: [{ desc: '保留官方排版', label: '安全渲染', value: 100 }],
@@ -63,21 +63,17 @@ describe('Infographic policy', () => {
       }),
     ).not.toThrow();
     expect(() =>
-      validateInfographicThemeConfig({ colorBg: '#1f1f1f', colorPrimary: '#61DDAA' }),
+      validateInfographicThemeConfig({
+        base: { global: { 'font-family': 'system-ui' } },
+        colorBg: '#1f1f1f',
+        colorPrimary: '#61DDAA',
+        elements: { title: { opacity: 0.9 } },
+        item: { label: { fill: '#D4380D', 'font-weight': 900 } },
+        palette: 'antv',
+        stylize: { bowing: 1, roughness: 1, type: 'rough' },
+        title: { fill: '#0052CC', 'font-size': 30, 'font-style': 'italic' },
+      }),
     ).not.toThrow();
-    const officialPalettes = getPalettes();
-    expect(() =>
-      validateInfographicThemeConfig({ palette: 'antv' }, officialPalettes),
-    ).not.toThrow();
-    expect(() =>
-      validateInfographicThemeConfig({ palette: 'spectral' }, officialPalettes),
-    ).not.toThrow();
-    expect(() => validateInfographicThemeConfig({ palette: 'unknown' }, officialPalettes)).toThrow(
-      /theme\.palette/u,
-    );
-    expect(() => validateInfographicThemeConfig({ base: { global: { onclick: 'bad' } } })).toThrow(
-      /theme\.base/u,
-    );
     expect(invalidInfographicSource('test')).toBeInstanceOf(TypeError);
   });
 
@@ -135,23 +131,24 @@ theme light
       themeConfig: { palette: 'antv' },
     });
     expect(() => validateInfographicData(parsed.options.data)).not.toThrow();
-    expect(() =>
-      validateInfographicThemeConfig(parsed.options.themeConfig, getPalettes()),
-    ).not.toThrow();
+    expect(() => validateInfographicThemeConfig(parsed.options.themeConfig)).not.toThrow();
   });
 
-  it('supports static sequence and word-cloud templates by capability', () => {
-    expect(isSupportedInfographicTemplate('sequence-interaction-default-badge-card')).toBe(true);
-    expect(isSupportedInfographicTemplate('chart-wordcloud')).toBe(true);
-    expect(isSupportedInfographicTemplate('chart-wordcloud-rotate')).toBe(true);
-    expect(isSupportedInfographicTemplate('relation-dagre-flow-tb-animated-badge-card')).toBe(
-      false,
-    );
-    expect(isSupportedInfographicTemplate('sequence-interaction-wide-animated-compact-card')).toBe(
-      false,
-    );
-    expect(isSupportedInfographicTemplate('sequence-timeline-simple-illus')).toBe(true);
-    expect(isSupportedInfographicTemplate('quadrant-simple-illus')).toBe(true);
+  it('accepts every template exposed by the pinned official runtime', () => {
+    const officialTemplates = getTemplates();
+
+    expect(officialTemplates.length).toBeGreaterThan(250);
+    for (const template of officialTemplates) {
+      expect(() =>
+        validateInfographicTemplate(template, undefined, officialTemplates),
+      ).not.toThrow();
+    }
+    expect(() =>
+      validateInfographicTemplate(undefined, { structure: 'list-row' }, officialTemplates),
+    ).not.toThrow();
+    expect(() =>
+      validateInfographicTemplate('unknown-template', undefined, officialTemplates),
+    ).toThrow(/名称完全匹配/u);
   });
 });
 

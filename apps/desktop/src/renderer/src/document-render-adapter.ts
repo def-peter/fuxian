@@ -103,7 +103,7 @@ export const createDocumentRenderAdapter = (
       const mermaid = await loadMermaid();
       throwIfAborted(signal);
       mermaid.initialize({
-        htmlLabels: false,
+        htmlLabels: true,
         securityLevel: 'strict',
         startOnLoad: false,
         suppressErrorRendering: true,

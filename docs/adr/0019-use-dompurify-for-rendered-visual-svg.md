@@ -12,13 +12,20 @@ removes SVG elements, attributes, or complete style sheets with selectors and re
 
 The application retains only product-specific policy: accept exactly one bounded SVG, remove diagram
 links while preserving their contents, reject external `href` values, and permit AntV's reviewed
-`foreignObject > span` text structure. Standard internal SVG reuse through `use` and fragment
-references remains available. The finished-document content security policy continues to prevent
-rendered visuals from loading unapproved network resources.
+`foreignObject > span` text structure. Mermaid uses its official HTML-label mode; Fuxian preserves
+its reviewed `foreignObject > div > span` Markdown label structure and a narrow set of layout styles
+while removing active content, external resources, event handlers, and unrelated inline CSS.
+AntV Infographic retains benign official and author text styles plus the pinned runtime's reviewed
+`stroke-dashoffset` animation rather than maintaining a visual-capability blacklist.
+Standard internal SVG reuse through `use` and fragment references remains available. The
+finished-document content security policy continues to prevent rendered visuals from loading
+unapproved network resources.
 
 ## Consequences
 
 Generated CSS and renderer-authored geometry are preserved, including Mermaid flowchart strokes and
-AntV symbol reuse. Browser SVG parsing, namespace handling, dangerous elements, event attributes, and
-unsafe URLs are delegated to a maintained security library. DOMPurify upgrades require sanitizer,
-Mermaid, PlantUML, Vega-Lite, Infographic, copy, and PDF regression tests.
+AntV symbol reuse. Mermaid HTML labels retain official wrapping, inline emphasis, and geometry across
+reading, focused viewing, paper preview, copying, and PDF export. Browser SVG parsing, namespace
+handling, dangerous elements, event attributes, and unsafe URLs are delegated to a maintained
+security library. DOMPurify upgrades require sanitizer, Mermaid, PlantUML, Vega-Lite, Infographic,
+copy, and PDF regression tests.

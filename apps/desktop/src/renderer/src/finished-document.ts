@@ -99,6 +99,28 @@ const renderTaskKinds = new Set([
 ]);
 const renderedVisualTaskKinds = new Set(['infographic', 'mermaid', 'plantuml', 'vega-lite']);
 const maximumRenderedVisualElements = 100_000;
+const mermaidLabelTags = [
+  'foreignObject',
+  'div',
+  'span',
+  'p',
+  'br',
+  'b',
+  'strong',
+  'i',
+  'em',
+  's',
+  'del',
+  'u',
+  'code',
+  'sub',
+  'sup',
+  'small',
+  'mark',
+  'ul',
+  'ol',
+  'li',
+] as const;
 const renderedVisualLabel = (kind: string): string =>
   kind === 'infographic'
     ? 'AntV Infographic'
@@ -132,25 +154,48 @@ const resourceErrorDetailKeys: Readonly<Record<string, MessageKey>> = {
   '请确认图片存在且文件内容完整。': '请确认图片存在且文件内容完整。',
 };
 
-const allowedInfographicTextStyles = new Map<string, RegExp>([
-  ['align-content', /^(?:center|flex-end|flex-start)$/u],
-  ['align-items', /^(?:center|flex-end|flex-start)$/u],
-  ['color', /^(?:#[0-9a-f]{3,8}|rgba?\([\d ,.]+\))$/iu],
-  ['display', /^flex$/u],
-  ['flex-wrap', /^(?:nowrap|wrap)$/u],
-  ['font-size', /^(?:\d+(?:\.\d+)?)px$/u],
-  ['font-style', /^(?:italic|normal)$/u],
-  ['font-weight', /^(?:bold|normal|[1-9]00)$/u],
-  ['height', /^(?:100%|\d+(?:\.\d+)?px)$/u],
-  ['justify-content', /^(?:center|flex-end|flex-start)$/u],
-  ['letter-spacing', /^-?\d+(?:\.\d+)?px$/u],
-  ['line-height', /^\d+(?:\.\d+)?(?:px)?$/u],
-  ['overflow', /^(?:hidden|visible)$/u],
-  ['text-align', /^(?:center|left|right)$/u],
-  ['white-space', /^(?:normal|pre-wrap)$/u],
-  ['width', /^(?:100%|\d+(?:\.\d+)?px)$/u],
-  ['word-break', /^(?:break-word|normal)$/u],
+const unsafeInfographicTextStyles = new Set([
+  '-moz-binding',
+  'behavior',
+  'bottom',
+  'cursor',
+  'inset',
+  'left',
+  'pointer-events',
+  'position',
+  'right',
+  'top',
+  'user-select',
+  'z-index',
 ]);
+const unsafeCssValuePattern = /(?:@import|expression\s*\(|javascript:|url\s*\()/iu;
+
+const allowedMermaidTextStyles = new Map<string, RegExp>([
+  ['display', /^(?:block|inline-block|table|table-cell)$/u],
+  ['line-height', /^\d+(?:\.\d+)?(?:px)?$/u],
+  ['max-width', /^\d+(?:\.\d+)?px$/u],
+  ['text-align', /^(?:center|left|right)$/u],
+  ['white-space', /^(?:break-spaces|normal|nowrap|pre-wrap)$/u],
+]);
+
+const sanitizeInlineStyles = (
+  element: Element,
+  styleDocument: Document,
+  allowedStyles: ReadonlyMap<string, RegExp>,
+): void => {
+  const parsedStyle = styleDocument.createElement('span').style;
+  parsedStyle.cssText = element.getAttribute('style') ?? '';
+  const properties = Array.from({ length: parsedStyle.length }, (_, index) =>
+    parsedStyle.item(index),
+  );
+  for (const property of properties) {
+    if (!allowedStyles.get(property)?.test(parsedStyle.getPropertyValue(property).trim())) {
+      parsedStyle.removeProperty(property);
+    }
+  }
+  if (parsedStyle.cssText) element.setAttribute('style', parsedStyle.cssText);
+  else element.removeAttribute('style');
+};
 
 const sanitizeInfographicText = (svg: Element, styleDocument: Document): void => {
   for (const foreignObject of svg.querySelectorAll('foreignObject')) {
@@ -175,17 +220,69 @@ const sanitizeInfographicText = (svg: Element, styleDocument: Document): void =>
     }
     const parsedStyle = styleDocument.createElement('span').style;
     parsedStyle.cssText = span.getAttribute('style') ?? '';
-    const styleProperties = Array.from({ length: parsedStyle.length }, (_, index) =>
+    const properties = Array.from({ length: parsedStyle.length }, (_, index) =>
       parsedStyle.item(index),
     );
-    for (const property of styleProperties) {
-      const value = parsedStyle.getPropertyValue(property).trim();
-      if (!allowedInfographicTextStyles.get(property)?.test(value)) {
+    for (const property of properties) {
+      if (
+        unsafeInfographicTextStyles.has(property) ||
+        unsafeCssValuePattern.test(parsedStyle.getPropertyValue(property))
+      ) {
         parsedStyle.removeProperty(property);
       }
     }
     if (parsedStyle.cssText) span.setAttribute('style', parsedStyle.cssText);
     else span.removeAttribute('style');
+  }
+};
+
+const sanitizeInfographicAnimations = (svg: Element): void => {
+  const allowedAttributes = new Set(['attributeName', 'dur', 'from', 'repeatCount', 'to']);
+  for (const animation of svg.querySelectorAll('animate')) {
+    const safe =
+      animation.getAttribute('attributeName') === 'stroke-dashoffset' &&
+      /^-?\d+(?:\.\d+)?$/u.test(animation.getAttribute('from') ?? '') &&
+      /^-?\d+(?:\.\d+)?$/u.test(animation.getAttribute('to') ?? '') &&
+      /^\d+(?:\.\d+)?(?:ms|s)$/u.test(animation.getAttribute('dur') ?? '') &&
+      /^(?:indefinite|\d+(?:\.\d+)?)$/u.test(animation.getAttribute('repeatCount') ?? '');
+    if (!safe) {
+      animation.remove();
+      continue;
+    }
+    for (const attribute of [...animation.attributes]) {
+      if (!allowedAttributes.has(attribute.name)) animation.removeAttribute(attribute.name);
+    }
+  }
+};
+
+const sanitizeMermaidText = (svg: Element, styleDocument: Document): void => {
+  for (const foreignObject of svg.querySelectorAll('foreignObject')) {
+    const root = foreignObject.firstElementChild;
+    if (
+      foreignObject.childElementCount !== 1 ||
+      root?.localName !== 'div' ||
+      root.querySelector('div')
+    ) {
+      foreignObject.remove();
+      continue;
+    }
+    for (const attribute of [...foreignObject.attributes]) {
+      if (!['height', 'overflow', 'transform', 'width', 'x', 'y'].includes(attribute.name)) {
+        foreignObject.removeAttribute(attribute.name);
+      }
+    }
+    for (const element of [root, ...root.querySelectorAll('*')]) {
+      for (const attribute of [...element.attributes]) {
+        if (
+          attribute.name !== 'class' &&
+          attribute.name !== 'style' &&
+          !(element === root && attribute.name === 'xmlns')
+        ) {
+          element.removeAttribute(attribute.name);
+        }
+      }
+      sanitizeInlineStyles(element, styleDocument, allowedMermaidTextStyles);
+    }
   }
 };
 
@@ -231,10 +328,21 @@ export const prepareRenderedVisualSvg = (
     }
   });
   const fragment = purifier.sanitize(source, {
-    ADD_TAGS: ['use', ...(kind === 'infographic' ? ['foreignObject', 'span'] : [])],
+    ADD_ATTR:
+      kind === 'infographic' ? ['attributeName', 'dur', 'from', 'repeatCount', 'to'] : undefined,
+    ADD_TAGS: [
+      'use',
+      ...(kind === 'infographic' ? ['animate'] : []),
+      ...(kind === 'mermaid'
+        ? mermaidLabelTags
+        : kind === 'infographic'
+          ? ['foreignObject', 'span']
+          : []),
+    ],
     ALLOW_DATA_ATTR: false,
     FORBID_TAGS: ['image'],
-    HTML_INTEGRATION_POINTS: kind === 'infographic' ? { foreignobject: true } : undefined,
+    HTML_INTEGRATION_POINTS:
+      kind === 'infographic' || kind === 'mermaid' ? { foreignobject: true } : undefined,
     RETURN_DOM_FRAGMENT: true,
     USE_PROFILES: {
       html: kind === 'infographic',
@@ -247,7 +355,11 @@ export const prepareRenderedVisualSvg = (
     throw new TypeError(t('图表没有通过 SVG 安全校验。'));
   }
 
-  if (kind === 'infographic') sanitizeInfographicText(svg, frameDocument);
+  if (kind === 'infographic') {
+    sanitizeInfographicText(svg, frameDocument);
+    sanitizeInfographicAnimations(svg);
+  }
+  if (kind === 'mermaid') sanitizeMermaidText(svg, frameDocument);
   for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
   return svg as SVGElement;
 };

@@ -410,6 +410,7 @@ test('@release exports complete finished-document content with stable pagination
           fontSize: string;
           heading: string;
           codeText: string;
+          mermaidText: string;
           vegaLite: string;
         }>((resolveSnapshot, rejectSnapshot) => {
           const timeout = globalThis.setTimeout(
@@ -460,6 +461,10 @@ test('@release exports complete finished-document content with stable pagination
               fontFamily: paragraphStyle.fontFamily,
               fontSize: paragraphStyle.fontSize,
               heading: heading.textContent ?? '',
+              mermaidText: Array.from(mermaid.querySelectorAll('foreignObject, text'))
+                .map((element) => element.textContent?.trim() ?? '')
+                .filter(Boolean)
+                .join(''),
               vegaLite: vegaLiteClone.outerHTML,
             });
           };
@@ -475,6 +480,7 @@ test('@release exports complete finished-document content with stable pagination
       fontFamily: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       fontSize: '15px',
       heading: 'Deterministic export',
+      mermaidText: 'Mermaid startMermaid end',
       vegaLite: visibleVegaLiteSnapshot,
     });
     await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
@@ -487,6 +493,8 @@ test('@release exports complete finished-document content with stable pagination
     expect(first.text).toContain('github-dark');
     expect(first.text).toContain('Export callout');
     expect(first.text).toContain('Callout content remains semantic and selectable.');
+    expect(first.text).toContain('Mermaid start');
+    expect(first.text).toContain('Mermaid end');
     expect(first.text).toContain('Authentication Request');
     expect(first.text).toContain('Vega Alpha');
     expect(first.text).toContain('Vega Beta');

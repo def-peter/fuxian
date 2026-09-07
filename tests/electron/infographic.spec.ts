@@ -12,7 +12,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 const sourcePath = resolve(repositoryRoot, 'fixtures/infographic.md');
 
-test('renders supported official Infographics from one sanitized SVG snapshot', async () => {
+test('preserves official Infographic capabilities in one sanitized SVG snapshot', async () => {
   test.setTimeout(60_000);
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-infographic-'));
   const outputPath = join(directory, 'infographic.pdf');
@@ -51,7 +51,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     const finishedDocument = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(finishedDocument.getByText('正文应当立即可读')).toBeVisible();
     const tasks = finishedDocument.locator('[data-render-task-kind="infographic"]');
-    await expect(tasks).toHaveCount(8);
+    await expect(tasks).toHaveCount(9);
 
     const infographic = tasks.first();
     await expect(infographic).toHaveAttribute('data-render-state', 'succeeded', {
@@ -78,10 +78,10 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
       themed.locator('foreignObject > span').filter({ hasText: '深色主题' }),
     ).toBeVisible();
 
-    const rejected = tasks.nth(2);
-    await expect(rejected).toHaveAttribute('data-render-state', 'failed');
-    await expect(rejected.getByText('无法呈现信息图')).toBeVisible();
-    await expect(rejected.locator('.render-task-error-detail')).toContainText('不允许外部 URL');
+    const untrustedResource = tasks.nth(2);
+    await expect(untrustedResource).toHaveAttribute('data-render-state', 'succeeded');
+    await expect(untrustedResource).toContainText('未授权图标');
+    await expect(untrustedResource.locator('script, iframe, image')).toHaveCount(0);
     await expect(finishedDocument.locator('html')).toHaveAttribute(
       'data-render-readiness',
       'ready',
@@ -103,13 +103,24 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     await expect(tasks.nth(5).locator('defs symbol')).not.toHaveCount(0);
     await expect(tasks.nth(5).locator('use')).not.toHaveCount(0);
 
-    const rejectedAnimation = tasks.nth(6);
-    await expect(rejectedAnimation).toHaveAttribute('data-render-state', 'failed');
-    await expect(rejectedAnimation.locator('.render-task-error-detail')).toContainText(
-      '屏幕与 PDF 的静态结果一致',
-    );
+    const animated = tasks.nth(6);
+    await expect(animated).toHaveAttribute('data-render-state', 'succeeded');
+    const animation = animated.locator('animate[attributeName="stroke-dashoffset"]').first();
+    await expect(animation).toBeAttached();
+    const animationTiming = await animation.evaluate((element) => ({
+      duration: (element as SVGAnimationElement).getSimpleDuration(),
+      repeatCount: element.getAttribute('repeatCount'),
+    }));
+    expect(animationTiming.duration).toBeCloseTo(1.2);
+    expect(animationTiming.repeatCount).toBe('indefinite');
 
-    const officialResources = tasks.nth(7);
+    const configured = tasks.nth(7);
+    await expect(configured).toHaveAttribute('data-render-state', 'succeeded');
+    await expect(
+      configured.locator('foreignObject > span').filter({ hasText: '自定义设计与完整主题' }),
+    ).toBeVisible();
+
+    const officialResources = tasks.nth(8);
     await expect(officialResources).toHaveAttribute('data-render-state', 'succeeded', {
       timeout: 30_000,
     });
@@ -144,7 +155,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     await focusDialog.getByRole('button', { name: '返回文档' }).click();
 
     const visibleSnapshots = await Promise.all(
-      [0, 1, 3, 4, 5, 7].map((index) =>
+      [0, 1, 2, 3, 4, 5, 6, 7, 8].map((index) =>
         tasks
           .nth(index)
           .locator('.render-task-output > svg')
@@ -166,7 +177,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
           );
           const inspect = () => {
             const svgs = [...document.querySelectorAll<SVGElement>(selector)];
-            if (svgs.length === 6) {
+            if (svgs.length === 9) {
               globalThis.clearTimeout(timeout);
               resolveSnapshots(svgs.map((svg) => svg.outerHTML));
               return;
@@ -199,6 +210,7 @@ test('renders supported official Infographics from one sanitized SVG snapshot', 
     expect(pdfText).toContain('中文排版');
     expect(pdfText).toContain('文档作者');
     expect(pdfText).toContain('可信插图资源');
+    expect(pdfText).toContain('自定义设计与完整主题');
     expect(pdfText).toContain('企业优势列表');
   } finally {
     await electronApp.close();
