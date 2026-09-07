@@ -65,6 +65,7 @@ These values promote the approved light settings direction across the applicatio
 | `--fx-neutral-900` | `#24282c` | Primary text                          |
 | `--fx-command`     | `#292d32` | Primary command surface               |
 | `--fx-focus`       | `#1976c9` | Keyboard focus and explicit emphasis  |
+| `--fx-update`      | `#1976c9` | Available software update state       |
 | `--fx-danger`      | `#a8453d` | Destructive and blocking error states |
 
 Tailwind's spacing scale remains authoritative. Fuxian should introduce dimensional primitives only for repeated shell contracts such as 24, 28, and 36 pixel controls, 44 pixel panel headers, overlay elevation, and motion duration.

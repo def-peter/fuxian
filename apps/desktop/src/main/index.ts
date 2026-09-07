@@ -66,6 +66,8 @@ import {
 import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator';
 import { extractSourceDocumentPaths } from './system-open';
 import { AppUpdateService } from './app-update-service';
+import { scheduleAppUpdateChecks, type AppUpdateScheduler } from './app-update-scheduler';
+import { JsonFileAppUpdateStatePersistence } from './app-update-state-persistence';
 import { E2EAppUpdateAdapter, isE2EUpdateScenario } from './e2e-app-update-adapter';
 import {
   isSourceRecoveryDraft,
@@ -96,6 +98,7 @@ let appQuitRequested = false;
 let mainWindowCloseGuardReady = false;
 let pendingMainWindowCloseKind: AppCloseRequest['kind'] | undefined;
 let appUpdateService: AppUpdateService | undefined;
+let appUpdateScheduler: AppUpdateScheduler | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
@@ -509,6 +512,11 @@ const registerDesktopHandlers = (
   markdownDefaultAppService: MarkdownDefaultAppService,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  ipcMain.handle(desktopIpcChannels.appUpdateAcknowledgeReminder, (_event, version: unknown) =>
+    typeof version === 'string'
+      ? updateService.acknowledgeReminder(version)
+      : updateService.getStatus(),
+  );
   ipcMain.handle(desktopIpcChannels.appUpdateGetStatus, () => updateService.getStatus());
   ipcMain.handle(desktopIpcChannels.appUpdateCheck, () => updateService.checkForUpdates());
   ipcMain.handle(desktopIpcChannels.appUpdateDownload, () => updateService.downloadUpdate());
@@ -1489,6 +1497,7 @@ const applyApplicationLocale = (preferences: ReaderPreferences): void => {
 app.setName('Fuxian');
 
 app.on('before-quit', () => {
+  appUpdateScheduler?.stop();
   if (!allowMainWindowClose) appQuitRequested = true;
 });
 
@@ -1536,6 +1545,12 @@ if (!hasSingleInstanceLock) {
       process.env.FUXIAN_E2E_SOURCE_DRAFTS_FILE
         ? process.env.FUXIAN_E2E_SOURCE_DRAFTS_FILE
         : join(app.getPath('userData'), 'source-recovery-drafts.json');
+    const updateStatePath =
+      !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_UPDATE_STATE_FILE
+        ? process.env.FUXIAN_E2E_UPDATE_STATE_FILE
+        : join(app.getPath('userData'), 'app-update-state.json');
+    const updateStatePersistence = new JsonFileAppUpdateStatePersistence(updateStatePath);
+    const updateState = await updateStatePersistence.load();
     const updateScenario = process.env.FUXIAN_E2E_UPDATE_SCENARIO;
     const e2eUpdateAdapter =
       isE2ERuntime && isE2EUpdateScenario(updateScenario)
@@ -1554,6 +1569,7 @@ if (!hasSingleInstanceLock) {
       broadcast: broadcastAppUpdateStatus,
       currentVersion: app.getVersion(),
       delivery: updateDelivery,
+      lastNotifiedVersion: updateState.lastNotifiedVersion,
       openReleasePage: async (version) => {
         const markerPath = process.env.FUXIAN_E2E_UPDATE_RELEASE_MARKER;
         if (e2eUpdateAdapter && markerPath) {
@@ -1564,6 +1580,7 @@ if (!hasSingleInstanceLock) {
           `https://github.com/def-peter/fuxian/releases/tag/v${encodeURIComponent(version)}`,
         );
       },
+      persistNotifiedVersion: (version) => updateStatePersistence.saveLastNotifiedVersion(version),
       supported:
         Boolean(e2eUpdateAdapter) ||
         (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')),
@@ -1613,11 +1630,10 @@ if (!hasSingleInstanceLock) {
     applicationMenuReady = true;
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
-    const updateCheckTimer = setTimeout(
-      () => void appUpdateService?.checkForUpdates(),
-      e2eUpdateAdapter ? 50 : 10_000,
-    );
-    updateCheckTimer.unref();
+    appUpdateScheduler = scheduleAppUpdateChecks({
+      check: () => appUpdateService?.checkForUpdates(),
+      ...(e2eUpdateAdapter ? { initialDelay: 50 } : {}),
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

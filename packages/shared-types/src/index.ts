@@ -2,6 +2,7 @@ export const desktopIpcChannels = {
   appCloseConfirmed: 'fuxian:app:close-confirmed',
   appCloseGuardReady: 'fuxian:app:close-guard-ready',
   appCloseRequested: 'fuxian:app:close-requested',
+  appUpdateAcknowledgeReminder: 'fuxian:app-update:acknowledge-reminder',
   appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
   appUpdateCheck: 'fuxian:app-update:check',
   appUpdateDownload: 'fuxian:app-update:download',
@@ -71,6 +72,7 @@ export interface AppUpdateStatus {
   releaseDate?: string | undefined;
   releaseName?: string | undefined;
   releaseNotes?: string | undefined;
+  reminderVersion?: string | undefined;
   total?: number | undefined;
   transferred?: number | undefined;
 }
@@ -530,6 +532,7 @@ export type PdfExportReadySignal =
   | { exportId: string; message: string; status: 'failed' };
 
 export interface FuxianDesktopBridge {
+  acknowledgeAppUpdateReminder(version: string): Promise<AppUpdateStatus>;
   cancelAppUpdateDownload(): Promise<AppUpdateStatus>;
   cancelPdfExport(exportId: string): Promise<void>;
   cancelPlantUmlRender(requestId: string): void;

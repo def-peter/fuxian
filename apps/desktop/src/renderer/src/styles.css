@@ -125,7 +125,7 @@
   --interactive-pressed: #e9eef3;
   --focus-ring: #1976c9;
   --status-danger: #a8453d;
-  --status-update: #52708a;
+  --status-update: #1976c9;
   --status-success: #2f7d55;
   --status-warning: #946315;
   --status-progress: #2b67cd;
@@ -161,7 +161,7 @@
   --interactive-pressed: #3b4249;
   --focus-ring: #62a9e9;
   --status-danger: #e07870;
-  --status-update: #8eb9dc;
+  --status-update: #62a9e9;
   --status-success: #72c997;
   --status-warning: #e0b874;
   --status-progress: #78b7ed;

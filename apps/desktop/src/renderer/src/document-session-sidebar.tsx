@@ -364,16 +364,25 @@ export function DocumentSessionSidebar({
         onClick={onOpenSettings}
         variant="ghost"
       >
-        {updateAttention === 'downloading' ? (
-          <Spinner aria-hidden="true" />
-        ) : updateAttention ? (
-          <CircleArrowUp aria-hidden="true" />
-        ) : (
-          <Settings aria-hidden="true" />
-        )}
-        <span>{updateAttention ? t('有可用更新') : t('设置')}</span>
+        <Settings aria-hidden="true" />
+        <span>{t('设置')}</span>
+        {updateAttention ? (
+          <SidebarActionTooltip label={t('有可用更新')}>
+            <span className="ml-auto inline-flex text-status-update">
+              {updateAttention === 'downloading' ? (
+                <Spinner aria-hidden="true" />
+              ) : (
+                <CircleArrowUp aria-hidden="true" />
+              )}
+              <span className="sr-only">{t('有可用更新')}</span>
+            </span>
+          </SidebarActionTooltip>
+        ) : null}
         {appVersion ? (
-          <span className="ml-auto tabular-nums text-muted-foreground" data-app-version="">
+          <span
+            className={cn('tabular-nums text-muted-foreground', !updateAttention && 'ml-auto')}
+            data-app-version=""
+          >
             v{appVersion}
           </span>
         ) : null}

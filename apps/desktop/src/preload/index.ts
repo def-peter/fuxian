@@ -49,6 +49,8 @@ ipcRenderer.on(
 );
 
 const bridge: FuxianDesktopBridge = Object.freeze({
+  acknowledgeAppUpdateReminder: async (version: string): Promise<AppUpdateStatus> =>
+    ipcRenderer.invoke(desktopIpcChannels.appUpdateAcknowledgeReminder, version),
   cancelAppUpdateDownload: async (): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateCancelDownload),
   cancelPdfExport: async (exportId: string): Promise<void> =>

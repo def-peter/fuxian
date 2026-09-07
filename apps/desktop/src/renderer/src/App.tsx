@@ -95,6 +95,7 @@ import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useShellLayout } from '@/use-shell-layout';
 import { useAppUpdateStatus } from '@/use-app-update-status';
+import { AppUpdateReminder } from '@/app-update-reminder';
 import { ArticleStructureMapDialog } from '@/article-structure-map-dialog';
 import { ExternalConflictDialog, UnsavedChangesDialog } from '@/source-editing-dialogs';
 import {
@@ -260,6 +261,7 @@ export function App(): React.JSX.Element {
   const [paperPreviewFailure, setPaperPreviewFailure] = useState<string>();
   const [sourceEdit, setSourceEdit] = useState<SourceEditBuffer>();
   const [pendingSourceAction, setPendingSourceAction] = useState<GuardedSourceAction>();
+  const [updateReminderVersion, setUpdateReminderVersion] = useState<string>();
   const pendingSystemOpenResults = useRef<OpenSourceDocumentsResult[]>([]);
   const restorationStatusRef = useRef(restorationStatus);
   const acceptOpenResultRef = useRef<(result: OpenSourceDocumentsResult) => void>(() => undefined);
@@ -287,6 +289,21 @@ export function App(): React.JSX.Element {
     { reject(error: Error): void; resolve(): void } | undefined
   >(undefined);
   const requestSourceActionRef = useRef<(action: GuardedSourceAction) => void>(() => undefined);
+  const acknowledgedUpdateReminders = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (appUpdateStatus.reminderVersion) {
+      setUpdateReminderVersion(appUpdateStatus.reminderVersion);
+    }
+  }, [appUpdateStatus.reminderVersion]);
+
+  useEffect(() => {
+    if (!updateReminderVersion || acknowledgedUpdateReminders.current.has(updateReminderVersion)) {
+      return;
+    }
+    acknowledgedUpdateReminders.current.add(updateReminderVersion);
+    void window.fuxian.acknowledgeAppUpdateReminder(updateReminderVersion);
+  }, [updateReminderVersion]);
 
   const activeDocument = session.openDocuments.find(
     (document): document is SessionDocument =>
@@ -1787,11 +1804,11 @@ export function App(): React.JSX.Element {
     ? [visibleFrame, ...pendingFrames.filter((frame) => frame.id !== visibleFrame.id)]
     : pendingFrames;
   const updateAttention =
-    appUpdateStatus.phase === 'available' ||
-    appUpdateStatus.phase === 'downloaded' ||
-    appUpdateStatus.phase === 'downloading'
+    appUpdateStatus.phase === 'downloaded' || appUpdateStatus.phase === 'downloading'
       ? appUpdateStatus.phase
-      : undefined;
+      : appUpdateStatus.availableVersion
+        ? 'available'
+        : undefined;
   const pendingSourceActionDescription = pendingSourceAction
     ? pendingSourceAction.kind === 'activate'
       ? t('切换文档')
@@ -2697,6 +2714,16 @@ export function App(): React.JSX.Element {
               {documentSessionSidebar}
             </SheetContent>
           </Sheet>
+        ) : null}
+        {updateReminderVersion ? (
+          <AppUpdateReminder
+            onDismiss={() => setUpdateReminderVersion(undefined)}
+            onViewUpdate={() => {
+              setUpdateReminderVersion(undefined);
+              void window.fuxian.openSettings('about');
+            }}
+            version={updateReminderVersion}
+          />
         ) : null}
       </div>
     </TooltipProvider>

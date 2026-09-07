@@ -30,7 +30,9 @@ interface AppUpdateServiceOptions {
   broadcast(status: AppUpdateStatus): void;
   currentVersion: string;
   delivery: AppUpdateDelivery;
+  lastNotifiedVersion?: string | undefined;
   openReleasePage(version: string): Promise<void>;
+  persistNotifiedVersion?(version: string): Promise<void>;
   supported: boolean;
   translate?: Translator;
 }
@@ -139,11 +141,13 @@ export class AppUpdateService {
   private downloadToken: CancellationToken | undefined;
   private initialized = false;
   private installPromise: Promise<AppUpdateStatus> | undefined;
+  private lastNotifiedVersion: string | undefined;
   private status: AppUpdateStatus;
   private readonly t: Translator;
 
   constructor(private readonly options: AppUpdateServiceOptions) {
     this.t = options.translate ?? createTranslator('zh-CN');
+    this.lastNotifiedVersion = releaseText(options.lastNotifiedVersion, 64);
     this.status = {
       currentVersion: options.currentVersion,
       delivery: options.delivery,
@@ -175,6 +179,7 @@ export class AppUpdateService {
         releaseDate: undefined,
         releaseName: undefined,
         releaseNotes: undefined,
+        reminderVersion: undefined,
       });
       void info;
     });
@@ -205,6 +210,22 @@ export class AppUpdateService {
 
   getStatus(): AppUpdateStatus {
     return { ...this.status };
+  }
+
+  async acknowledgeReminder(version: string): Promise<AppUpdateStatus> {
+    const normalizedVersion = releaseText(version, 64);
+    if (!normalizedVersion || normalizedVersion !== this.status.reminderVersion) {
+      return this.getStatus();
+    }
+
+    this.lastNotifiedVersion = normalizedVersion;
+    this.update({ reminderVersion: undefined });
+    try {
+      await this.options.persistNotifiedVersion?.(normalizedVersion);
+    } catch (error) {
+      console.error('[app-update] could not persist reminder state', error);
+    }
+    return this.getStatus();
   }
 
   checkForUpdates(): Promise<AppUpdateStatus> {
@@ -342,8 +363,9 @@ export class AppUpdateService {
     phase: Extract<AppUpdatePhase, 'available' | 'downloaded'>,
     info: UpdateInfo,
   ): void {
+    const availableVersion = releaseText(info.version, 64);
     this.update({
-      availableVersion: releaseText(info.version, 64),
+      availableVersion,
       checkedAt: new Date().toISOString(),
       message: undefined,
       percent: phase === 'downloaded' ? 100 : undefined,
@@ -351,6 +373,10 @@ export class AppUpdateService {
       releaseDate: releaseText(info.releaseDate, 64),
       releaseName: releaseText(info.releaseName, 200),
       releaseNotes: releaseNotesText(info.releaseNotes),
+      reminderVersion:
+        availableVersion && availableVersion !== this.lastNotifiedVersion
+          ? availableVersion
+          : undefined,
     });
   }
 

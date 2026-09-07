@@ -39,6 +39,7 @@ test('downloads an available update and flushes the reading session before insta
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-'));
   const installMarkerPath = join(temporaryDirectory, 'install.json');
   const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+  const updateStateFilePath = join(temporaryDirectory, 'app-update-state.json');
   const electronApp = await electron.launch({
     executablePath: electronPath,
     args: [desktopAppPath],
@@ -49,6 +50,7 @@ test('downloads an available update and flushes the reading session before insta
       FUXIAN_E2E_SOURCE_DOCUMENT: sourceDocumentPath,
       FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarkerPath,
       FUXIAN_E2E_UPDATE_SCENARIO: 'available',
+      FUXIAN_E2E_UPDATE_STATE_FILE: updateStateFilePath,
       NODE_ENV: 'test',
     },
   });
@@ -84,7 +86,16 @@ test('downloads an available update and flushes the reading session before insta
 
     const settingsButton = readerWindow.getByRole('button', { name: '设置，有可用更新' });
     await expect(settingsButton).toBeVisible();
-    await settingsButton.click();
+    const updateReminder = readerWindow.getByRole('alert').filter({ hasText: '新版本 0.2.0 可用' });
+    await expect(updateReminder).toBeVisible();
+    await updateReminder.getByRole('button', { name: '查看更新' }).click();
+    await expect(updateReminder).toHaveCount(0);
+    await expect
+      .poll(() => readJsonIfAvailable(updateStateFilePath))
+      .toEqual({
+        lastNotifiedVersion: '0.2.0',
+        version: 1,
+      });
 
     const settingsWindow = await findSettingsWindow(electronApp);
     await expect(settingsWindow.getByRole('heading', { name: '关于与更新' })).toBeVisible();

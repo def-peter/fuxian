@@ -285,6 +285,8 @@ const englishMessages = {
   文档标题: 'Document headings',
   文章大纲图: 'Article outline map',
   '新版本 {version} 可用': 'Version {version} is available',
+  '更新不会自动下载，你可以在方便时处理。':
+    'The update will not download automatically. Install it when convenient.',
   无界: 'Continuous',
   无界阅读: 'Continuous reading',
   '无法准备 PDF 文档。': 'Could not prepare the PDF document.',
@@ -335,6 +337,7 @@ const englishMessages = {
   '查看当前版本，有新版本时前往 GitHub Release 下载。':
     'View the current version and download new releases from GitHub.',
   查看图表源码: 'View diagram source',
+  查看更新: 'View Update',
   查找: 'Find',
   检查更新: 'Check for Updates',
   '检查更新…': 'Check for Updates…',

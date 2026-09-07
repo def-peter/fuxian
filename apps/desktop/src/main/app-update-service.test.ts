@@ -29,22 +29,33 @@ const updateInfo = (version = '0.2.0'): UpdateInfo => ({
 const createService = (
   supported = true,
   delivery: 'automatic-install' | 'release-page' = 'automatic-install',
+  lastNotifiedVersion?: string,
 ) => {
   const adapter = new FakeUpdateAdapter();
   const broadcast = vi.fn();
   const beforeInstall = vi.fn(async () => undefined);
   const openReleasePage = vi.fn(async () => undefined);
+  const persistNotifiedVersion = vi.fn(async () => undefined);
   const service = new AppUpdateService({
     adapter,
     beforeInstall,
     broadcast,
     currentVersion: '0.1.0',
     delivery,
+    lastNotifiedVersion,
     openReleasePage,
+    persistNotifiedVersion,
     supported,
   });
   service.initialize();
-  return { adapter, beforeInstall, broadcast, openReleasePage, service };
+  return {
+    adapter,
+    beforeInstall,
+    broadcast,
+    openReleasePage,
+    persistNotifiedVersion,
+    service,
+  };
 };
 
 describe('AppUpdateService', () => {
@@ -79,8 +90,33 @@ describe('AppUpdateService', () => {
       availableVersion: '0.2.0',
       phase: 'available',
       releaseNotes: '主要更新\n\n- 新增安全可靠的软件更新 & 发布流程。\n- 修复设置页显示。',
+      reminderVersion: '0.2.0',
     });
     expect(adapter.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('reminds once for each available version and persists the acknowledgement', async () => {
+    const { adapter, persistNotifiedVersion, service } = createService();
+    adapter.emit('update-available', updateInfo('0.2.0'));
+
+    await expect(service.acknowledgeReminder('0.2.0')).resolves.toMatchObject({
+      reminderVersion: undefined,
+    });
+    expect(persistNotifiedVersion).toHaveBeenCalledWith('0.2.0');
+
+    adapter.emit('update-available', updateInfo('0.2.0'));
+    expect(service.getStatus()).toMatchObject({ reminderVersion: undefined });
+    adapter.emit('update-available', updateInfo('0.3.0'));
+    expect(service.getStatus()).toMatchObject({ reminderVersion: '0.3.0' });
+  });
+
+  it('does not remind again for a version acknowledged in an earlier session', () => {
+    const { adapter, service } = createService(true, 'automatic-install', '0.2.0');
+
+    adapter.emit('update-available', updateInfo('0.2.0'));
+
+    expect(service.getStatus()).toMatchObject({ reminderVersion: undefined });
+    expect(service.getStatus()).toMatchObject({ availableVersion: '0.2.0', phase: 'available' });
   });
 
   it('combines versioned HTML release notes as inert plain text', () => {
