@@ -21,14 +21,21 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT license" /></a>
 </p>
 
-## ✨ Core features
+## ✨ Make more of your Markdown
 
-- 📖 **Open and read:** Open any `.md` or `.markdown` file directly. Headings, tables, code, math, and local images are laid out for comfortable reading.
-- 📊 **Visuals rendered in place:** Code blocks written for [Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [Vega-Lite](https://vega.github.io/vega-lite/), and [AntV Infographic](https://infographic.antv.vision/) become polished visuals. Open them full screen, inspect the source, or copy the SVG.
-- 📄 **PDF delivery:** Preview real A4 pages before export, so pagination and layout never have to be a surprise.
-- ✏️ **Light editing when you need it:** Make a quick change, find and replace text, save, and return to reading without switching apps.
+### 📊 One document. Four visualization engines.
 
-Fuxian keeps reading at the center. It is not a knowledge base, a full IDE, or a WYSIWYG editor.
+An AI-generated plan, a colleague's analysis, your own notes: the diagram code inside them deserves to be seen. Fuxian has built-in support for [Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [Vega-Lite](https://vega.github.io/vega-lite/), and [AntV Infographic](https://infographic.antv.vision/), bringing processes, relationships, data, and visual stories into the same Markdown document.
+
+Open a visual full screen for a closer look, or copy its source or SVG to use elsewhere. The visuals stay with the document as you read, present, and share it as a PDF.
+
+### 📖 Easy to open. Comfortable to read. Ready to share.
+
+- **Open a file and settle in.** Open `.md` or `.markdown` files directly, with headings, tables, code, math, and local images laid out for reading. Adjust the font, text size, line spacing, and page width to suit you.
+- **Find your way through longer reads.** Jump to a section from the heading outline, or open the article outline map to see how the ideas fit together.
+- **Pick up where you left off.** Switch freely between documents. When you quit and relaunch Fuxian, your open documents return with your place saved in each one.
+- **Spot a typo? Fix it as you read.** Switch to source editing, make a change or find and replace text, then save and return to reading. Light editing, with reading at the center.
+- **Give others a copy they can read anywhere.** Check pagination and layout in A4 paper preview, then export a PDF. Recipients can read and print it without installing Fuxian.
 
 > **A document does not end with the final word. It ends when the reader understands.**
 

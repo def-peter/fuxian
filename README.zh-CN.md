@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现 Fuxian 应用图标" width="112" height="112" />
+  <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现应用图标" width="112" height="112" />
 </p>
 
 <p align="center">
   简体中文 · <a href="README.md">English</a>
 </p>
 
-<h1 align="center">浮现 (Fuxian)</h1>
+<h1 align="center">浮现</h1>
 
 <p align="center"><strong>让内容精彩浮现，让 Markdown 值得阅读。</strong></p>
 
@@ -21,14 +21,21 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT 许可证" /></a>
 </p>
 
-## ✨ 核心功能
+## ✨ 让 Markdown 更值得阅读
 
-- 📖 **打开就能读**：直接打开 `.md` 或 `.markdown` 文件，标题、表格、代码、公式和本地图片都会排版显示。
-- 📊 **图表直接显示**：[Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 代码块会显示为图表，还能全屏查看、复制源码或 SVG。
-- 📄 **导出 PDF**：支持 A4 纸张预览，可以在导出前检查分页和版式。
-- ✏️ **小改动不用换应用**：进入源码编辑模式即可修改、查找和替换文字，保存后继续阅读。
+### 📊 一份文档，四种图表引擎
 
-浮现始终以阅读体验为核心。它不是知识库、完整 IDE 或所见即所得编辑器。
+AI 给出的方案、同事分享的分析、自己整理的笔记，里面的图表代码也能直接读成图。浮现内置 [Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 支持，让流程、关系、数据与故事在同一篇 Markdown 中展开。
+
+需要看细节时，全屏放大；想复用时，复制源码或 SVG。从阅读、演示到 PDF 分享，图表都能跟着文档走。
+
+### 📖 从打开到看懂，再到分享
+
+- **打开文件，进入阅读。** 直接打开 `.md` 或 `.markdown`，标题、表格、代码、公式与本地图片自然排开。字体、字号、行距和页面宽度，都可以调到适合自己的节奏。
+- **长文也能快速找到方向。** 用标题大纲跳转到关心的章节，或展开文章大纲图，一眼看清内容之间的层次。
+- **下次打开，接着读。** 多份文档之间自由切换；退出应用后再次启动，打开的文档与各自的阅读位置会一起恢复。
+- **发现一处要改，顺手改好。** 切换到源码编辑，修改文字、查找替换，保存后继续阅读。轻编辑，重阅读。
+- **把好读的内容分享出去。** 切换到 A4 纸张预览，先看分页和版式，再导出 PDF。对方无需安装浮现，也能阅读和打印。
 
 > **文档的终点，不是写完，而是让人看懂。**
 
