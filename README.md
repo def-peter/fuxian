@@ -1,105 +1,105 @@
 <p align="center">
-  <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="浮现 Fuxian 应用图标" width="112" height="112" />
+  <img src="design/logo/final/app-icon/fuxian-app-icon-128.png" alt="Fuxian app icon" width="112" height="112" />
 </p>
 
 <p align="center">
-  简体中文 · <a href="README.en.md">English</a>
+  <a href="README.zh-CN.md">简体中文</a> · English
 </p>
 
-<h1 align="center">浮现 (Fuxian)</h1>
+<h1 align="center">Fuxian</h1>
 
-<p align="center"><strong>让内容精彩浮现，让 Markdown 值得阅读。</strong></p>
+<p align="center"><strong>Bring content to life. Make Markdown worth reading.</strong></p>
 
 <p align="center">
-  面向 Windows 和 macOS，专注阅读体验的 Markdown 桌面应用。<br />
-  让来自 AI 或其他工具的 Markdown 更易读，也方便演示、分享和导出 PDF。
+  A Markdown desktop reader for Windows and macOS, built for reading rather than wrestling with source.<br />
+  Turn Markdown from AI and other tools into something polished, readable, and ready to present, share, or export as PDF.
 </p>
 
 <p align="center">
-  <a href="https://github.com/def-peter/fuxian/releases/latest"><img src="https://img.shields.io/github/v/release/def-peter/fuxian?style=flat-square" alt="最新版本" /></a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f6feb?style=flat-square" alt="支持 Windows 和 macOS" />
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT 许可证" /></a>
+  <a href="https://github.com/def-peter/fuxian/releases/latest"><img src="https://img.shields.io/github/v/release/def-peter/fuxian?style=flat-square" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f6feb?style=flat-square" alt="Windows and macOS" />
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/def-peter/fuxian?style=flat-square" alt="MIT license" /></a>
 </p>
 
-## ✨ 核心功能
+## ✨ Core features
 
-- 📖 **打开就能读**：直接打开 `.md` 或 `.markdown` 文件，标题、表格、代码、公式和本地图片都会排版显示。
-- 📊 **图表直接显示**：[Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 代码块会显示为图表，还能全屏查看、复制源码或 SVG。
-- 📄 **导出 PDF**：支持 A4 纸张预览，可以在导出前检查分页和版式。
-- ✏️ **小改动不用换应用**：进入源码编辑模式即可修改、查找和替换文字，保存后继续阅读。
+- 📖 **Open and read:** Open any `.md` or `.markdown` file directly. Headings, tables, code, math, and local images are laid out for comfortable reading.
+- 📊 **Visuals rendered in place:** Code blocks written for [Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [Vega-Lite](https://vega.github.io/vega-lite/), and [AntV Infographic](https://infographic.antv.vision/) become polished visuals. Open them full screen, inspect the source, or copy the SVG.
+- 📄 **PDF delivery:** Preview real A4 pages before export, so pagination and layout never have to be a surprise.
+- ✏️ **Light editing when you need it:** Make a quick change, find and replace text, save, and return to reading without switching apps.
 
-浮现始终以阅读体验为核心。它不是知识库、完整 IDE 或所见即所得编辑器。
+Fuxian keeps reading at the center. It is not a knowledge base, a full IDE, or a WYSIWYG editor.
 
-> **文档的终点，不是写完，而是让人看懂。**
+> **A document does not end with the final word. It ends when the reader understands.**
 
-## 🖼️ 实际效果
+## 🖼️ See it in action
 
-源码安静地留在背后，真正值得阅读的内容浮现在眼前。
+The source stays in the background. The content comes forward.
 
-### 一篇 Markdown，也可以读得像一篇好文章
+### Markdown that reads like a real article
 
-标题、段落、引用、表格、清单和提示块被整理进安静、连贯的阅读版面，大纲始终在手边。
+Headings, prose, quotes, tables, lists, and callouts settle into one calm, continuous reading surface, with the outline always close at hand.
 
-![浮现中的 Markdown 阅读界面](docs/assets/readme/zh/01-finished-document.png)
+![A Markdown document open in Fuxian](docs/assets/readme/en/01-finished-document.png)
 
-继续向下，任务清单、公式、代码、折叠内容和脚注仍然属于同一篇文章，不需要在工具之间来回切换。
+Further down the page, task lists, math, code, collapsible sections, and footnotes still feel like part of the same article. There is no need to jump between tools.
 
-![浮现中的公式、代码、折叠内容与脚注](docs/assets/readme/zh/02-rich-markdown.png)
+![Math, code, collapsible content, and footnotes in Fuxian](docs/assets/readme/en/02-rich-markdown.png)
 
-### 从目录快速看懂结构
+### See the shape of an article at a glance
 
-除了沿着右侧大纲跳转，还可以把整篇文章的标题关系展开成一张大纲图。
+Use the outline to move between sections, or open the article outline map to see how the whole document fits together.
 
-![浮现的文章大纲图](docs/assets/readme/zh/03-article-outline-map.png)
+![The article outline map in Fuxian](docs/assets/readme/en/03-article-outline-map.png)
 
-### 四种图表，四种表达方式
+### Four visual languages, each at home in the document
 
-Mermaid、PlantUML、Vega-Lite 和 AntV Infographic 都会直接成为文档的一部分。每种框架都能表达丰富的结构，下面只是四个贴近工作的场景示例。需要核对时，可以随时查看源码；阅读和导出时，看到的始终是清晰的 SVG 图形。
+Mermaid, PlantUML, Vega-Lite, and AntV Infographic all render right inside the document. Each framework can express a wide range of structures; the four examples below are simply a few ways they can fit into real work. The source is one click away when you need to check it; for reading and PDF export, the result stays crisp, selectable SVG.
 
-**Mermaid 示例：用思维导图梳理一场客户到访。**
+**Mermaid example: a mind map for preparing a client visit.**
 
-![浮现渲染 Mermaid 思维导图并查看源码](docs/assets/readme/zh/04-mermaid.png)
+![A Mermaid mind map with its source open in Fuxian](docs/assets/readme/en/04-mermaid.png)
 
-**PlantUML 示例：用顺序图追踪一次代码发布。**
+**PlantUML example: a sequence diagram that follows code into production.**
 
-![浮现渲染 PlantUML 顺序图并查看源码](docs/assets/readme/zh/05-plantuml.png)
+![A PlantUML sequence diagram with its source open in Fuxian](docs/assets/readme/en/05-plantuml.png)
 
-**Vega-Lite 示例：用六张图组成一页经营看板。**
+**Vega-Lite example: six charts combined into a monthly business dashboard.**
 
-![浮现渲染 Vega-Lite 数据看板并查看源码](docs/assets/readme/zh/06-vega-lite.png)
+![A Vega-Lite business dashboard with its source open in Fuxian](docs/assets/readme/en/06-vega-lite.png)
 
-**AntV Infographic 示例：用信息图拆解新品首发的转化路径。**
+**AntV Infographic example: a visual story of how launch traffic becomes orders.**
 
-![浮现渲染 AntV Infographic 并查看源码](docs/assets/readme/zh/07-antv-infographic.png)
+![An AntV Infographic with its source open in Fuxian](docs/assets/readme/en/07-antv-infographic.png)
 
-## 📥 下载
+## 📥 Download
 
-前往 [GitHub Releases](https://github.com/def-peter/fuxian/releases/latest) 下载 Windows x64、macOS Apple Silicon 或 macOS Intel 版本。
+Visit [GitHub Releases](https://github.com/def-peter/fuxian/releases/latest) for Windows x64, macOS Apple Silicon, and macOS Intel builds.
 
 > [!IMPORTANT]
-> 当前安装包尚未签名。Windows 可能显示未知发布者或 SmartScreen 提示；macOS 可能需要在**系统设置 > 隐私与安全性**中手动允许打开。
+> Current builds are unsigned. Windows may show an unknown publisher or SmartScreen warning. On macOS, you may need to allow the app manually under **System Settings > Privacy & Security**.
 
-## 🛠️ 开发
+## 🛠️ Development
 
-需要 Node.js 22.12 或更高版本，以及由 Corepack 管理的 pnpm 11.18。
+You will need Node.js 22.12 or later and pnpm 11.18 managed through Corepack.
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-提交前运行：
+Before submitting a change, run:
 
 ```bash
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-发布流程见 [`docs/release.md`](docs/release.md)，配套图表创作 Skill 见 [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md)。
+See [`docs/release.md`](docs/release.md) for the release process and [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md) for the companion visual-authoring skill.
 
-## 💬 反馈
+## 💬 Feedback
 
-欢迎通过 [GitHub Issues](https://github.com/def-peter/fuxian/issues) 提交问题和功能建议。
+Use [GitHub Issues](https://github.com/def-peter/fuxian/issues) for bug reports and feature requests.
 
-## 📄 许可证
+## 📄 License
 
-由 Peter Li 创作。浮现使用 [MIT 许可证](LICENSE)发布。
+Created by Peter Li. Fuxian is released under the [MIT License](LICENSE).
