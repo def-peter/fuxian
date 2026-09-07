@@ -4,7 +4,12 @@ import { parseArguments, resolveNextVersion } from './release.mjs';
 
 describe('release script', () => {
   it('defaults to a patch release', () => {
-    expect(parseArguments([])).toMatchObject({ bump: 'patch', wait: false, yes: false });
+    expect(parseArguments([])).toMatchObject({
+      bump: 'patch',
+      retry: false,
+      wait: false,
+      yes: false,
+    });
     expect(resolveNextVersion('0.1.2', 'patch')).toBe('0.1.3');
   });
 
@@ -24,9 +29,12 @@ describe('release script', () => {
       bump: 'minor',
       dryRun: true,
       help: false,
+      retry: false,
       wait: true,
       yes: true,
     });
+    expect(parseArguments(['--retry', '--yes'])).toMatchObject({ retry: true, yes: true });
+    expect(() => parseArguments(['--retry', 'patch'])).toThrow('cannot be combined');
     expect(() => parseArguments(['patch', 'minor'])).toThrow('at most one');
     expect(() => parseArguments(['--force'])).toThrow('Unknown option');
   });

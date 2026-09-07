@@ -2672,7 +2672,10 @@ export function App(): React.JSX.Element {
         </ResizablePanelGroup>
 
         {draggingFiles ? (
-          <div className="pointer-events-none absolute inset-2 z-[60] flex items-center justify-center border-2 border-dashed border-primary bg-background/95 text-sm font-medium text-primary backdrop-blur-[1px]">
+          <div
+            className="pointer-events-none absolute inset-2 z-[60] flex items-center justify-center border-2 border-dashed border-primary bg-background/95 text-sm font-medium text-primary backdrop-blur-[1px]"
+            data-file-drop-overlay=""
+          >
             {t('松开以打开文档')}
           </div>
         ) : null}

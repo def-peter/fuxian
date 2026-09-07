@@ -6,17 +6,19 @@ import { createInterface } from 'node:readline/promises';
 const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const versionFiles = ['package.json', 'apps/desktop/package.json'];
 
-const usage = `Usage: pnpm release [patch|minor|major|<version>] [--yes] [--wait] [--dry-run]
+const usage = `Usage: pnpm release [patch|minor|major|<version>] [--yes] [--wait] [--retry] [--dry-run]
 
 Examples:
   pnpm release              Publish the next patch version
   pnpm release minor        Publish the next minor version
   pnpm release 1.0.0        Publish an explicit stable version
   pnpm release --wait       Wait for GitHub Actions to finish
+  pnpm release --retry      Retry the current unpublished version
 
 Options:
   --yes      Skip the confirmation prompt
   --wait     Wait for the workflow and print the Release URL
+  --retry    Retry the current version without creating another version commit
   --dry-run  Run preflight checks without changing or publishing anything
   --help     Show this help`;
 
@@ -25,6 +27,7 @@ export const parseArguments = (arguments_) => {
     bump: 'patch',
     dryRun: false,
     help: false,
+    retry: false,
     wait: false,
     yes: false,
   };
@@ -33,6 +36,7 @@ export const parseArguments = (arguments_) => {
   for (const argument of arguments_) {
     if (argument === '--dry-run') options.dryRun = true;
     else if (argument === '--help' || argument === '-h') options.help = true;
+    else if (argument === '--retry') options.retry = true;
     else if (argument === '--wait') options.wait = true;
     else if (argument === '--yes' || argument === '-y') options.yes = true;
     else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
@@ -40,6 +44,9 @@ export const parseArguments = (arguments_) => {
   }
 
   if (positional.length > 1) throw new Error('Provide at most one version or bump type.');
+  if (options.retry && positional.length > 0) {
+    throw new Error('--retry cannot be combined with a version or bump type.');
+  }
   if (positional[0]) options.bump = positional[0];
   return options;
 };
@@ -167,8 +174,10 @@ const main = async () => {
     throw new Error(`Version files disagree: ${versions.join(' and ')}.`);
   }
   const currentVersion = versions[0];
-  const nextVersion = resolveNextVersion(currentVersion, options.bump);
-  const tag = `v${nextVersion}`;
+  const targetVersion = options.retry
+    ? currentVersion
+    : resolveNextVersion(currentVersion, options.bump);
+  const tag = `v${targetVersion}`;
 
   const existingTag = command(
     'git',
@@ -180,23 +189,31 @@ const main = async () => {
   const existingRelease = command('gh', ['release', 'view', tag], { optional: true });
   if (existingTag.ok || existingRelease.ok) throw new Error(`${tag} already exists.`);
 
-  console.log(`Ready to publish ${currentVersion} -> ${nextVersion}.`);
+  console.log(
+    options.retry
+      ? `Ready to retry unpublished version ${currentVersion}.`
+      : `Ready to publish ${currentVersion} -> ${targetVersion}.`,
+  );
   if (options.dryRun) {
     console.log('Dry run complete; no files were changed.');
     return;
   }
-  if (!options.yes && !(await confirmRelease(currentVersion, nextVersion))) {
+  if (!options.yes && !(await confirmRelease(currentVersion, targetVersion))) {
     console.log('Release cancelled.');
     return;
   }
 
-  for (const path of versionFiles) await updateVersion(path, nextVersion);
-  command('pnpm', ['verify:release-version'], { capture: false });
-  command('pnpm', ['exec', 'prettier', '--check', ...versionFiles], { capture: false });
+  if (options.retry) {
+    command('pnpm', ['verify:release-version'], { capture: false });
+  } else {
+    for (const path of versionFiles) await updateVersion(path, targetVersion);
+    command('pnpm', ['verify:release-version'], { capture: false });
+    command('pnpm', ['exec', 'prettier', '--check', ...versionFiles], { capture: false });
 
-  command('git', ['add', '--', ...versionFiles]);
-  command('git', ['commit', '-m', `chore(release): prepare ${tag}`], { capture: false });
-  command('git', ['push', 'origin', 'main'], { capture: false });
+    command('git', ['add', '--', ...versionFiles]);
+    command('git', ['commit', '-m', `chore(release): prepare ${tag}`], { capture: false });
+    command('git', ['push', 'origin', 'main'], { capture: false });
+  }
 
   const releaseSha = command('git', ['rev-parse', 'HEAD']).output;
   const dispatch = command('gh', ['workflow', 'run', 'release-installers.yml', '--ref', 'main']);

@@ -555,39 +555,21 @@ test('dropping multiple Markdown documents adds them to the document session', a
         };
       });
     });
-    const capturePixels = async (): Promise<number[][]> =>
-      Promise.all(
-        samplePoints.map((point) =>
-          electronApp.evaluate(async ({ BrowserWindow }, samplePoint) => {
-            const browserWindow = BrowserWindow.getAllWindows().find(
-              (candidate) => !candidate.isDestroyed(),
-            );
-            if (!browserWindow) throw new Error('The reader window is unavailable.');
-            const image = await browserWindow.capturePage({
-              height: 1,
-              width: 1,
-              x: samplePoint.x,
-              y: samplePoint.y,
-            });
-            return [...image.toBitmap().subarray(0, 4)];
-          }, point),
-        ),
-      );
-    const pixelsBeforeDrag = await capturePixels();
-
     const dropTarget = window.locator('[data-session-root]');
     await dropTarget.dispatchEvent('dragenter', { dataTransfer });
     await expect(window.getByText('松开以打开文档')).toBeVisible();
-    const pixelsDuringDrag = await capturePixels();
-    const colorDifferences = pixelsBeforeDrag.map((before, index) =>
-      before.reduce(
-        (difference, channel, channelIndex) =>
-          difference + Math.abs(channel - pixelsDuringDrag[index]![channelIndex]!),
-        0,
-      ),
-    );
-    expect(colorDifferences[0]).toBeGreaterThan(12);
-    expect(colorDifferences[1]).toBeGreaterThan(12);
+    const overlayCoversTargets = await window.evaluate((points) => {
+      const overlay = document.querySelector<HTMLElement>('[data-file-drop-overlay]');
+      if (!overlay) throw new Error('The file-drop overlay is missing.');
+      overlay.style.pointerEvents = 'auto';
+      const results = points.map((point) => {
+        const topmostElement = document.elementFromPoint(point.x, point.y);
+        return topmostElement === overlay || overlay.contains(topmostElement);
+      });
+      overlay.style.pointerEvents = '';
+      return results;
+    }, samplePoints);
+    expect(overlayCoversTargets).toEqual(samplePoints.map(() => true));
     await dropTarget.dispatchEvent('drop', { dataTransfer });
 
     const session = window.getByRole('complementary', { name: '文档会话' });
