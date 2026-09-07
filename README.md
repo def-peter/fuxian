@@ -23,9 +23,20 @@
 
 ## ✨ Make more of your Markdown
 
-### 📊 One document. Four visualization engines.
+### 📊 One document. Four visual frameworks.
 
-An AI-generated plan, a colleague's analysis, your own notes: the diagram code inside them deserves to be seen. Fuxian has built-in support for [Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [Vega-Lite](https://vega.github.io/vega-lite/), and [AntV Infographic](https://infographic.antv.vision/), bringing processes, relationships, data, and visual stories into the same Markdown document.
+An AI-generated plan, a colleague's analysis, your own notes: the visuals inside them deserve to be seen. Fuxian has built-in support for [Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [Vega-Lite](https://vega.github.io/vega-lite/), and [AntV Infographic](https://infographic.antv.vision/), bringing processes, relationships, data, and visual stories into the same Markdown document.
+
+Visual blocks use regular Markdown fences. Add the corresponding label after the three backticks:
+
+| Framework        | Fence opener                |
+| :--------------- | :-------------------------- |
+| Mermaid          | <code>```mermaid</code>     |
+| PlantUML         | <code>```plantuml</code>    |
+| Vega-Lite        | <code>```vega-lite</code>   |
+| AntV Infographic | <code>```infographic</code> |
+
+Close the block with another three backticks after the visual source.
 
 Open a visual full screen for a closer look, or copy its source or SVG to use elsewhere. The visuals stay with the document as you read, present, and share it as a PDF.
 

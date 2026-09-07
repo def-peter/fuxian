@@ -23,11 +23,22 @@
 
 ## ✨ 让 Markdown 更值得阅读
 
-### 📊 一份文档，四种图表引擎
+### 📊 一份文档，四种图形框架
 
-AI 给出的方案、同事分享的分析、自己整理的笔记，里面的图表代码也能直接读成图。浮现内置 [Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 支持，让流程、关系、数据与故事在同一篇 Markdown 中展开。
+AI 给出的方案、同事分享的分析、自己整理的笔记，其中的图形源码也能直接呈现出来。浮现内置 [Mermaid](https://mermaid.js.org/)、[PlantUML](https://plantuml.com/)、[Vega-Lite](https://vega.github.io/vega-lite/) 和 [AntV Infographic](https://infographic.antv.vision/) 支持，让流程、关系、数据与故事在同一篇 Markdown 中展开。
 
-需要看细节时，全屏放大；想复用时，复制源码或 SVG。从阅读、演示到 PDF 分享，图表都能跟着文档走。
+图形代码块写法和普通围栏代码块一样，只需在三个反引号后加上对应标签：
+
+| 图形框架         | 代码块开头                  |
+| :--------------- | :-------------------------- |
+| Mermaid          | <code>```mermaid</code>     |
+| PlantUML         | <code>```plantuml</code>    |
+| Vega-Lite        | <code>```vega-lite</code>   |
+| AntV Infographic | <code>```infographic</code> |
+
+写完图形源码后，再用三个反引号结束代码块。
+
+需要看细节时，全屏放大；想复用时，复制源码或 SVG。从阅读、演示到 PDF 分享，图形都能跟着文档走。
 
 ### 📖 从打开到看懂，再到分享
 
@@ -59,7 +70,7 @@ AI 给出的方案、同事分享的分析、自己整理的笔记，里面的�
 
 ![浮现的文章大纲图](docs/assets/readme/zh/03-article-outline-map.png)
 
-### 四种图表，四种表达方式
+### 四种图形，四种表达方式
 
 Mermaid、PlantUML、Vega-Lite 和 AntV Infographic 都会直接成为文档的一部分。每种框架都能表达丰富的结构，下面只是四个贴近工作的场景示例。需要核对时，可以随时查看源码；阅读和导出时，看到的始终是清晰的 SVG 图形。
 
@@ -101,7 +112,7 @@ pnpm dev
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-发布流程见 [`docs/release.md`](docs/release.md)，配套图表创作 Skill 见 [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md)。
+发布流程见 [`docs/release.md`](docs/release.md)，配套图形创作 Skill 见 [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md)。
 
 ## 💬 反馈
 
