@@ -5,20 +5,28 @@ import { createInterface } from 'node:readline/promises';
 
 const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const versionFiles = ['package.json', 'apps/desktop/package.json'];
+const maximumReleaseNotesLength = 20_000;
 
-const usage = `Usage: pnpm release [patch|minor|major|<version>] [--yes] [--wait] [--retry] [--dry-run]
+const usage = `Usage: pnpm release [patch|minor|major|<version>] [--yes] [--wait] [--retry] [--dry-run] [release notes]
 
 Examples:
   pnpm release              Publish the next patch version
   pnpm release minor        Publish the next minor version
   pnpm release 1.0.0        Publish an explicit stable version
   pnpm release --wait       Wait for GitHub Actions to finish
+  pnpm release --notes-en "Add automatic update checks" --notes-zh "新增自动更新检测"
+  pnpm release --notes-file /tmp/fuxian-release.md
   pnpm release --retry      Retry the current unpublished version
 
 Options:
   --yes      Skip the confirmation prompt
   --wait     Wait for the workflow and print the Release URL
   --retry    Retry the current version without creating another version commit
+  --notes    Prepend complete Markdown to the generated Release notes
+  --notes-en Prepend English Markdown as the primary Release notes
+  --notes-zh Put Chinese Markdown in a collapsible section after English notes
+  --notes-file
+             Read a Markdown description from a local file; the file is not committed
   --dry-run  Run preflight checks without changing or publishing anything
   --help     Show this help`;
 
@@ -27,19 +35,39 @@ export const parseArguments = (arguments_) => {
     bump: 'patch',
     dryRun: false,
     help: false,
+    notes: undefined,
+    notesEn: undefined,
+    notesFile: undefined,
+    notesZh: undefined,
     retry: false,
     wait: false,
     yes: false,
   };
   const positional = [];
 
-  for (const argument of arguments_) {
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
     if (argument === '--dry-run') options.dryRun = true;
     else if (argument === '--help' || argument === '-h') options.help = true;
     else if (argument === '--retry') options.retry = true;
     else if (argument === '--wait') options.wait = true;
     else if (argument === '--yes' || argument === '-y') options.yes = true;
-    else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
+    else if (
+      argument === '--notes' ||
+      argument === '--notes-en' ||
+      argument === '--notes-file' ||
+      argument === '--notes-zh'
+    ) {
+      const value = arguments_[index + 1];
+      if (value === undefined || value.startsWith('--')) {
+        throw new Error(`${argument} requires a value.`);
+      }
+      if (argument === '--notes') options.notes = value;
+      else if (argument === '--notes-en') options.notesEn = value;
+      else if (argument === '--notes-file') options.notesFile = value;
+      else options.notesZh = value;
+      index += 1;
+    } else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
     else positional.push(argument);
   }
 
@@ -47,8 +75,45 @@ export const parseArguments = (arguments_) => {
   if (options.retry && positional.length > 0) {
     throw new Error('--retry cannot be combined with a version or bump type.');
   }
+  const completeNotesSources = [options.notes, options.notesFile].filter(
+    (value) => value !== undefined,
+  );
+  const hasLocalizedNotes = options.notesZh !== undefined || options.notesEn !== undefined;
+  if (completeNotesSources.length > 1 || (completeNotesSources.length > 0 && hasLocalizedNotes)) {
+    throw new Error('--notes/--notes-file cannot be combined with other release-note options.');
+  }
   if (positional[0]) options.bump = positional[0];
   return options;
+};
+
+export const normalizeReleaseNotes = (value) => {
+  const notes = value.replaceAll(/\r\n?/gu, '\n').trim();
+  if (!notes) return undefined;
+  if (notes.length > maximumReleaseNotesLength) {
+    throw new Error(`Release notes cannot exceed ${maximumReleaseNotesLength} characters.`);
+  }
+  const hasUnsupportedControlCharacter = [...notes].some((character) => {
+    const code = character.codePointAt(0);
+    return code === 127 || (code !== undefined && code < 32 && code !== 9 && code !== 10);
+  });
+  if (hasUnsupportedControlCharacter) {
+    throw new Error('Release notes contain unsupported control characters.');
+  }
+  return notes;
+};
+
+export const formatLocalizedReleaseNotes = (chinese, english) => {
+  const chineseNotes = normalizeReleaseNotes(chinese ?? '');
+  const englishNotes = normalizeReleaseNotes(english ?? '');
+  if (!englishNotes) return chineseNotes;
+  if (!chineseNotes) return englishNotes;
+  return `${englishNotes}\n\n<details>\n<summary>中文更新日志</summary>\n\n${chineseNotes}\n\n</details>`;
+};
+
+export const createWorkflowDispatchArguments = (releaseNotes) => {
+  const arguments_ = ['workflow', 'run', 'release-installers.yml', '--ref', 'main'];
+  if (releaseNotes) arguments_.push('--raw-field', `release_notes=${releaseNotes}`);
+  return arguments_;
 };
 
 const parseVersion = (version) => {
@@ -108,17 +173,24 @@ const updateVersion = async (path, version) => {
   await writeFile(path, `${JSON.stringify(packageJson, null, 2)}\n`);
 };
 
-const confirmRelease = async (currentVersion, nextVersion) => {
+const collectReleaseInput = async (currentVersion, nextVersion, releaseNotes) => {
   if (!process.stdin.isTTY) {
     throw new Error('Confirmation requires a terminal. Pass --yes to continue non-interactively.');
   }
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  const englishNotes = releaseNotes
+    ? undefined
+    : await prompt.question('English release notes (optional Markdown; press Enter to skip): ');
+  const chineseNotes = releaseNotes
+    ? undefined
+    : await prompt.question('中文更新日志（可选 Markdown，按 Enter 跳过）：');
+  const notes = releaseNotes ?? formatLocalizedReleaseNotes(chineseNotes, englishNotes);
   const answer = await prompt.question(`Publish ${currentVersion} -> ${nextVersion}? [y/N] `);
   prompt.close();
-  return /^y(es)?$/i.test(answer.trim());
+  return { confirmed: /^y(es)?$/i.test(answer.trim()), releaseNotes: notes };
 };
 
-const findWorkflowRun = async (headSha) => {
+const findWorkflowRun = async (headSha, dispatchedAfter) => {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const result = command('gh', [
       'run',
@@ -130,12 +202,13 @@ const findWorkflowRun = async (headSha) => {
       '--commit',
       headSha,
       '--limit',
-      '1',
+      '5',
       '--json',
-      'databaseId,status,url',
+      'createdAt,databaseId,status,url',
     ]);
     const runs = JSON.parse(result.output || '[]');
-    if (runs[0]) return runs[0];
+    const matchingRun = runs.find((run) => Date.parse(run.createdAt) >= dispatchedAfter);
+    if (matchingRun) return matchingRun;
     await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   return undefined;
@@ -178,6 +251,11 @@ const main = async () => {
     ? currentVersion
     : resolveNextVersion(currentVersion, options.bump);
   const tag = `v${targetVersion}`;
+  let releaseNotes = options.notesFile
+    ? normalizeReleaseNotes(await readFile(options.notesFile, 'utf8'))
+    : options.notes !== undefined
+      ? normalizeReleaseNotes(options.notes)
+      : formatLocalizedReleaseNotes(options.notesZh, options.notesEn);
 
   const existingTag = command(
     'git',
@@ -198,9 +276,13 @@ const main = async () => {
     console.log('Dry run complete; no files were changed.');
     return;
   }
-  if (!options.yes && !(await confirmRelease(currentVersion, targetVersion))) {
-    console.log('Release cancelled.');
-    return;
+  if (!options.yes) {
+    const input = await collectReleaseInput(currentVersion, targetVersion, releaseNotes);
+    if (!input.confirmed) {
+      console.log('Release cancelled.');
+      return;
+    }
+    releaseNotes = input.releaseNotes;
   }
 
   if (options.retry) {
@@ -216,8 +298,10 @@ const main = async () => {
   }
 
   const releaseSha = command('git', ['rev-parse', 'HEAD']).output;
-  const dispatch = command('gh', ['workflow', 'run', 'release-installers.yml', '--ref', 'main']);
-  const run = await findWorkflowRun(releaseSha);
+  const dispatchArguments = createWorkflowDispatchArguments(releaseNotes);
+  const dispatchedAfter = Date.now() - 2_000;
+  const dispatch = command('gh', dispatchArguments);
+  const run = await findWorkflowRun(releaseSha, dispatchedAfter);
   const runUrl = run?.url ?? dispatch.output;
 
   console.log(`Release ${tag} was dispatched${runUrl ? `: ${runUrl}` : '.'}`);

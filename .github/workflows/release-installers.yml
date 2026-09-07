@@ -2,6 +2,11 @@ name: Build release installers
 
 on:
   workflow_dispatch:
+    inputs:
+      release_notes:
+        description: Optional Markdown placed before GitHub-generated release notes
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -212,14 +217,20 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_TITLE: ${{ steps.release.outputs.title }}
         run: |
-          gh release create "${RELEASE_TAG}" release-assets/* \
-            --draft \
-            --generate-notes \
-            --target "${GITHUB_SHA}" \
+          release_arguments=(
+            --draft
+            --generate-notes
+            --target "${GITHUB_SHA}"
             --title "${RELEASE_TITLE}"
+          )
+          if [[ -n "${RELEASE_NOTES}" ]]; then
+            release_arguments+=(--notes "${RELEASE_NOTES}")
+          fi
+          gh release create "${RELEASE_TAG}" release-assets/* "${release_arguments[@]}"
 
       - name: Verify uploaded release assets
         shell: bash

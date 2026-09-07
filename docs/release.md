@@ -45,7 +45,14 @@ Install and authenticate the GitHub CLI once, then run the release helper from a
 pnpm release
 ```
 
-The default increments the patch version, updates both package manifests, commits `chore(release): prepare v<version>`, pushes `main`, and dispatches **Build release installers**. Use `pnpm release minor`, `pnpm release major`, or an explicit version such as `pnpm release 1.0.0` when needed. Add `--dry-run` to check the proposed version without changing anything, `--yes` to skip confirmation, or `--wait` to keep the terminal open until publishing finishes.
+The default increments the patch version, asks for optional English and Chinese Markdown notes, updates both package manifests, commits `chore(release): prepare v<version>`, pushes `main`, and dispatches **Build release installers**. Use `pnpm release minor`, `pnpm release major`, or an explicit version such as `pnpm release 1.0.0` when needed. Add `--dry-run` to check the proposed version without changing anything, `--yes` to skip interactive input, or `--wait` to keep the terminal open until publishing finishes.
+
+Use `--notes-en` and `--notes-zh` for non-interactive bilingual notes. English stays visible and Chinese appears in a native collapsible `中文更新日志` section. Both languages live in one GitHub Release body; no changelog file is required. Use `--notes "<Markdown>"` or `--notes-file <path>` only when supplying a complete custom body. A local file is read but never staged. Curated text is placed before GitHub-generated notes and the full changelog link. For example:
+
+```bash
+pnpm release --wait --notes-en "Add automatic update checks" --notes-zh "新增自动更新检测"
+pnpm release minor --wait --notes-file /tmp/fuxian-release.md
+```
 
 Untracked files are reported but never staged. The helper refuses to run with tracked changes, from a branch other than `main`, when `main` differs from `origin/main`, or when the target tag or Release already exists.
 
