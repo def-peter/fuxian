@@ -35,6 +35,28 @@ const findSettingsWindow = async (electronApp: ElectronApplication): Promise<Pag
   return settingsWindow;
 };
 
+const captureSettingsWindow = async (
+  electronApp: ElectronApplication,
+  path: string,
+): Promise<void> => {
+  // CDP page screenshots can wait indefinitely on hidden Windows windows.
+  const png = await electronApp.evaluate(async ({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes('view=settings'),
+    );
+    if (!window) throw new Error('Settings window did not open.');
+    const wasVisible = window.isVisible();
+    const image = await window.webContents.capturePage(undefined, {
+      stayHidden: true,
+      stayAwake: true,
+    });
+    if (image.isEmpty()) throw new Error('Settings screenshot is empty.');
+    if (!wasVisible && window.isVisible()) throw new Error('Screenshot exposed a hidden window.');
+    return image.toPNG().toString('base64');
+  });
+  await writeFile(path, Buffer.from(png, 'base64'));
+};
+
 test('downloads an available update and flushes the reading session before install', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-'));
   const installMarkerPath = join(temporaryDirectory, 'install.json');
@@ -193,10 +215,10 @@ for (const locale of ['zh-CN', 'en-US']) {
         expect(
           await notesViewport.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
         ).toBe(true);
-        await settingsWindow.screenshot({
-          path: test.info().outputPath(`release-notes-${locale}-${width}.png`),
-          timeout: 5_000,
-        });
+        await captureSettingsWindow(
+          electronApp,
+          test.info().outputPath(`release-notes-${locale}-${width}.png`),
+        );
       }
       await settingsWindow
         .getByRole('button', { name: label('查看完整更新日志', 'View full release notes') })
@@ -238,7 +260,7 @@ for (const locale of ['zh-CN', 'en-US']) {
       await expect(
         settingsWindow.getByRole('button', { name: label('在 GitHub 下载', 'Download on GitHub') }),
       ).toBeVisible();
-      await settingsWindow.screenshot({ path: test.info().outputPath('manual-update.png') });
+      await captureSettingsWindow(electronApp, test.info().outputPath('manual-update.png'));
     } finally {
       await electronApp.close();
       await rm(temporaryDirectory, { force: true, recursive: true });
