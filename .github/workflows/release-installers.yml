@@ -90,6 +90,15 @@ jobs:
       - name: Verify Windows workflows
         run: pnpm test:e2e:release
 
+      - name: Preserve failed Windows test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuxian-windows-test-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Build NSIS installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
 

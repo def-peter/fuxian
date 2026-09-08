@@ -131,6 +131,8 @@ test('downloads an available update and flushes the reading session before insta
 
 for (const locale of ['zh-CN', 'en-US']) {
   test(`downloads a manual macOS installer and keeps the GitHub fallback available (${locale})`, async () => {
+    // Windows CI includes multiple native resizes and captures in this scenario.
+    test.setTimeout(60_000);
     const label = (zh: string, en: string): string => (locale === 'zh-CN' ? zh : en);
     const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-release-'));
     const releaseMarkerPath = join(temporaryDirectory, 'release.json');
@@ -193,11 +195,12 @@ for (const locale of ['zh-CN', 'en-US']) {
         ).toBe(true);
         await settingsWindow.screenshot({
           path: test.info().outputPath(`release-notes-${locale}-${width}.png`),
+          timeout: 5_000,
         });
       }
       await settingsWindow
         .getByRole('button', { name: label('查看完整更新日志', 'View full release notes') })
-        .hover();
+        .hover({ timeout: 5_000 });
       await expect(settingsWindow.getByRole('tooltip')).toHaveText(
         label('查看完整更新日志', 'View full release notes'),
       );
