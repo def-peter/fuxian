@@ -15,6 +15,49 @@ const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 
+test('paper mode renders a newly opened document without toggling modes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-open-'));
+  const firstPath = join(directory, 'first.md');
+  const secondPath = join(directory, 'second.md');
+  await writeFile(firstPath, '# First paper document\n\nFirst content.');
+  await writeFile(secondPath, '# Second paper document\n\nSecond content.');
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: firstPath,
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await expect(paper.getByRole('heading', { name: 'First paper document' })).toBeVisible();
+    await electronApp.evaluate((_, path) => {
+      process.env.FUXIAN_E2E_SOURCE_DOCUMENT = path;
+    }, secondPath);
+    await window.getByRole('button', { name: '打开文档', exact: true }).click();
+    await expect(window.getByRole('radio', { name: '纸张预览' })).toBeChecked();
+    await expect(paper.getByRole('heading', { name: 'Second paper document' })).toBeVisible({
+      timeout: 8_000,
+    });
+    const documents = window.getByRole('complementary', { name: '文档会话' });
+    await documents.getByRole('button', { name: 'first.md', exact: true }).click();
+    await expect(paper.getByRole('heading', { name: 'First paper document' })).toBeVisible();
+    await documents.getByRole('button', { name: 'second.md', exact: true }).click();
+    await expect(paper.getByRole('heading', { name: 'Second paper document' })).toBeVisible();
+    await expect(window.getByRole('radio', { name: '纸张预览' })).toBeChecked();
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('paper mode preserves finished-document behavior and matches exported PDF pages', async () => {
   test.setTimeout(90_000);
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-preview-'));

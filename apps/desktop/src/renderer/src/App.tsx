@@ -256,6 +256,10 @@ export function App(): React.JSX.Element {
   const [pdfExportStarting, setPdfExportStarting] = useState(false);
   const [viewMode, setViewMode] = useState<'continuous' | 'paper'>('continuous');
   const [paperSnapshot, setPaperSnapshot] = useState<PaperPreviewSnapshot>();
+  const [boundDocumentFrame, setBoundDocumentFrame] = useState<{
+    id: string;
+    controller: FinishedDocumentController;
+  }>();
   const [paperPageCount, setPaperPageCount] = useState<number>();
   const [paperReadyRevisionId, setPaperReadyRevisionId] = useState<string>();
   const [paperPreviewFailure, setPaperPreviewFailure] = useState<string>();
@@ -382,6 +386,7 @@ export function App(): React.JSX.Element {
     updatedStatusTimers.current.delete(path);
     if (wasActive) {
       finishedDocumentController.current = undefined;
+      setBoundDocumentFrame(undefined);
       paperPreviewController.current = undefined;
       paperSnapshotRequest.current += 1;
       visibleFrameIdRef.current = undefined;
@@ -841,8 +846,8 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (viewMode !== 'paper' || !visibleFrameId) return;
     const request = ++paperSnapshotRequest.current;
-    const controller = finishedDocumentController.current;
-    if (!controller) return;
+    if (boundDocumentFrame?.id !== visibleFrameId) return;
+    const { controller } = boundDocumentFrame;
     setPaperPreviewFailure(undefined);
     void controller
       .whenRenderReady()
@@ -867,7 +872,15 @@ export function App(): React.JSX.Element {
     return () => {
       if (paperSnapshotRequest.current === request) paperSnapshotRequest.current += 1;
     };
-  }, [getReadingController, preferences, resolvedAppearance, t, viewMode, visibleFrameId]);
+  }, [
+    boundDocumentFrame,
+    getReadingController,
+    preferences,
+    resolvedAppearance,
+    t,
+    viewMode,
+    visibleFrameId,
+  ]);
 
   useEffect(() => {
     const position = diagramLayoutReadingPosition.current;
@@ -943,6 +956,7 @@ export function App(): React.JSX.Element {
 
   const resetActiveDocumentControls = (): void => {
     finishedDocumentController.current = undefined;
+    setBoundDocumentFrame(undefined);
     paperPreviewController.current = undefined;
     paperSnapshotRequest.current += 1;
     visibleFrameIdRef.current = undefined;
@@ -991,6 +1005,7 @@ export function App(): React.JSX.Element {
     const controller = frameControllers.current.get(id);
     controller?.destroy();
     frameControllers.current.delete(id);
+    setBoundDocumentFrame((current) => (current?.controller === controller ? undefined : current));
     if (finishedDocumentController.current === controller) {
       finishedDocumentController.current = undefined;
     }
@@ -1050,6 +1065,7 @@ export function App(): React.JSX.Element {
 
     if (!frame.staging && visibleFrameIdRef.current === frame.id) {
       finishedDocumentController.current = controller;
+      setBoundDocumentFrame({ id: frame.id, controller });
       setFindResult(findOpen ? controller.find(findQuery) : emptyFindResult());
       return;
     }
@@ -1104,6 +1120,7 @@ export function App(): React.JSX.Element {
         if (active) {
           visibleFrameIdRef.current = frame.id;
           finishedDocumentController.current = controller;
+          setBoundDocumentFrame({ id: frame.id, controller });
           setSourceDiagram(undefined);
           setFocusedDiagram(undefined);
           setActiveHeadingId(readingPosition.headingId ?? frame.document.headings[0]?.id);
@@ -1176,6 +1193,7 @@ export function App(): React.JSX.Element {
         if (active) {
           visibleFrameIdRef.current = frame.id;
           finishedDocumentController.current = controller;
+          setBoundDocumentFrame({ id: frame.id, controller });
           setActiveHeadingId(frame.readingPosition.headingId ?? frame.document.headings[0]?.id);
         }
       });
