@@ -42,12 +42,14 @@ import {
   dialog,
   ipcMain,
   Menu,
+  net,
   type MenuItemConstructorOptions,
   protocol,
   screen,
   shell,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { DmgUpdateDownload } from './dmg-update-download';
 import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1559,9 +1561,11 @@ if (!hasSingleInstanceLock) {
     const updateDelivery: AppUpdateDelivery = e2eUpdateAdapter
       ? process.env.FUXIAN_E2E_UPDATE_DELIVERY === 'release-page'
         ? 'release-page'
-        : 'automatic-install'
+        : process.env.FUXIAN_E2E_UPDATE_DELIVERY === 'manual-install'
+          ? 'manual-install'
+          : 'automatic-install'
       : process.platform === 'darwin'
-        ? 'release-page'
+        ? 'manual-install'
         : 'automatic-install';
     appUpdateService = new AppUpdateService({
       adapter: e2eUpdateAdapter ?? autoUpdater,
@@ -1569,6 +1573,23 @@ if (!hasSingleInstanceLock) {
       broadcast: broadcastAppUpdateStatus,
       currentVersion: app.getVersion(),
       delivery: updateDelivery,
+      ...(updateDelivery === 'manual-install'
+        ? {
+            manualDownload: e2eUpdateAdapter
+              ? {
+                  download: (_info, token) => e2eUpdateAdapter.downloadUpdate(token),
+                  open: async () => {
+                    e2eUpdateAdapter.quitAndInstall();
+                  },
+                }
+              : new DmgUpdateDownload(
+                  join(app.getPath('userData'), 'update-downloads'),
+                  process.arch,
+                  (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
+                  (path) => shell.openPath(path),
+                ),
+          }
+        : {}),
       lastNotifiedVersion: updateState.lastNotifiedVersion,
       openReleasePage: async (version) => {
         const markerPath = process.env.FUXIAN_E2E_UPDATE_RELEASE_MARKER;
@@ -1577,7 +1598,9 @@ if (!hasSingleInstanceLock) {
           return;
         }
         await openExternalUrl(
-          `https://github.com/def-peter/fuxian/releases/tag/v${encodeURIComponent(version)}`,
+          version
+            ? `https://github.com/def-peter/fuxian/releases/tag/v${encodeURIComponent(version)}`
+            : 'https://github.com/def-peter/fuxian/releases/latest',
         );
       },
       persistNotifiedVersion: (version) => updateStatePersistence.saveLastNotifiedVersion(version),

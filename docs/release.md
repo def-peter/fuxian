@@ -1,6 +1,6 @@
 # Release Packaging
 
-Fuxian publishes stable builds for Windows x64, macOS Intel, and macOS Apple Silicon. Windows supports user-triggered download and installation in the app. macOS detects new versions and opens the matching GitHub Release for manual download. Linux remains a development and CI target only.
+Fuxian publishes stable builds for Windows x64, macOS Intel, and macOS Apple Silicon. Windows supports user-triggered differential download and installation in the app. macOS downloads the matching full DMG in-app, supports explicit resume after interruptions or restart, and opens the verified installer for manual drag-and-drop installation. Both platforms offer a GitHub download fallback. Linux remains a development and CI target only.
 
 ## Production prerequisites
 
@@ -64,6 +64,6 @@ Published assets include `latest.yml`, `latest-mac.yml`, NSIS EXE, macOS ZIP and
 
 ## First-release acceptance
 
-Before announcing updater support, install a lower version on Windows x64 and verify: check, explicit download, progress, restart/install, restored document session and reading position, and the new version in “关于与更新”. On macOS x64 and arm64, launch each packaged architecture on matching hardware, then verify that checking finds the version and opens its GitHub Release without starting an in-app download. Also test offline checks, a cancelled Windows download, SmartScreen behavior, and Gatekeeper instructions.
+Before announcing updater support, install a lower version on Windows x64 and verify: check, explicit download, progress, restart/install, restored document session and reading position, and the new version in “关于与更新”. On macOS x64 and arm64, launch each packaged architecture on matching hardware, then verify explicit DMG download, progress, cancellation, retry after restart, checksum verification, and opening the correct installer. Check the GitHub fallback while downloading and after failed checks. Also test offline checks, a cancelled Windows download, SmartScreen behavior, and Gatekeeper instructions.
 
 If packaging fails, fix the source or credential and rerun before a draft exists. If draft upload or verification fails, inspect the draft, delete the incomplete draft/tag only after confirming its exact version, then rerun. Never publish partial updater metadata or replace assets on an already public version; increment the version instead.

@@ -25,6 +25,7 @@ import {
   Monitor,
   Moon,
   Network,
+  PackageOpen,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -604,6 +605,8 @@ export function SettingsApp(): React.JSX.Element {
                     <p className="text-xs tabular-nums text-fg-secondary">
                       {formatBytes(appUpdateStatus.transferred)} /{' '}
                       {formatBytes(appUpdateStatus.total)}
+                      {' · '}
+                      {formatBytes(appUpdateStatus.bytesPerSecond)}/s
                     </p>
                     <Button onClick={cancelUpdateDownload} size="sm" variant="outline">
                       {t('取消下载')}
@@ -618,17 +621,30 @@ export function SettingsApp(): React.JSX.Element {
                       <AlertTitle>{t('更新已准备好')}</AlertTitle>
                       <AlertDescription>
                         <p>
-                          {t('重启浮现即可安装 {version}。', {
-                            version: appUpdateStatus.availableVersion ?? '',
-                          })}
+                          {t(
+                            appUpdateStatus.delivery === 'manual-install'
+                              ? '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。'
+                              : '重启浮现即可安装 {version}。',
+                            {
+                              version: appUpdateStatus.availableVersion ?? '',
+                            },
+                          )}
                         </p>
                         {appUpdateStatus.message ? <p>{appUpdateStatus.message}</p> : null}
                       </AlertDescription>
                     </Alert>
                     <div className="flex items-center gap-2">
                       <Button onClick={installUpdate} size="sm">
-                        <RefreshCw data-icon="inline-start" />
-                        {t('重启并更新')}
+                        {appUpdateStatus.delivery === 'manual-install' ? (
+                          <PackageOpen data-icon="inline-start" />
+                        ) : (
+                          <RefreshCw data-icon="inline-start" />
+                        )}
+                        {t(
+                          appUpdateStatus.delivery === 'manual-install'
+                            ? '打开安装包'
+                            : '重启并更新',
+                        )}
                       </Button>
                       <Button onClick={() => window.close()} size="sm" variant="outline">
                         {t('稍后')}
@@ -650,7 +666,13 @@ export function SettingsApp(): React.JSX.Element {
                     <AlertTitle>{t('软件更新失败')}</AlertTitle>
                     <AlertDescription>
                       <p>{appUpdateStatus.message ?? t('暂时无法完成更新。')}</p>
-                      <Button onClick={checkForUpdates} size="sm" variant="outline">
+                      <Button
+                        onClick={
+                          appUpdateStatus.availableVersion ? downloadUpdate : checkForUpdates
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
                         <RefreshCw data-icon="inline-start" />
                         {t('重试')}
                       </Button>
@@ -666,6 +688,17 @@ export function SettingsApp(): React.JSX.Element {
                       {t('正式安装的 Windows 和 macOS 版本支持软件更新。')}
                     </AlertDescription>
                   </Alert>
+                ) : null}
+
+                {appUpdateStatus.phase !== 'unsupported' &&
+                !(
+                  appUpdateStatus.delivery === 'release-page' &&
+                  appUpdateStatus.phase === 'available'
+                ) ? (
+                  <Button onClick={openUpdateRelease} size="sm" variant="ghost">
+                    <ExternalLink data-icon="inline-start" />
+                    {t('在 GitHub 下载')}
+                  </Button>
                 ) : null}
               </div>
             </section>

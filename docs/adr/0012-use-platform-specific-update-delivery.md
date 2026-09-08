@@ -4,6 +4,8 @@
 
 Accepted
 
+The macOS delivery decision is superseded by [ADR 0026](0026-download-macos-installers-in-app.md).
+
 ## Decision
 
 Fuxian checks the stable public GitHub Releases feed after startup and on demand. Update checks remain in the Electron main process, never block document restoration, and expose only typed status through preload.

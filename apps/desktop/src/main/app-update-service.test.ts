@@ -59,6 +59,53 @@ const createService = (
 };
 
 describe('AppUpdateService', () => {
+  it('offers GitHub during downloads without changing download state', async () => {
+    const { adapter, service, openReleasePage } = createService();
+    await service.openReleasePage();
+    expect(openReleasePage).toHaveBeenLastCalledWith(undefined);
+    adapter.emit('update-available', updateInfo());
+    adapter.emit('download-progress', {
+      total: 100,
+      transferred: 20,
+      percent: 20,
+      bytesPerSecond: 10,
+    });
+    await expect(service.openReleasePage()).resolves.toMatchObject({
+      phase: 'downloading',
+      percent: 20,
+    });
+    expect(openReleasePage).toHaveBeenLastCalledWith('0.2.0');
+  });
+
+  it('downloads and opens a manual installer without quitting or flushing edits', async () => {
+    const adapter = new FakeUpdateAdapter();
+    const manualDownload = {
+      download: vi.fn(async () => undefined),
+      open: vi.fn(async () => undefined),
+    };
+    const beforeInstall = vi.fn(async () => undefined);
+    const service = new AppUpdateService({
+      adapter,
+      manualDownload,
+      beforeInstall,
+      broadcast: vi.fn(),
+      currentVersion: '0.1.0',
+      delivery: 'manual-install',
+      supported: true,
+      openReleasePage: vi.fn(async () => undefined),
+    });
+    service.initialize();
+    adapter.emit('update-available', updateInfo());
+    manualDownload.download.mockRejectedValueOnce(new Error('network interrupted'));
+    await expect(service.downloadUpdate()).resolves.toMatchObject({ phase: 'error' });
+    await expect(service.downloadUpdate()).resolves.toMatchObject({ phase: 'downloaded' });
+    await service.installUpdate();
+    expect(manualDownload.download).toHaveBeenCalledTimes(2);
+    expect(manualDownload.open).toHaveBeenCalledOnce();
+    expect(adapter.downloadUpdate).not.toHaveBeenCalled();
+    expect(adapter.quitAndInstall).not.toHaveBeenCalled();
+    expect(beforeInstall).not.toHaveBeenCalled();
+  });
   it('uses explicit stable, user-controlled update behavior', async () => {
     const { adapter, service } = createService(false);
 
@@ -150,7 +197,7 @@ describe('AppUpdateService', () => {
     await service.downloadUpdate();
 
     expect(service.getStatus()).toMatchObject({
-      message: '已取消下载，可以稍后重新检查。',
+      message: '已取消下载，可以重试。',
       phase: 'available',
     });
     expect(broadcast).toHaveBeenCalledWith(

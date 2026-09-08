@@ -184,6 +184,13 @@ const englishMessages = {
   切换文档: 'switch documents',
   剪切: 'Cut',
   '前往 GitHub Release': 'Open GitHub Release',
+  '在 GitHub 下载': 'Download on GitHub',
+  打开安装包: 'Open Installer',
+  '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。':
+    'Open the installer, then drag Fuxian into Applications to replace the previous version.',
+  '无法打开安装包，请重新下载或前往 GitHub 下载。':
+    'Could not open the installer. Download it again or download on GitHub.',
+  '已取消下载，可以重试。': 'Download canceled. You can retry when ready.',
   前置全部窗口: 'Bring All to Front',
   加载失败: 'Loading failed',
   正在准备文档: 'Preparing document',

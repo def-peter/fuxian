@@ -58,7 +58,7 @@ export type AppUpdatePhase =
   | 'unsupported'
   | 'up-to-date';
 
-export type AppUpdateDelivery = 'automatic-install' | 'release-page';
+export type AppUpdateDelivery = 'automatic-install' | 'manual-install' | 'release-page';
 
 export interface AppUpdateStatus {
   availableVersion?: string | undefined;

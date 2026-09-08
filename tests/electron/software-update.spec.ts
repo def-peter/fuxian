@@ -133,38 +133,65 @@ test('downloads an available update and flushes the reading session before insta
   }
 });
 
-test('opens the matching GitHub Release for a manual macOS-style update', async () => {
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-release-'));
-  const releaseMarkerPath = join(temporaryDirectory, 'release.json');
-  const electronApp = await electron.launch({
-    executablePath: electronPath,
-    args: [desktopAppPath],
-    env: {
-      ...process.env,
-      FUXIAN_E2E_PREFERENCES_FILE: join(temporaryDirectory, 'reader-preferences.json'),
-      FUXIAN_E2E_SESSION_FILE: join(temporaryDirectory, 'document-session.json'),
-      FUXIAN_E2E_UPDATE_DELIVERY: 'release-page',
-      FUXIAN_E2E_UPDATE_RELEASE_MARKER: releaseMarkerPath,
-      FUXIAN_E2E_UPDATE_SCENARIO: 'available',
-      NODE_ENV: 'test',
-    },
+for (const locale of ['zh-CN', 'en-US']) {
+  test(`downloads a manual macOS installer and keeps the GitHub fallback available (${locale})`, async () => {
+    const label = (zh: string, en: string): string => (locale === 'zh-CN' ? zh : en);
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-release-'));
+    const releaseMarkerPath = join(temporaryDirectory, 'release.json');
+    const installMarkerPath = join(temporaryDirectory, 'install.json');
+    const electronApp = await electron.launch({
+      executablePath: electronPath,
+      args: [desktopAppPath],
+      env: {
+        ...process.env,
+        FUXIAN_E2E_PREFERENCES_FILE: join(temporaryDirectory, 'reader-preferences.json'),
+        FUXIAN_E2E_SESSION_FILE: join(temporaryDirectory, 'document-session.json'),
+        FUXIAN_E2E_UPDATE_DELIVERY: 'manual-install',
+        FUXIAN_E2E_SYSTEM_LOCALE: locale,
+        FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarkerPath,
+        FUXIAN_E2E_UPDATE_RELEASE_MARKER: releaseMarkerPath,
+        FUXIAN_E2E_UPDATE_SCENARIO: 'available',
+        NODE_ENV: 'test',
+      },
+    });
+
+    try {
+      const readerWindow = await electronApp.firstWindow();
+      await readerWindow
+        .getByRole('button', { name: label('设置，有可用更新', 'Settings, update available') })
+        .click();
+      const settingsWindow = await findSettingsWindow(electronApp);
+
+      await expect(
+        settingsWindow.getByRole('button', { name: label('下载更新', 'Download update') }),
+      ).toBeVisible();
+      await settingsWindow
+        .getByRole('button', { name: label('在 GitHub 下载', 'Download on GitHub') })
+        .click();
+
+      await expect.poll(() => readJsonIfAvailable(releaseMarkerPath)).toEqual({ version: '0.2.0' });
+      await settingsWindow
+        .getByRole('button', { name: label('下载更新', 'Download update') })
+        .click();
+      await expect(
+        settingsWindow.getByRole('button', { name: label('重启并更新', 'Restart and Update') }),
+      ).toHaveCount(0);
+      await settingsWindow
+        .getByRole('button', { name: label('打开安装包', 'Open Installer') })
+        .click();
+      await expect
+        .poll(() => readJsonIfAvailable(installMarkerPath))
+        .toEqual({ installedVersion: '0.2.0' });
+      await expect(
+        settingsWindow.getByRole('button', { name: label('在 GitHub 下载', 'Download on GitHub') }),
+      ).toBeVisible();
+      await settingsWindow.screenshot({ path: test.info().outputPath('manual-update.png') });
+    } finally {
+      await electronApp.close();
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
   });
-
-  try {
-    const readerWindow = await electronApp.firstWindow();
-    await readerWindow.getByRole('button', { name: '设置，有可用更新' }).click();
-    const settingsWindow = await findSettingsWindow(electronApp);
-
-    await expect(settingsWindow.getByText('新版本 0.2.0 可用')).toBeVisible();
-    await settingsWindow.getByRole('button', { name: '前往 GitHub Release' }).click();
-
-    await expect.poll(() => readJsonIfAvailable(releaseMarkerPath)).toEqual({ version: '0.2.0' });
-    await expect(settingsWindow.getByRole('button', { name: '下载更新' })).toHaveCount(0);
-  } finally {
-    await electronApp.close();
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
-});
+}
 
 test('requires a decision about unsaved source changes before installing an update', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-update-source-'));

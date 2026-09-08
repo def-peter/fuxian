@@ -31,7 +31,15 @@ interface AppUpdateServiceOptions {
   currentVersion: string;
   delivery: AppUpdateDelivery;
   lastNotifiedVersion?: string | undefined;
-  openReleasePage(version: string): Promise<void>;
+  openReleasePage(version?: string): Promise<void>;
+  manualDownload?: {
+    download(
+      info: UpdateInfo,
+      token: CancellationToken,
+      progress: (value: ProgressInfo) => void,
+    ): Promise<void>;
+    open(): Promise<void>;
+  };
   persistNotifiedVersion?(version: string): Promise<void>;
   supported: boolean;
   translate?: Translator;
@@ -144,6 +152,7 @@ export class AppUpdateService {
   private lastNotifiedVersion: string | undefined;
   private status: AppUpdateStatus;
   private readonly t: Translator;
+  private availableInfo: UpdateInfo | undefined;
 
   constructor(private readonly options: AppUpdateServiceOptions) {
     this.t = options.translate ?? createTranslator('zh-CN');
@@ -171,6 +180,7 @@ export class AppUpdateService {
     });
     adapter.on('update-available', (info) => this.updateFromInfo('available', info));
     adapter.on('update-not-available', (info) => {
+      this.availableInfo = undefined;
       this.update({
         availableVersion: undefined,
         checkedAt: new Date().toISOString(),
@@ -255,11 +265,11 @@ export class AppUpdateService {
   }
 
   downloadUpdate(): Promise<AppUpdateStatus> {
-    if (this.options.delivery !== 'automatic-install') {
+    if (this.options.delivery === 'release-page') {
       return Promise.resolve(this.getStatus());
     }
     if (this.downloadPromise) return this.downloadPromise;
-    if (this.status.phase !== 'available') {
+    if (!this.availableInfo || !['available', 'error'].includes(this.status.phase)) {
       return Promise.resolve(this.getStatus());
     }
     const token = new CancellationToken();
@@ -272,8 +282,19 @@ export class AppUpdateService {
       total: 0,
       transferred: 0,
     });
-    const operation = this.options.adapter
-      .downloadUpdate(token)
+    const info = this.availableInfo;
+    const operation = Promise.resolve()
+      .then(async () => {
+        if (this.options.delivery === 'manual-install') {
+          if (!this.options.manualDownload) throw new Error('Missing manual downloader');
+          await this.options.manualDownload.download(info, token, (progress) => {
+            if (!token.cancelled) this.update({ ...progress, phase: 'downloading' });
+          });
+          if (!token.cancelled) this.updateFromInfo('downloaded', info);
+        } else {
+          await this.options.adapter.downloadUpdate(token);
+        }
+      })
       .catch((error: unknown) => {
         if (token.cancelled) {
           this.finishCancellation();
@@ -292,14 +313,14 @@ export class AppUpdateService {
   }
 
   cancelDownload(): AppUpdateStatus {
-    if (this.options.delivery !== 'automatic-install') return this.getStatus();
+    if (this.options.delivery === 'release-page') return this.getStatus();
     this.downloadToken?.cancel();
     if (this.status.phase === 'downloading') this.finishCancellation();
     return this.getStatus();
   }
 
   installUpdate(): Promise<AppUpdateStatus> {
-    if (this.options.delivery !== 'automatic-install') return Promise.resolve(this.getStatus());
+    if (this.options.delivery === 'release-page') return Promise.resolve(this.getStatus());
     if (this.installPromise) return this.installPromise;
     if (this.status.phase !== 'downloaded') return Promise.resolve(this.getStatus());
     const operation = this.prepareAndInstallUpdate().finally(() => {
@@ -310,6 +331,20 @@ export class AppUpdateService {
   }
 
   private async prepareAndInstallUpdate(): Promise<AppUpdateStatus> {
+    if (this.options.delivery === 'manual-install') {
+      try {
+        if (!this.options.manualDownload) throw new Error('Missing manual downloader');
+        await this.options.manualDownload.open();
+        this.update({ message: undefined });
+      } catch (error) {
+        console.error('[app-update] opening installer failed', error);
+        this.update({
+          message: this.t('无法打开安装包，请重新下载或前往 GitHub 下载。'),
+          phase: 'error',
+        });
+      }
+      return this.getStatus();
+    }
     try {
       await this.options.beforeInstall();
     } catch (error) {
@@ -329,12 +364,11 @@ export class AppUpdateService {
 
   async openReleasePage(): Promise<AppUpdateStatus> {
     const version = this.status.availableVersion;
-    if (this.options.delivery !== 'release-page' || this.status.phase !== 'available' || !version) {
+    if (!this.options.supported) {
       return this.getStatus();
     }
     try {
       await this.options.openReleasePage(version);
-      this.update({ message: undefined });
     } catch (error) {
       console.error('[app-update] opening release page failed', error);
       this.update({ message: this.t('无法打开 GitHub Release，请稍后重试。') });
@@ -351,7 +385,7 @@ export class AppUpdateService {
     this.downloadToken = undefined;
     this.update({
       bytesPerSecond: undefined,
-      message: this.t('已取消下载，可以稍后重新检查。'),
+      message: this.t('已取消下载，可以重试。'),
       percent: undefined,
       phase: 'available',
       total: undefined,
@@ -363,6 +397,7 @@ export class AppUpdateService {
     phase: Extract<AppUpdatePhase, 'available' | 'downloaded'>,
     info: UpdateInfo,
   ): void {
+    this.availableInfo = info;
     const availableVersion = releaseText(info.version, 64);
     this.update({
       availableVersion,
