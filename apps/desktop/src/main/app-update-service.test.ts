@@ -136,7 +136,16 @@ describe('AppUpdateService', () => {
     await expect(first).resolves.toMatchObject({
       availableVersion: '0.2.0',
       phase: 'available',
-      releaseNotes: '主要更新\n\n- 新增安全可靠的软件更新 & 发布流程。\n- 修复设置页显示。',
+      releaseNotes: {
+        'en-US': [
+          { kind: 'heading', text: '主要更新' },
+          {
+            kind: 'list',
+            ordered: false,
+            items: ['新增安全可靠的软件更新 & 发布流程。', '修复设置页显示。'],
+          },
+        ],
+      },
       reminderVersion: '0.2.0',
     });
     expect(adapter.checkForUpdates).toHaveBeenCalledTimes(1);
@@ -176,7 +185,12 @@ describe('AppUpdateService', () => {
       ],
     });
 
-    expect(service.getStatus().releaseNotes).toBe('当前版本说明\n\n上一版本说明');
+    expect(service.getStatus().releaseNotes).toEqual({
+      'en-US': [
+        { kind: 'paragraph', text: '当前版本说明' },
+        { kind: 'paragraph', text: '上一版本说明' },
+      ],
+    });
   });
 
   it('reports download progress, supports cancellation, and can retry', async () => {

@@ -100,13 +100,9 @@ test('downloads an available update and flushes the reading session before insta
     const settingsWindow = await findSettingsWindow(electronApp);
     await expect(settingsWindow.getByRole('heading', { name: '关于与更新' })).toBeVisible();
     await expect(settingsWindow.getByText('新版本 0.2.0 可用')).toBeVisible();
-    const releaseNotes = settingsWindow
-      .getByRole('heading', { name: '更新内容' })
-      .locator('..')
-      .locator('p');
-    await expect(releaseNotes).toHaveText(
-      '新增安全可靠的软件更新，并完善发布流程。\n\n- 修复 HTML 标签显示。',
-    );
+    const releaseNotes = settingsWindow.getByTestId('update-notes-content');
+    await expect(releaseNotes).toContainText('新增安全可靠的软件更新，并完善发布流程。');
+    await expect(releaseNotes.getByRole('listitem')).toHaveText('修复 HTML 标签显示。');
     expect(await releaseNotes.textContent()).not.toMatch(/<\/?[a-z]/iu);
 
     await settingsWindow.getByRole('button', { name: '下载更新' }).click();
@@ -151,6 +147,7 @@ for (const locale of ['zh-CN', 'en-US']) {
         FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarkerPath,
         FUXIAN_E2E_UPDATE_RELEASE_MARKER: releaseMarkerPath,
         FUXIAN_E2E_UPDATE_SCENARIO: 'available',
+        FUXIAN_E2E_UPDATE_NOTES: `<h2>What is new</h2><ul>${'<li>Resume interrupted downloads and open the verified installer.</li>'.repeat(20)}</ul><details><summary>中文更新日志</summary><h2>本次更新</h2><ul>${'<li>支持断点续传，下载完成后打开经过校验的安装包。</li>'.repeat(20)}</ul></details>`,
         NODE_ENV: 'test',
       },
     });
@@ -161,6 +158,59 @@ for (const locale of ['zh-CN', 'en-US']) {
         .getByRole('button', { name: label('设置，有可用更新', 'Settings, update available') })
         .click();
       const settingsWindow = await findSettingsWindow(electronApp);
+
+      const notes = settingsWindow.getByTestId('update-notes-content');
+      await expect(notes).toContainText(label('支持断点续传', 'Resume interrupted downloads'));
+      await expect(notes).not.toContainText(label('What is new', '本次更新'));
+      const notesViewport = notes.locator('xpath=ancestor::*[@data-slot="scroll-area-viewport"]');
+      await expect
+        .poll(() =>
+          notesViewport.evaluate((element) => element.scrollHeight > element.clientHeight),
+        )
+        .toBe(true);
+      const download = settingsWindow.getByRole('button', {
+        name: label('下载更新', 'Download update'),
+      });
+      for (const [width, height] of [
+        [1100, 850],
+        [900, 650],
+      ]) {
+        await electronApp.evaluate(
+          ({ BrowserWindow }, bounds) => {
+            BrowserWindow.getAllWindows()
+              .find((window) => window.webContents.getURL().includes('view=settings'))
+              ?.setBounds(bounds);
+          },
+          { width, height },
+        );
+        await expect(download).toBeInViewport();
+        const buttonBounds = await download.boundingBox();
+        const notesBounds = await notesViewport.boundingBox();
+        expect(buttonBounds!.y + buttonBounds!.height).toBeLessThan(notesBounds!.y);
+        expect(notesBounds!.height).toBeLessThanOrEqual(257);
+        expect(
+          await notesViewport.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+        ).toBe(true);
+        await settingsWindow.screenshot({
+          path: test.info().outputPath(`release-notes-${locale}-${width}.png`),
+        });
+      }
+      await settingsWindow
+        .getByRole('button', { name: label('查看完整更新日志', 'View full release notes') })
+        .hover();
+      await expect(settingsWindow.getByRole('tooltip')).toHaveText(
+        label('查看完整更新日志', 'View full release notes'),
+      );
+      await notesViewport.evaluate((element) => {
+        element.scrollTop = 100;
+      });
+      await expect
+        .poll(() => notesViewport.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      await settingsWindow
+        .getByRole('button', { name: label('查看完整更新日志', 'View full release notes') })
+        .click();
+      await expect.poll(() => readJsonIfAvailable(releaseMarkerPath)).toEqual({ version: '0.2.0' });
 
       await expect(
         settingsWindow.getByRole('button', { name: label('下载更新', 'Download update') }),

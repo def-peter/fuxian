@@ -60,6 +60,12 @@ export type AppUpdatePhase =
 
 export type AppUpdateDelivery = 'automatic-install' | 'manual-install' | 'release-page';
 
+export type AppReleaseNoteBlock =
+  | { kind: 'heading' | 'paragraph'; text: string }
+  | { kind: 'list'; items: string[]; ordered: boolean };
+
+export type AppReleaseNotes = Partial<Record<UiLocale, AppReleaseNoteBlock[]>>;
+
 export interface AppUpdateStatus {
   availableVersion?: string | undefined;
   bytesPerSecond?: number | undefined;
@@ -71,7 +77,7 @@ export interface AppUpdateStatus {
   phase: AppUpdatePhase;
   releaseDate?: string | undefined;
   releaseName?: string | undefined;
-  releaseNotes?: string | undefined;
+  releaseNotes?: AppReleaseNotes | undefined;
   reminderVersion?: string | undefined;
   total?: number | undefined;
   transferred?: number | undefined;

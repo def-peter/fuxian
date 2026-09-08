@@ -185,6 +185,7 @@ const englishMessages = {
   剪切: 'Cut',
   '前往 GitHub Release': 'Open GitHub Release',
   '在 GitHub 下载': 'Download on GitHub',
+  查看完整更新日志: 'View full release notes',
   打开安装包: 'Open Installer',
   '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。':
     'Open the installer, then drag Fuxian into Applications to replace the previous version.',

@@ -54,6 +54,7 @@ import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
 import { FuxianAppIcon } from '@/fuxian-mark';
 import { useLocalization } from '@/localization-context';
+import { UpdateReleaseNotes } from '@/components/update-release-notes';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useAppUpdateStatus } from '@/use-app-update-status';
@@ -564,14 +565,6 @@ export function SettingsApp(): React.JSX.Element {
                         </p>
                       </AlertDescription>
                     </Alert>
-                    {appUpdateStatus.releaseNotes ? (
-                      <div>
-                        <h3 className="text-sm font-medium">{t('更新内容')}</h3>
-                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-fg-secondary">
-                          {appUpdateStatus.releaseNotes}
-                        </p>
-                      </div>
-                    ) : null}
                     {appUpdateStatus.message ? (
                       <p className="text-sm text-fg-secondary">{appUpdateStatus.message}</p>
                     ) : null}
@@ -699,6 +692,15 @@ export function SettingsApp(): React.JSX.Element {
                     <ExternalLink data-icon="inline-start" />
                     {t('在 GitHub 下载')}
                   </Button>
+                ) : null}
+                {appUpdateStatus.releaseNotes &&
+                ['available', 'downloading', 'downloaded', 'error'].includes(
+                  appUpdateStatus.phase,
+                ) ? (
+                  <UpdateReleaseNotes
+                    notes={appUpdateStatus.releaseNotes}
+                    onOpen={openUpdateRelease}
+                  />
                 ) : null}
               </div>
             </section>
