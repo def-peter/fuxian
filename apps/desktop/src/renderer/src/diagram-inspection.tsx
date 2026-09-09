@@ -1,5 +1,6 @@
 import { Check, Code2, Copy, LocateFixed, Minus, Plus, Scan, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { bindVegaTooltips } from './vega-tooltip';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -172,6 +173,9 @@ export function DiagramFocusDialog({
 }: DiagramFocusDialogProps): React.JSX.Element {
   const { t } = useLocalization();
   const [zoom, setZoom] = useState(1);
+  const tooltipSurface = useCallback((element: HTMLDivElement | null) => {
+    if (element) return bindVegaTooltips(element);
+  }, []);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
   const lastDiagram = useRef<RenderedVisualSnapshot | undefined>(diagram);
@@ -307,6 +311,7 @@ export function DiagramFocusDialog({
             className="flex size-full items-center justify-center p-8 [&_svg]:h-auto [&_svg]:max-h-full [&_svg]:max-w-full [&_svg]:w-auto [&_svg]:object-contain [&_svg_text]:select-text [&_svg_tspan]:select-text"
             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
             dangerouslySetInnerHTML={{ __html: diagram?.svg ?? '' }}
+            ref={tooltipSurface}
           />
         </div>
       </DialogContent>

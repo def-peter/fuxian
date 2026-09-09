@@ -39,6 +39,192 @@ const vegaBlock = (values: Array<{ category: string; value: number }>): string =
     '```',
   ].join('\n');
 
+test('renders and exports concatenated charts with discrete step heights', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-step-'));
+  const documentPath = join(directory, 'step.md');
+  const outputPath = join(directory, 'step.pdf');
+  const source = process.env.FUXIAN_E2E_VEGA_SOURCE
+    ? await readFile(process.env.FUXIAN_E2E_VEGA_SOURCE, 'utf8')
+    : JSON.stringify({
+        data: {
+          values: [
+            { module: 'review', mismatch: 3, rate: 0.03 },
+            { module: 'searchProduct', mismatch: 2, rate: 0.01 },
+          ],
+        },
+        hconcat: ['mismatch', 'rate'].map((field, index) => ({
+          title: index === 0 ? 'Counts' : 'Rates',
+          width: 340,
+          height: { step: 24 },
+          mark: index === 0 ? 'bar' : { type: 'point', filled: true, size: 70 },
+          encoding: {
+            y: { field: 'module', type: 'nominal', title: null },
+            x: { field, type: 'quantitative' },
+          },
+        })),
+      });
+  await writeFile(documentPath, ['# Step sizing', '```vega-lite', source, '```'].join('\n'));
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: documentPath,
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const document = window.frameLocator('iframe[data-finished-document="active"]');
+    const svg = document.locator('[data-render-task-kind="vega-lite"] > .render-task-output > svg');
+    await expect(svg).toBeVisible();
+    await expect(svg.locator('.role-mark')).toHaveCount(2);
+    await expect(svg).toContainText('review');
+    await expect(svg).toContainText('searchProduct');
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paperSvg = window
+      .frameLocator('iframe[title="纸张预览"]')
+      .locator('.render-task-output > svg');
+    await expect(paperSvg).toBeVisible();
+    await expect(paperSvg).toContainText('searchProduct');
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    const text = await readPdfText(outputPath);
+    expect(text).toContain('review');
+    expect(text).toContain('searchProduct');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('preserves authored tooltips across reading, focused, and paper views', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-tooltip-'));
+  const documentPath = join(directory, 'tooltip.md');
+  const outputPath = join(directory, 'tooltip.pdf');
+  const specification = {
+    data: {
+      values: [{ category: 'Alpha', rate: 0.03125, detail: '<img src=x onerror=alert(1)>' }],
+    },
+    width: 320,
+    height: 180,
+    mark: 'bar',
+    encoding: {
+      x: { field: 'category', type: 'nominal' },
+      y: { field: 'rate', type: 'quantitative' },
+      tooltip: [
+        { field: 'category', title: 'Module' },
+        { field: 'rate', type: 'quantitative', title: 'Rate', format: '.2%' },
+        { field: 'detail', title: 'Literal text' },
+      ],
+    },
+  };
+  await writeFile(
+    documentPath,
+    [
+      '# Tooltip',
+      '```vega-lite',
+      JSON.stringify(specification),
+      '```',
+      '```vega-lite',
+      JSON.stringify({ ...specification, encoding: { ...specification.encoding, tooltip: null } }),
+      '```',
+    ].join('\n'),
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      FUXIAN_E2E_SOURCE_DOCUMENT: documentPath,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const frame = window.frameLocator('iframe[data-finished-document="active"]');
+    const charts = frame.locator('[data-render-task-kind="vega-lite"]');
+    const mark = charts.first().locator('[data-vega-tooltip]').first();
+    await expect(mark).toBeVisible();
+    await mark.hover();
+    const tooltip = frame.getByRole('tooltip');
+    await expect(tooltip).toContainText('Module');
+    await expect(tooltip).toContainText('3.13%');
+    await expect(tooltip).toContainText('<img src=x onerror=alert(1)>');
+    await expect(tooltip.locator('img')).toHaveCount(0);
+    const tooltipLayout = await tooltip.evaluate((element) => {
+      const label = element.querySelector('th')!;
+      const value = element.querySelector('td')!;
+      const bounds = element.getBoundingClientRect();
+      return {
+        labelColor: getComputedStyle(label).color,
+        textColor: getComputedStyle(element).color,
+        topGap: label.getBoundingClientRect().top - bounds.top,
+        valueOffset: value.getBoundingClientRect().left - bounds.left,
+      };
+    });
+    expect(tooltipLayout.labelColor).toBe(tooltipLayout.textColor);
+    expect(tooltipLayout.topGap).toBeLessThanOrEqual(10);
+    expect(tooltipLayout.valueOffset).toBeLessThan(110);
+    const readingScreenshot = await electronApp.evaluate(async ({ BrowserWindow }) => {
+      const image = await BrowserWindow.getAllWindows()[0]!.webContents.capturePage(undefined, {
+        stayHidden: true,
+        stayAwake: true,
+      });
+      return image.toPNG().toString('base64');
+    });
+    await writeFile(
+      test.info().outputPath('vega-tooltip-reading.png'),
+      Buffer.from(readingScreenshot, 'base64'),
+    );
+    await frame.getByRole('heading', { name: 'Tooltip', exact: true }).hover();
+    await expect(tooltip).not.toBeVisible();
+    await mark.focus();
+    await expect(tooltip).toBeVisible();
+    await window.keyboard.press('Escape');
+    await expect(tooltip).not.toBeVisible();
+    await expect(charts.nth(1).locator('.render-task-output > svg')).toBeVisible();
+    await expect(charts.nth(1).locator('[data-vega-tooltip]')).toHaveCount(0);
+    await charts.first().hover();
+    await charts.first().getByRole('button', { name: '全屏查看图表' }).click();
+    const dialog = window.getByRole('dialog', { name: '全屏图表' });
+    await dialog.locator('[data-vega-tooltip]').first().hover();
+    await expect(window.getByRole('tooltip')).toContainText('3.13%');
+    const screenshot = await electronApp.evaluate(async ({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]!;
+      const image = await window.webContents.capturePage(undefined, {
+        stayHidden: true,
+        stayAwake: true,
+      });
+      return image.toPNG().toString('base64');
+    });
+    await writeFile(test.info().outputPath('vega-tooltip.png'), Buffer.from(screenshot, 'base64'));
+    await window.keyboard.press('Escape');
+    await window.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await paper.locator('[data-vega-tooltip]').first().hover();
+    await expect(paper.getByRole('tooltip')).toContainText('3.13%');
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    const pdfText = await readPdfText(outputPath);
+    expect(pdfText).toContain('Alpha');
+    expect(pdfText).not.toContain('Literaltext');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('keeps display math and Vega-Lite labels inside their rendered bounds', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-render-overflow-'));
   const overflowSourcePath = join(directory, 'render-overflow.md');

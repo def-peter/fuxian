@@ -114,9 +114,15 @@ const validateSpecificationValue = (
     }
 
     for (const dimension of ['width', 'height'] as const) {
-      const size = value[dimension];
+      const dimensionValue = value[dimension];
+      // Vega-Lite sizes discrete axes by step; preserve the object for schema validation
+      // and let the official compiler calculate the resulting view dimensions.
+      const size = isRecord(dimensionValue) ? dimensionValue.step : dimensionValue;
+      if (isRecord(dimensionValue) && size === undefined) {
+        throw invalidVegaLiteSpecification(`${dimension} 对象必须包含 step。`);
+      }
       if (size !== undefined && typeof size !== 'number') {
-        throw invalidVegaLiteSpecification(`${dimension} 首版只接受固定像素数值。`);
+        throw invalidVegaLiteSpecification(`${dimension} 必须是像素数值或包含 step 的对象。`);
       }
       if (
         typeof size === 'number' &&

@@ -1,3 +1,4 @@
+import { bindVegaTooltips } from './vega-tooltip';
 import {
   documentThemeCss,
   getDocumentThemeVariables,
@@ -329,7 +330,11 @@ export const prepareRenderedVisualSvg = (
   });
   const fragment = purifier.sanitize(source, {
     ADD_ATTR:
-      kind === 'infographic' ? ['attributeName', 'dur', 'from', 'repeatCount', 'to'] : undefined,
+      kind === 'infographic'
+        ? ['attributeName', 'dur', 'from', 'repeatCount', 'to']
+        : kind === 'vega-lite'
+          ? ['data-vega-tooltip']
+          : undefined,
     ADD_TAGS: [
       'use',
       ...(kind === 'infographic' ? ['animate'] : []),
@@ -503,6 +508,7 @@ export function bindFinishedDocument(
   frameDocument: Document,
   options: BindFinishedDocumentOptions,
 ): FinishedDocumentController {
+  const disposeVegaTooltips = bindVegaTooltips(frameDocument);
   const t = options.translate ?? createTranslator('zh-CN');
   for (const header of frameDocument.querySelectorAll<HTMLElement>(
     '.callout-header[data-callout-default-title]',
@@ -1063,6 +1069,7 @@ export function bindFinishedDocument(
     },
     clearFind: clearFindHighlights,
     destroy: () => {
+      disposeVegaTooltips();
       renderRevision.cancel();
       clearFindHighlights();
       if (scrollAnimationFrame) {

@@ -6,6 +6,7 @@ import { parse, parseExpression, View } from 'vega';
 import { expressionInterpreter } from 'vega-interpreter';
 import { compile } from 'vega-lite';
 import schemaSource from 'vega-lite/vega-lite-schema.json?raw';
+import { installVegaTooltipSvgRenderer } from './vega-tooltip-svg';
 import {
   invalidVegaLiteSpecification,
   isRecord,
@@ -35,6 +36,7 @@ const blockedLoader: Loader = {
 const validateSchema = new Ajv({ allErrors: true, strict: false, validateFormats: false }).compile(
   JSON.parse(schemaSource),
 );
+installVegaTooltipSvgRenderer();
 const expressionKeys = new Set(['expr', 'init', 'signal', 'test', 'update']);
 const blockedExpressionFunctions = new Set([
   'containerSize',

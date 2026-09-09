@@ -31,7 +31,34 @@ class FakeWorker {
 }
 
 describe('Vega-Lite renderer', () => {
+  it.each(['width', 'height'])('preserves step-based %s in concatenated charts', (dimension) => {
+    const specification = {
+      data: { values: [{ category: 'A', value: 10 }] },
+      hconcat: [
+        {
+          mark: 'bar',
+          [dimension]: { step: 24 },
+          encoding: {
+            x: {
+              field: dimension === 'width' ? 'category' : 'value',
+              type: dimension === 'width' ? 'nominal' : 'quantitative',
+            },
+            y: {
+              field: dimension === 'height' ? 'category' : 'value',
+              type: dimension === 'height' ? 'nominal' : 'quantitative',
+            },
+          },
+        },
+      ],
+    };
+    expect(parseVegaLiteSource(JSON.stringify(specification))).toEqual(specification);
+  });
+
   it.each([
+    ['invalid step', JSON.stringify({ mark: 'bar', height: { step: '24' } })],
+    ['negative step', JSON.stringify({ mark: 'bar', height: { step: -24 } })],
+    ['oversized step', JSON.stringify({ mark: 'bar', width: { step: 4097 } })],
+    ['missing step', JSON.stringify({ mark: 'bar', height: {} })],
     ['malformed JSON', '{'],
     [
       'remote data',

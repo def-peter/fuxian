@@ -1,7 +1,12 @@
+import { tooltipTokensCss } from '@fuxian/document-theme/tooltip-tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LocalizationProvider } from '@/localization-context';
 import './styles.css';
+
+const tooltipTokens = document.createElement('style');
+tooltipTokens.textContent = tooltipTokensCss;
+document.head.append(tooltipTokens);
 
 const root = document.getElementById('root');
 

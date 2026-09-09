@@ -1,3 +1,5 @@
+import { tooltipTokensCss } from './tooltip-tokens';
+
 export interface DocumentThemePreferences {
   appearance: 'dark' | 'light';
   bodyFamily: 'sans-serif' | 'serif';
@@ -41,6 +43,7 @@ export const createDocumentThemeCss = (preferences: DocumentThemePreferences): s
 };
 
 export const documentThemeCss = `
+${tooltipTokensCss}
 :root {
   --document-background: #fcfcfd;
   --document-foreground: #25282c;
@@ -824,8 +827,8 @@ code {
   max-width: 160px;
   padding: 5px 7px;
   border-radius: 3px;
-  color: var(--document-raised);
-  background: var(--document-heading);
+  color: var(--tooltip-foreground);
+  background: var(--tooltip-background);
   content: attr(data-tooltip);
   font-size: 12px;
   line-height: 1.2;
