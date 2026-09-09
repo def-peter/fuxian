@@ -12,6 +12,7 @@ Design constraints:
 - Show open and recent documents as session navigation, not as a folder tree.
 - Restore the previous document session and each document's reading position after restart or an unexpected exit.
 - Keep the document iframe visually and technically separate from the application shell.
+- Load Tailwind/shadcn application styles only for the main and settings views. Paper preview and PDF export load document-theme and pagination styles without application resets. Typography parity checks cover code containers, emphasis, footnotes, and task lists; intentional print wrapping and table layout remain separate.
 - Use a compact toolbar and a content outline that is visible by default, collapsible, and remembers the user's preference; omit a file tree and status bar.
 - Present diagram and media failures inline at their document position.
 - Treat empty, loading, error, and export states as part of the primary workflow.

@@ -326,6 +326,27 @@ ol {
   padding-left: 28px;
 }
 
+/* Document-owned markers stay consistent in reading and paginated output. */
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+ul ul,
+ol ul {
+  list-style-type: circle;
+}
+
+ul ul ul,
+ul ol ul,
+ol ul ul,
+ol ol ul {
+  list-style-type: square;
+}
+
 li + li {
   margin-top: 6px;
 }

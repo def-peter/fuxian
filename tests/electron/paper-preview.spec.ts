@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test';
+import { createCanvas } from '@napi-rs/canvas';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -14,6 +15,172 @@ const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
+
+test('paper mode isolates document typography from application resets', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-isolation-'));
+  const sourcePath = join(directory, 'typography.md');
+  await writeFile(
+    sourcePath,
+    [
+      '# Typography',
+      '',
+      '**Bold** *Italic* ~~Deleted~~ [Link](https://example.com) `inline`',
+      '',
+      '```js',
+      'const answer = 42;',
+      '```',
+      '',
+      '> Quote',
+      '',
+      '> [!NOTE]',
+      '> Callout',
+      '',
+      '- [x] Done',
+      '- [ ] Pending',
+      '',
+      'Footnote[^1]',
+      '',
+      '[^1]: Footnote body',
+    ].join('\n'),
+  );
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+    },
+  });
+  try {
+    const window = await app.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const reading = window.frameLocator('iframe[data-finished-document="active"]');
+    await expect(reading.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
+    const typography = (body: HTMLElement, prefix: string) =>
+      Object.fromEntries(
+        [
+          'h1',
+          'strong',
+          'em',
+          'del',
+          'a',
+          'p > code',
+          '.code-block pre',
+          '.code-block pre code',
+          'sup',
+          '.callout-title',
+          '.task-list-item input',
+        ].map((selector) => {
+          const element = body.querySelector(`${prefix} ${selector}`);
+          if (!element) throw new Error(`Missing typography sample: ${selector}`);
+          const style = getComputedStyle(element);
+          return [
+            selector,
+            Object.fromEntries(
+              [
+                'font-family',
+                'font-size',
+                'font-weight',
+                'font-style',
+                'line-height',
+                'vertical-align',
+                'text-decoration-line',
+              ].map((property) => [property, style.getPropertyValue(property)]),
+            ),
+          ];
+        }),
+      );
+    const expected = await reading.locator('body').evaluate(typography, '.finished-document');
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await expect(paper.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
+    expect(await paper.locator('body').evaluate(typography, '.pagedjs_page')).toEqual(expected);
+    await expect(paper.locator('.code-block pre code')).toHaveCSS('white-space', 'pre-wrap');
+    await expect(paper.locator('.contains-task-list')).toHaveCSS('list-style-type', 'none');
+  } finally {
+    await app.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('paper mode and PDF preserve unordered and ordered list markers', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-list-markers-'));
+  const sourcePath = join(directory, 'lists.md');
+  const outputPath = join(directory, 'lists.pdf');
+  await writeFile(sourcePath, '# Lists\n\n- Alpha\n- Beta\n  - Nested\n\n3. Third\n4. Fourth\n');
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+    },
+  });
+  try {
+    const window = await app.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const reading = window.frameLocator('iframe[data-finished-document="active"]');
+    await expect(reading.locator('ul').first()).toHaveCSS('list-style-type', 'disc');
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await expect(paper.getByRole('heading', { name: 'Lists' })).toBeVisible();
+    await expect
+      .soft(paper.locator('.pagedjs_page ul').first())
+      .toHaveCSS('list-style-type', 'disc');
+    await expect.soft(paper.locator('.pagedjs_page ul ul')).toHaveCSS('list-style-type', 'circle');
+    await expect.soft(paper.locator('.pagedjs_page ol')).toHaveCSS('list-style-type', 'decimal');
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    const loading = getDocument({ data: new Uint8Array(await readFile(outputPath)) });
+    const pdf = await loading.promise;
+    try {
+      const page = await pdf.getPage(1);
+      const content = await page.getTextContent();
+      const text = content.items.flatMap((item) => ('str' in item ? [item.str] : [])).join(' ');
+      expect.soft(text).toMatch(/3\./);
+      expect.soft(text).toMatch(/4\./);
+      // Chromium draws unordered markers as paths, not necessarily PDF text glyphs.
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      const context = canvas.getContext('2d');
+      await page.render({
+        canvas: canvas as unknown as HTMLCanvasElement,
+        canvasContext: context as unknown as CanvasRenderingContext2D,
+        viewport,
+      }).promise;
+      for (const label of ['Alpha', 'Beta', 'Nested']) {
+        const item = content.items.find((item) => 'str' in item && item.str === label);
+        if (!item || !('transform' in item)) throw new Error(`Missing PDF list item: ${label}`);
+        const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+        const pixels = context.getImageData(Math.floor(x! - 32), Math.floor(y! - 24), 30, 28).data;
+        let ink = 0;
+        for (let index = 0; index < pixels.length; index += 4) {
+          if (
+            pixels[index]! < 180 &&
+            pixels[index + 1]! < 180 &&
+            pixels[index + 2]! < 180 &&
+            pixels[index + 3]! > 200
+          )
+            ink++;
+        }
+        expect(ink, `${label} must have a visible PDF bullet`).toBeGreaterThan(3);
+      }
+      await writeFile(test.info().outputPath('list-markers.png'), canvas.toBuffer('image/png'));
+    } finally {
+      await loading.destroy();
+    }
+  } finally {
+    await app.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
 
 test('paper mode renders a newly opened document without toggling modes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-open-'));
