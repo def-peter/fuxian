@@ -16,6 +16,111 @@ const electronPath = require('electron') as string;
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const desktopAppPath = resolve(repositoryRoot, 'apps/desktop');
 
+for (const mode of ['adaptive', 'a4', 'custom'] as const) {
+  test(`PDF preserves paper margins and text scale with ${mode} document width`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-pdf-margins-'));
+    const sourcePath = join(directory, 'margins.md');
+    const outputPath = join(directory, 'margins.pdf');
+    const preferencesPath = join(directory, 'preferences.json');
+    await writeFile(
+      sourcePath,
+      [
+        '# MARGIN_PROBE',
+        ...Array.from(
+          { length: 70 },
+          (_, index) => `BODY_PROBE_${index} This paragraph checks the printable content area.`,
+        ),
+      ].join('\n\n'),
+    );
+    await writeFile(
+      preferencesPath,
+      JSON.stringify({
+        version: 1,
+        appearance: 'light',
+        documentWidth: { mode, customWidth: 860 },
+      }),
+    );
+    const app = await electron.launch({
+      executablePath: electronPath,
+      args: [desktopAppPath],
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+        FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+        FUXIAN_E2E_PREFERENCES_FILE: preferencesPath,
+        FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      },
+    });
+    try {
+      const window = await app.firstWindow();
+      await window.getByRole('button', { name: '打开 Markdown' }).click();
+      await window.getByRole('radio', { name: '纸张预览' }).click();
+      await expect(window.getByText(/^\d+ 页$/)).toBeVisible({ timeout: 20_000 });
+      const paper = window.frameLocator('iframe[title="纸张预览"]');
+      const pages = paper.locator('.pagedjs_page');
+      const geometry = await pages.first().evaluate((page) => {
+        const content = page.querySelector('.pagedjs_page_content')!;
+        const heading = content.querySelector('h1')!;
+        const scale = page.getBoundingClientRect().width / ((210 / 25.4) * 96);
+        const marker = document.createElement('span');
+        marker.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+        heading.prepend(marker);
+        const baselineTop =
+          (marker.getBoundingClientRect().top - page.getBoundingClientRect().top) / scale;
+        marker.remove();
+        return {
+          baselineTop,
+          left: (heading.getBoundingClientRect().left - page.getBoundingClientRect().left) / scale,
+          top: (content.getBoundingClientRect().top - page.getBoundingClientRect().top) / scale,
+          fontSize: parseFloat(getComputedStyle(heading).fontSize),
+        };
+      });
+      expect((geometry.left * 25.4) / 96).toBeCloseTo(12, 1);
+      expect((geometry.top * 25.4) / 96).toBeCloseTo(14, 1);
+      const pageCount = await pages.count();
+      await window.getByRole('button', { name: '导出 PDF' }).click();
+      await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 20_000 });
+      const loading = getDocument({ data: new Uint8Array(await readFile(outputPath)) });
+      try {
+        const pdf = await loading.promise;
+        expect(pdf.numPages).toBe(pageCount);
+        expect(pdf.numPages).toBeGreaterThan(1);
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1 });
+          expect((viewport.width * 25.4) / 72).toBeCloseTo(210, 0);
+          expect((viewport.height * 25.4) / 72).toBeCloseTo(297, 0);
+          const text = await page.getTextContent();
+          const probes = text.items.filter(
+            (item) => 'str' in item && /^(MARGIN_PROBE|BODY_PROBE_)/u.test(item.str),
+          );
+          expect(probes.length).toBeGreaterThan(0);
+          for (const item of probes) {
+            if (!('str' in item)) continue;
+            expect(item.transform[4]).toBeCloseTo((geometry.left * 72) / 96, 0);
+            if (item.str === 'MARGIN_PROBE') {
+              expect(item.height).toBeCloseTo((geometry.fontSize * 72) / 96, 1);
+              // Glyph baselines are rounded independently of screen page zoom.
+              expect(
+                Math.abs(viewport.height - item.transform[5] - (geometry.baselineTop * 72) / 96),
+              ).toBeLessThan(1);
+            }
+          }
+        }
+        await test
+          .info()
+          .attach('margins.pdf', { path: outputPath, contentType: 'application/pdf' });
+      } finally {
+        await loading.destroy();
+      }
+    } finally {
+      await app.close();
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+}
+
 test('paper mode isolates document typography from application resets', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-paper-isolation-'));
   const sourcePath = join(directory, 'typography.md');

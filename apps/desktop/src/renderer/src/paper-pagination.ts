@@ -155,6 +155,15 @@ tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline
 `;
 
 export const paperRuntimeCss = `
+/* Paged.js has already placed content inside the A4 margin boxes. This
+   stylesheet is excluded from pagination: native printing must not apply
+   the source @page margins again or shrink the completed page to fit them. */
+@media print {
+  @page {
+    margin: 0 !important;
+  }
+}
+
 html[data-paper-preview] {
   height: auto;
   min-height: 100%;
@@ -211,10 +220,10 @@ body {
       0 2px 12px var(--document-paper-shadow),
       0 1px 2px var(--document-paper-edge-shadow) !important;
   }
-}
 
-.paper-preview-pages .pagedjs_page + .pagedjs_page {
-  margin-top: 20px !important;
+  .paper-preview-pages .pagedjs_page + .pagedjs_page {
+    margin-top: 20px !important;
+  }
 }
 
 .paper-preview-status {
