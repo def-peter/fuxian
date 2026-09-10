@@ -9,8 +9,7 @@ export const paperPageWidthPixels = (210 / 25.4) * 96;
 export const paperPageHeightPixels = (297 / 25.4) * 96;
 export const paperPageMarginBlockMillimeters = 14;
 export const paperPageMarginInlineMillimeters = 12;
-const maximumRowsPerTableFragment = 8;
-const maximumTableRowsHeightPixels = 780;
+const paperContentHeightPixels = ((297 - 2 * paperPageMarginBlockMillimeters) / 25.4) * 96;
 
 export const paperPagedMediaCss = `
 @page {
@@ -40,7 +39,8 @@ td {
 }
 
 thead {
-  display: table-header-group;
+  display: table-row-group;
+  break-after: avoid;
 }
 
 tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline),
@@ -49,12 +49,13 @@ tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline
   break-inside: avoid;
 }
 
-.paper-table-fragment {
+.paper-table-start {
   break-inside: avoid;
 }
 
-.paper-table-fragment:not(:has(tbody tr)) {
-  display: none;
+.paper-table-oversized-row,
+.paper-table-oversized-row td {
+  break-inside: auto;
 }
 
 .code-block pre code {
@@ -99,38 +100,6 @@ tr, .code-block, .document-image, .math-render-task:not(.math-render-task-inline
   width: auto;
   height: 22px;
   margin: 0;
-}
-
-.paper-table-row-fallback {
-  margin: 28px 0;
-  border: 1px solid var(--document-border);
-  font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.paper-table-row-fallback-title,
-.paper-table-row-fallback-cell {
-  padding: 10px 12px;
-  overflow-wrap: anywhere;
-}
-
-.paper-table-row-fallback-title {
-  border-bottom: 1px solid var(--document-border);
-  background: var(--document-table-heading);
-  font-weight: 650;
-}
-
-.paper-table-row-fallback-cell + .paper-table-row-fallback-cell {
-  border-top: 1px solid var(--document-border);
-}
-
-.paper-table-row-fallback-label {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--document-muted);
-  font-size: 12px;
-  font-weight: 650;
 }
 
 @media print {
@@ -324,19 +293,26 @@ const makeRenderedVisualsAtomic = (
   const originals = new Map<string, HTMLElement>();
   const sourcePlaceholders = new Map<string, HTMLDivElement>();
   const pageBreakWrappers = new Map<string, HTMLDivElement>();
-  const renderTasks = Array.from(root.querySelectorAll<HTMLElement>('.diagram-render-task')).filter(
-    (renderTask) => renderTask.querySelector(':scope > .render-task-output > svg'),
+  // Keep MathML internals out of Paged.js fragmentation just like SVG internals.
+  // The original, selectable formula is restored after its measured box is placed.
+  const renderTasks = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      '.diagram-render-task, .math-render-task:not(.math-render-task-inline)',
+    ),
+  ).filter((renderTask) =>
+    renderTask.querySelector(
+      ':scope > .render-task-output > svg, :scope > .render-task-output math[display="block"]',
+    ),
   );
   for (const [index, renderTask] of renderTasks.entries()) {
     const svg = renderTask.querySelector<SVGSVGElement>(':scope > .render-task-output > svg');
-    if (!svg) continue;
     const bounds = renderTask.getBoundingClientRect();
     const id = `paper-rendered-visual-${index}`;
     const source = renderTask.querySelector<HTMLElement>('.render-task-source')?.textContent;
     if (source !== undefined) renderTask.dataset.staticRenderTaskSource = source;
-    const placeholder = svg.ownerDocument.createElement('div');
-    const width = Math.max(1, bounds.width || svgFallbackSize(svg, 'width'));
-    const height = Math.max(1, bounds.height || svgFallbackSize(svg, 'height'));
+    const placeholder = renderTask.ownerDocument.createElement('div');
+    const width = Math.max(1, bounds.width || (svg ? svgFallbackSize(svg, 'width') : 1));
+    const height = Math.max(1, bounds.height || (svg ? svgFallbackSize(svg, 'height') : 1));
     placeholder.ariaHidden = 'true';
     placeholder.className = 'paper-rendered-visual-placeholder';
     placeholder.dataset.paperRenderedVisual = id;
@@ -424,100 +400,47 @@ const makeRenderedVisualsAtomic = (
   };
 };
 
-const createTableFragment = (table: HTMLTableElement, rows: HTMLTableRowElement[]): HTMLElement => {
-  const fragment = table.cloneNode(true) as HTMLTableElement;
-  for (const child of Array.from(fragment.children)) {
-    if (child.localName === 'tbody') child.remove();
-  }
-  const body = fragment.ownerDocument.createElement('tbody');
-  body.append(...rows.map((row) => row.cloneNode(true)));
-  fragment.append(body);
-  fragment.classList.add('paper-table-fragment');
-  return fragment;
-};
-
-const createTableRowFallback = (
-  document: Document,
-  headers: string[],
-  row: HTMLTableRowElement,
-  t: Translator,
-): HTMLElement => {
-  const fallback = document.createElement('section');
-  fallback.className = 'paper-table-row-fallback';
-  fallback.dataset.paperTableFallback = 'true';
-  fallback.ariaLabel = t('表格中的超长内容');
-
-  const title = document.createElement('div');
-  title.className = 'paper-table-row-fallback-title';
-  title.textContent = t('表格内容（单行超过一页，已转为连续排版）');
-  fallback.append(title);
-
-  const cells = Array.from(row.children).filter(
-    (child): child is HTMLTableCellElement => child.localName === 'td' || child.localName === 'th',
-  );
-  for (const [index, cell] of cells.entries()) {
-    const item = document.createElement('div');
-    item.className = 'paper-table-row-fallback-cell';
-    const label = document.createElement('span');
-    label.className = 'paper-table-row-fallback-label';
-    label.textContent = headers[index] || t('第 {number} 列', { number: index + 1 });
-    item.append(label, ...Array.from(cell.childNodes).map((node) => node.cloneNode(true)));
-    fallback.append(item);
-  }
-  return fallback;
-};
-
-export const splitLongTables = (
+export const preparePaperTables = (
   root: ParentNode,
-  t: Translator,
   measureRow: (row: HTMLTableRowElement) => number = (row) => row.getBoundingClientRect().height,
 ): void => {
   for (const table of Array.from(root.querySelectorAll<HTMLTableElement>('table'))) {
-    const bodies = Array.from(table.children).filter(
-      (child): child is HTMLTableSectionElement => child.localName === 'tbody',
-    );
-    const rows = bodies.flatMap((body) =>
-      Array.from(body.children).filter(
-        (child): child is HTMLTableRowElement => child.localName === 'tr',
-      ),
-    );
+    table.style.display = 'table';
+    table.style.width = '100%';
+    table.style.overflow = 'visible';
+    const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>(':scope > tbody > tr'));
     if (rows.length === 0) continue;
-    const head = Array.from(table.children).find((child) => child.localName === 'thead');
-    const headerRow = Array.from(head?.children ?? []).findLast(
-      (child) => child.localName === 'tr',
+    const cells = Array.from(table.querySelectorAll<HTMLTableCellElement>('th, td'));
+    for (const cell of cells) cell.style.minWidth = '0';
+    const allRows = Array.from(table.querySelectorAll<HTMLTableRowElement>('tr'));
+    // Pin the complete table's column proportions before any page is fragmented.
+    // Cell widths survive Paged.js ancestor cloning even when colgroups do not.
+    const widths = allRows.map((row) =>
+      Array.from(row.children).map((cell) => cell.getBoundingClientRect().width),
     );
-    const headers = Array.from(headerRow?.children ?? [])
-      .filter((child) => child.localName === 'th' || child.localName === 'td')
-      .map((cell) => cell.textContent?.trim() ?? '');
-    const replacements: HTMLElement[] = [];
-    let group: HTMLTableRowElement[] = [];
-    let groupHeight = 0;
-    const flush = (): void => {
-      if (group.length === 0) return;
-      replacements.push(createTableFragment(table, group));
-      group = [];
-      groupHeight = 0;
-    };
-
+    allRows.forEach((row, rowIndex) => {
+      const measured = widths[rowIndex]!;
+      const total = measured.reduce((sum, width) => sum + width, 0);
+      if (total <= 0) return;
+      Array.from(row.children).forEach((cell, index) => {
+        (cell as HTMLElement).style.width = `${(measured[index]! / total) * 100}%`;
+      });
+    });
+    table.style.tableLayout = 'fixed';
+    const head = table.querySelector(':scope > thead');
+    const headHeight = Array.from(head?.querySelectorAll<HTMLTableRowElement>('tr') ?? []).reduce(
+      (sum, row) => sum + measureRow(row),
+      0,
+    );
     for (const row of rows) {
-      const rowHeight = Math.max(1, measureRow(row));
-      if (rowHeight > maximumTableRowsHeightPixels) {
-        flush();
-        replacements.push(createTableRowFallback(table.ownerDocument, headers, row, t));
-        continue;
-      }
-      if (
-        group.length >= maximumRowsPerTableFragment ||
-        groupHeight + rowHeight > maximumTableRowsHeightPixels
-      ) {
-        flush();
-      }
-      group.push(row);
-      groupHeight += rowHeight;
+      const availableHeight = paperContentHeightPixels - (row === rows[0] ? headHeight : 0);
+      if (measureRow(row) > availableHeight) row.classList.add('paper-table-oversized-row');
     }
-    flush();
-    if (replacements.length > 1 || replacements[0]?.matches('.paper-table-row-fallback')) {
-      table.replaceWith(...replacements);
+    if (head && !rows[0]!.classList.contains('paper-table-oversized-row')) {
+      const start = table.ownerDocument.createElement('tbody');
+      start.className = 'paper-table-start';
+      start.append(...Array.from(head.children), rows[0]!);
+      head.replaceWith(start);
     }
   }
 };
@@ -560,6 +483,9 @@ export const paginateFinishedDocument = async ({
   sourceStage.className = 'paper-pagination-staging';
   const source = document.createElement('main');
   source.className = 'finished-document';
+  source.style.width = `${((210 - 2 * paperPageMarginInlineMillimeters) / 25.4) * 96}px`;
+  source.style.padding = '0';
+  source.style.margin = '0';
   source.innerHTML = html;
   sourceStage.append(source);
   document.body.append(sourceStage);
@@ -579,7 +505,7 @@ export const paginateFinishedDocument = async ({
     await Promise.all(Array.from(source.querySelectorAll('img')).map(waitForImage));
     await document.fonts.ready;
     await waitForAnimationFrames(frameWindow, 2);
-    splitLongTables(source, t);
+    preparePaperTables(source);
     const renderedVisuals = makeRenderedVisualsAtomic(source, t);
 
     const { Previewer } = await import('pagedjs');
