@@ -1,4 +1,4 @@
-import { assertVegaLiteSourceSize } from './vega-lite-policy';
+import { assertVegaLiteSourceSize, type VegaLiteContainerSize } from './vega-lite-policy';
 
 export { parseVegaLiteSource } from './vega-lite-policy';
 
@@ -11,6 +11,7 @@ interface RenderResponse {
 }
 
 interface QueuedRender {
+  containerSize?: VegaLiteContainerSize;
   id: number;
   reject(reason: unknown): void;
   resolve(svg: string): void;
@@ -29,7 +30,11 @@ const createWorker = (): Worker =>
 export const createVegaLiteRenderer = (
   workerFactory: () => Worker = createWorker,
   maximumConcurrentWorkers = 2,
-): ((source: string, signal: AbortSignal) => Promise<string>) => {
+): ((
+  source: string,
+  signal: AbortSignal,
+  containerSize?: VegaLiteContainerSize,
+) => Promise<string>) => {
   const queue: QueuedRender[] = [];
   let activeWorkers = 0;
   let renderId = 0;
@@ -83,15 +88,22 @@ export const createVegaLiteRenderer = (
       worker.addEventListener('messageerror', () => {
         finish(() => job.reject(new Error('Vega-Lite Worker 返回了无法读取的结果。')));
       });
-      worker.postMessage({ id: job.id, source: job.source });
+      worker.postMessage({ id: job.id, source: job.source, containerSize: job.containerSize });
     }
   };
 
-  return (source, signal) => {
+  return (source, signal, containerSize) => {
     assertVegaLiteSourceSize(source);
     if (signal.aborted) return Promise.reject(abortedError());
     return new Promise<string>((resolve, reject) => {
-      const job: QueuedRender = { id: ++renderId, reject, resolve, signal, source };
+      const job: QueuedRender = {
+        id: ++renderId,
+        reject,
+        resolve,
+        signal,
+        source,
+        ...(containerSize ? { containerSize } : {}),
+      };
       const handleQueuedAbort = (): void => {
         const index = queue.indexOf(job);
         if (index < 0) return;

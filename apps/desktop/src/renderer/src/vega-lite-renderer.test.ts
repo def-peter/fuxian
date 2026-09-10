@@ -54,47 +54,17 @@ describe('Vega-Lite renderer', () => {
     expect(parseVegaLiteSource(JSON.stringify(specification))).toEqual(specification);
   });
 
-  it.each([
-    ['invalid step', JSON.stringify({ mark: 'bar', height: { step: '24' } })],
-    ['negative step', JSON.stringify({ mark: 'bar', height: { step: -24 } })],
-    ['oversized step', JSON.stringify({ mark: 'bar', width: { step: 4097 } })],
-    ['missing step', JSON.stringify({ mark: 'bar', height: {} })],
-    ['malformed JSON', '{'],
-    [
-      'remote data',
-      JSON.stringify({ data: { url: 'https://example.test/data.json' }, mark: 'bar' }),
-    ],
-    ['named data', JSON.stringify({ data: { name: 'table' }, mark: 'bar' })],
-    ['named datasets', JSON.stringify({ datasets: { table: [] }, mark: 'bar' })],
-    ['image marks', JSON.stringify({ data: { values: [] }, mark: 'image' })],
-    ['external links', JSON.stringify({ data: { values: [] }, href: 'https://example.test' })],
-    [
-      'interactive parameters',
-      JSON.stringify({ data: { values: [] }, mark: 'point', params: [{ name: 'brush' }] }),
-    ],
-    [
-      'unbounded pivot transforms',
-      JSON.stringify({
-        data: { values: [] },
-        mark: 'bar',
-        transform: [{ pivot: 'category', value: 'amount' }],
-      }),
-    ],
-    [
-      'random sample transforms',
-      JSON.stringify({ data: { values: [] }, mark: 'point', transform: [{ sample: 100 }] }),
-    ],
-  ])('rejects %s before loading the runtime', (_name, source) => {
+  it.each(['{', '[]', 'null'])('rejects invalid JSON roots: %s', (source) => {
     expect(() => parseVegaLiteSource(source)).toThrow(/Vega-Lite specification 无效/u);
   });
 
-  it('limits inline data volume', () => {
-    const source = JSON.stringify({
-      data: { values: Array.from({ length: 10_001 }, (_, index) => ({ index })) },
-      mark: 'point',
-    });
-
-    expect(() => parseVegaLiteSource(source)).toThrow('内联数据不能超过 10000 行');
+  it('bounds source size and JSON complexity before loading the runtime', () => {
+    expect(() =>
+      parseVegaLiteSource(JSON.stringify({ description: 'x'.repeat(512 * 1024) })),
+    ).toThrow('KB');
+    let nested: unknown = {};
+    for (let index = 0; index < 66; index++) nested = { child: nested };
+    expect(() => parseVegaLiteSource(JSON.stringify(nested))).toThrow('嵌套层级过深');
   });
 
   it('honors cancellation before starting a worker', async () => {

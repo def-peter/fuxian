@@ -39,6 +39,138 @@ const vegaBlock = (values: Array<{ category: string; value: number }>): string =
     '```',
   ].join('\n');
 
+test('sizes responsive charts to the document and preserves their paper and PDF snapshots', async () => {
+  test.setTimeout(90_000);
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-responsive-'));
+  const documentPath = join(directory, 'responsive.md');
+  const outputPath = join(directory, 'responsive.pdf');
+  const source = process.env.FUXIAN_E2E_VEGA_DOCUMENT
+    ? await readFile(process.env.FUXIAN_E2E_VEGA_DOCUMENT, 'utf8')
+    : [
+        '# Responsive charts',
+        '```vega-lite',
+        JSON.stringify({
+          title: 'Responsive comparison',
+          width: 'container',
+          height: 160,
+          datasets: {
+            table: [
+              { category: 'Alpha', current: 10, previous: 5 },
+              { category: 'Beta', current: 20, previous: 15 },
+            ],
+          },
+          data: { name: 'table' },
+          params: [{ name: 'minimum', value: 0 }],
+          transform: [{ fold: ['current', 'previous'] }, { filter: 'datum.value >= minimum' }],
+          encoding: {
+            y: { field: 'category', type: 'nominal' },
+            x: { field: 'value', type: 'quantitative' },
+            tooltip: [{ field: 'category' }, { field: 'value', type: 'quantitative' }],
+          },
+          layer: [
+            { mark: { type: 'bar', height: { expr: '20' } } },
+            {
+              mark: { type: 'text', align: 'left', dx: 5 },
+              encoding: { text: { field: 'value' } },
+            },
+          ],
+        }),
+        '```',
+      ].join('\n');
+  const specs = [...source.matchAll(/```vega-lite\s*\n([\s\S]*?)```/gu)].map(
+    (match) => JSON.parse(match[1]!) as { title?: string | { text?: string } },
+  );
+  expect(specs.length).toBeGreaterThan(0);
+  await writeFile(documentPath, source);
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_SOURCE_DOCUMENT: documentPath,
+      FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.setViewportSize({ width: 1600, height: 1000 });
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const frame = window.frameLocator('iframe[data-finished-document="active"]');
+    const charts = frame.locator('[data-render-task-kind="vega-lite"]');
+    await expect(charts).toHaveCount(specs.length);
+    for (const chart of await charts.all()) {
+      await expect(chart).toHaveAttribute('data-render-state', 'succeeded', { timeout: 20_000 });
+    }
+    const svg = charts.first().locator('.render-task-output > svg');
+    const initialWidth = Number(await svg.getAttribute('width'));
+    expect(initialWidth).toBeGreaterThan(600);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          Number(await svg.getAttribute('width')) -
+            (await charts.first().evaluate((element) => element.clientWidth)),
+        ),
+      )
+      .toBeLessThan(30);
+    await expect(svg.locator('[data-vega-tooltip]').first()).toBeAttached();
+
+    await window.setViewportSize({ width: 1280, height: 900 });
+    await expect
+      .poll(async () => Number(await svg.getAttribute('width')))
+      .toBeLessThan(initialWidth - 100);
+    for (const chart of await charts.all()) {
+      await expect(chart).toHaveAttribute('data-render-state', 'succeeded');
+    }
+    const snapshots = await charts
+      .locator('.render-task-output > svg')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('viewBox')));
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paper = window.frameLocator('iframe[title="纸张预览"]');
+    await expect(window.getByText(/^\d+ 页$/)).toBeVisible({ timeout: 20_000 });
+    const paperCharts = paper.locator(
+      '[data-render-task-kind="vega-lite"] .render-task-output > svg',
+    );
+    await expect(paperCharts).toHaveCount(specs.length, { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        paperCharts.evaluateAll((elements) =>
+          elements.map((element) => element.getAttribute('viewBox')),
+        ),
+      )
+      .toEqual(snapshots);
+    const browserWindow = await electronApp.browserWindow(window);
+    await paperCharts.first().evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    await expect(paperCharts.first()).toBeInViewport();
+    const screenshot = await browserWindow.evaluate(async (browserWindow) => {
+      const image = await browserWindow.webContents.capturePage(undefined, {
+        stayHidden: true,
+        stayAwake: true,
+      });
+      return image.toPNG().toString('base64');
+    });
+    await writeFile(
+      test.info().outputPath('responsive-paper.png'),
+      Buffer.from(screenshot, 'base64'),
+    );
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 20_000 });
+    const pdfText = await readPdfText(outputPath);
+    await test
+      .info()
+      .attach('responsive.pdf', { path: outputPath, contentType: 'application/pdf' });
+    for (const spec of specs) {
+      const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
+      if (title) expect(pdfText).toContain(title.normalize('NFKC').replace(/\s+/gu, ''));
+    }
+  } finally {
+    await electronApp.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('renders and exports concatenated charts with discrete step heights', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-step-'));
   const documentPath = join(directory, 'step.md');
@@ -523,15 +655,13 @@ test('renders safe Vega-Lite blocks and keeps rejected sources explicit', async 
     await expect(chart.locator('text').filter({ hasText: '第一季度' })).toBeVisible();
     await expect(chart.locator('text').filter({ hasText: '第四季度' })).toBeVisible();
 
-    const nondeterministic = tasks.nth(1);
-    await expect(nondeterministic).toHaveAttribute('data-render-state', 'failed');
-    await expect(nondeterministic.locator('.render-task-error-detail')).toContainText(
-      '不支持 random() 表达式',
-    );
+    const sampled = tasks.nth(1);
+    await expect(sampled).toHaveAttribute('data-render-state', 'succeeded');
+    await expect(sampled.locator('.render-task-output svg')).toBeVisible();
     const rejected = tasks.nth(2);
     await expect(rejected).toHaveAttribute('data-render-state', 'failed');
     await expect(rejected.getByText('无法呈现图表')).toBeVisible();
-    await expect(rejected.locator('.render-task-error-detail')).toContainText('data.values');
+    await expect(rejected.locator('.render-task-error-detail')).toContainText('外部数据源');
     await expect(rejected.locator('.render-task-error-source')).toContainText('example.test');
     await expect(finishedDocument.locator('html')).toHaveAttribute(
       'data-render-readiness',

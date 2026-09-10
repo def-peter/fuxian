@@ -2,6 +2,7 @@ import type { RenderTask, RenderTaskAdapter } from '@fuxian/render-protocol';
 import type { FuxianDesktopBridge } from '@fuxian/shared-types';
 import { renderInfographic as defaultRenderInfographic } from './infographic-renderer';
 import { renderVegaLite as defaultRenderVegaLite } from './vega-lite-renderer';
+import type { VegaLiteContainerSize } from './vega-lite-policy';
 
 export type DocumentRenderResult =
   | { html: string; kind: 'math' }
@@ -16,7 +17,11 @@ export type PlantUmlRenderer = (
   signal: AbortSignal,
 ) => Promise<string>;
 
-export type VegaLiteRenderer = (source: string, signal: AbortSignal) => Promise<string>;
+export type VegaLiteRenderer = (
+  source: string,
+  signal: AbortSignal,
+  containerSize?: VegaLiteContainerSize,
+) => Promise<string>;
 export type InfographicRenderer = (source: string, signal: AbortSignal) => Promise<string>;
 
 export interface DocumentRenderAdapter extends RenderTaskAdapter<DocumentRenderResult> {
@@ -60,6 +65,7 @@ export const createDocumentRenderAdapter = (
   renderPlantUml: PlantUmlRenderer,
   renderVegaLite: VegaLiteRenderer = defaultRenderVegaLite,
   renderInfographic: InfographicRenderer = defaultRenderInfographic,
+  getVegaLiteContainerSize?: (task: RenderTask) => VegaLiteContainerSize,
 ): DocumentRenderAdapter => {
   let plantUmlServerUrl = initialPlantUmlServerUrl;
 
@@ -92,7 +98,10 @@ export const createDocumentRenderAdapter = (
       }
 
       if (task.kind === 'vega-lite') {
-        return { kind: 'vega-lite', svg: await renderVegaLite(task.source, signal) };
+        return {
+          kind: 'vega-lite',
+          svg: await renderVegaLite(task.source, signal, getVegaLiteContainerSize?.(task)),
+        };
       }
 
       if (task.kind === 'infographic') {

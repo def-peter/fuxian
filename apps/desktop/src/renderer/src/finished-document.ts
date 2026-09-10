@@ -27,6 +27,11 @@ import {
   type VegaLiteRenderer,
 } from './document-render-adapter';
 import { captureReadingPosition, resolveReadingPosition } from './reading-position';
+import {
+  getVegaLiteResponsiveDimensions,
+  maximumVegaLiteDimension,
+  type VegaLiteContainerSize,
+} from './vega-lite-policy';
 
 export interface FindResult {
   current: number;
@@ -573,6 +578,22 @@ export function bindFinishedDocument(
   let restoreAnimationFrame = 0;
   let restoringReadingPosition = true;
   const allRenderTasks = collectRenderTasks(frameDocument);
+  const vegaContainerSizes = new Map<string, VegaLiteContainerSize>();
+  const measureVegaContainer = (task: RenderTask): VegaLiteContainerSize => {
+    const element = getRenderTaskElement(task);
+    if (!element || element.clientWidth <= 0) return {};
+    const style = frameWindow.getComputedStyle(element);
+    const width =
+      element.clientWidth -
+      parseFloat(style.paddingLeft || '0') -
+      parseFloat(style.paddingRight || '0');
+    return {
+      width: Math.min(maximumVegaLiteDimension, Math.max(1, Math.round(width))),
+      // Document height grows with chart output. Use the independently sized
+      // reading viewport for responsive height, avoiding a resize feedback loop.
+      height: Math.min(maximumVegaLiteDimension, Math.max(1, frameWindow.innerHeight)),
+    };
+  };
   const documentRenderAdapter: DocumentRenderAdapter | undefined =
     options.staticSnapshot || options.renderAdapter
       ? undefined
@@ -584,6 +605,11 @@ export function bindFinishedDocument(
             }),
           options.renderVegaLite,
           options.renderInfographic,
+          (task) => {
+            const size = measureVegaContainer(task);
+            vegaContainerSizes.set(task.id, size);
+            return size;
+          },
         );
   const renderTaskList = options.staticSnapshot ? [] : allRenderTasks;
   const renderTasks = new Map(allRenderTasks.map((task) => [task.id, task]));
@@ -814,6 +840,41 @@ export function bindFinishedDocument(
     options.revisionId ?? `finished-document-${++finishedDocumentRevision}`,
     renderTaskList,
   );
+
+  const responsiveVegaTasks = renderTaskList
+    .filter((task) => task.kind === 'vega-lite')
+    .map((task) => ({ task, dimensions: getVegaLiteResponsiveDimensions(task.source) }))
+    .filter(({ dimensions }) => dimensions.length > 0);
+  let vegaResizeTimer = 0;
+  const scheduleVegaResize = (): void => {
+    if (vegaResizeTimer) window.clearTimeout(vegaResizeTimer);
+    // The finished iframe intentionally forbids scripts, including its own
+    // timers. Schedule from the application realm without relaxing its sandbox.
+    vegaResizeTimer = window.setTimeout(() => {
+      vegaResizeTimer = 0;
+      for (const { task, dimensions } of responsiveVegaTasks) {
+        const size = measureVegaContainer(task);
+        const previous = vegaContainerSizes.get(task.id);
+        if (
+          size.width &&
+          dimensions.some((dimension) => size[dimension] !== previous?.[dimension])
+        ) {
+          renderRevision.retry(task.id);
+        }
+      }
+    }, 200);
+  };
+  const vegaResizeObserver =
+    documentRenderAdapter && responsiveVegaTasks.length > 0 && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(scheduleVegaResize)
+      : undefined;
+  if (vegaResizeObserver) {
+    for (const { task } of responsiveVegaTasks) {
+      const element = getRenderTaskElement(task);
+      if (element) vegaResizeObserver.observe(element);
+    }
+    frameWindow.addEventListener('resize', scheduleVegaResize);
+  }
 
   const getHeadingOffsets = () =>
     headingElements.map((heading) => ({
@@ -1069,6 +1130,9 @@ export function bindFinishedDocument(
     },
     clearFind: clearFindHighlights,
     destroy: () => {
+      vegaResizeObserver?.disconnect();
+      frameWindow.removeEventListener('resize', scheduleVegaResize);
+      if (vegaResizeTimer) window.clearTimeout(vegaResizeTimer);
       disposeVegaTooltips();
       renderRevision.cancel();
       clearFindHighlights();

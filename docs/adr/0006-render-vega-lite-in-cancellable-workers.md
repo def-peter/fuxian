@@ -4,6 +4,8 @@
 
 Accepted
 
+The MVP syntax and determinism restrictions below are superseded by [ADR 0027](0027-preserve-official-vega-lite-syntax.md). Worker isolation, cancellation, and shared SVG snapshots remain in force.
+
 ## Decision
 
 Fuxian treats a canonical `vega-lite` fenced block as a visualization block. It parses JSON, validates the bundled Vega-Lite schema and Fuxian's stricter inline-data policy, compiles the specification, and renders selectable SVG locally in a Web Worker. At most two Vega-Lite workers run concurrently. Cancelling or timing out a task terminates its worker, so obsolete or hostile CPU work cannot continue in the renderer.
