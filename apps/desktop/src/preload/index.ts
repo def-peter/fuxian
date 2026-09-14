@@ -23,6 +23,7 @@ import {
   type PersistedDocumentSession,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
+  type RevealSourceDocumentResult,
   type SaveSourceDocumentAsRequest,
   type SaveSourceDocumentAsResult,
   type SaveSourceDocumentRequest,
@@ -49,6 +50,7 @@ ipcRenderer.on(
 );
 
 const bridge: FuxianDesktopBridge = Object.freeze({
+  platform: process.platform,
   acknowledgeAppUpdateReminder: async (version: string): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateAcknowledgeReminder, version),
   cancelAppUpdateDownload: async (): Promise<AppUpdateStatus> =>
@@ -82,6 +84,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.loadSourceRecoveryDrafts),
   locateSourceDocument: async (path: string): Promise<LocateSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.locateSourceDocument, path),
+  revealSourceDocument: async (path: string): Promise<RevealSourceDocumentResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.revealSourceDocument, path),
   onReaderPreferencesChanged: (
     listener: (preferences: ReaderPreferences) => void,
   ): (() => void) => {

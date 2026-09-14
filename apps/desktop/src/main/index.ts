@@ -23,6 +23,7 @@ import {
   type PlantUmlServerValidationResult,
   type ReadSourceDocumentResult,
   type ReaderPreferences,
+  type RevealSourceDocumentResult,
   type SaveSourceDocumentAsRequest,
   type SaveSourceDocumentAsResult,
   type SaveSourceDocumentRequest,
@@ -85,6 +86,7 @@ import {
 } from './markdown-default-app';
 import { productName, translate, type MessageKey, type MessageValues } from '../localization';
 import { configureWindowMenu } from './window-menu-policy';
+import { revealSourceDocument } from './reveal-source-document';
 
 const { autoUpdater } = electronUpdater;
 
@@ -1158,6 +1160,30 @@ const registerDesktopHandlers = (
         return { status: 'cancelled' };
       }
       return readSourceDocument(replacementPath);
+    },
+  );
+  ipcMain.handle(
+    desktopIpcChannels.revealSourceDocument,
+    async (event, path: unknown): Promise<RevealSourceDocumentResult> => {
+      if (
+        !mainWindow ||
+        mainWindow.isDestroyed() ||
+        event.sender !== mainWindow.webContents ||
+        event.senderFrame !== event.sender.mainFrame
+      )
+        return { status: 'failed', message: mainText('该文档不属于当前文档会话。') };
+
+      const outcome = await revealSourceDocument(path, knownDocumentPaths, (target) =>
+        shell.showItemInFolder(target),
+      );
+      if (outcome === 'revealed') return { status: 'revealed' };
+      const messages = {
+        invalid: '该文档不属于当前文档会话。',
+        missing: '文件已移动或删除，无法在文件管理器中显示。',
+        unreadable: '没有权限访问该文件，请检查文件或所在目录的访问权限。',
+        failed: '暂时无法在文件管理器中显示该文件，请重试。',
+      } as const;
+      return { status: 'failed', message: mainText(messages[outcome]) };
     },
   );
 };

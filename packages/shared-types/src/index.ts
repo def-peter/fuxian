@@ -22,6 +22,7 @@ export const desktopIpcChannels = {
   loadDocumentSession: 'fuxian:document-session:load',
   loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
+  revealSourceDocument: 'fuxian:source-documents:reveal',
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
   openProjectHomepage: 'fuxian:project-homepage:open',
   openSettings: 'fuxian:settings:open',
@@ -478,6 +479,9 @@ export type ReadSourceDocumentResult =
       status: 'unavailable';
     };
 
+export type RevealSourceDocumentResult =
+  { status: 'revealed' } | { status: 'failed'; message: string };
+
 export type LocateSourceDocumentResult =
   | { status: 'cancelled' }
   | { document: SourceDocumentData; status: 'available' }
@@ -538,6 +542,7 @@ export type PdfExportReadySignal =
   | { exportId: string; message: string; status: 'failed' };
 
 export interface FuxianDesktopBridge {
+  readonly platform: string;
   acknowledgeAppUpdateReminder(version: string): Promise<AppUpdateStatus>;
   cancelAppUpdateDownload(): Promise<AppUpdateStatus>;
   cancelPdfExport(exportId: string): Promise<void>;
@@ -554,6 +559,7 @@ export interface FuxianDesktopBridge {
   loadReaderPreferences(): Promise<ReaderPreferences>;
   loadSourceRecoveryDrafts(): Promise<SourceRecoveryDraft[]>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
+  revealSourceDocument(path: string): Promise<RevealSourceDocumentResult>;
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   onAppCloseRequested(listener: (request: AppCloseRequest) => void): () => void;

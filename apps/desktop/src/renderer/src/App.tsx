@@ -233,6 +233,7 @@ export function App(): React.JSX.Element {
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
   const [blockingError, setBlockingError] = useState<string>();
+  const [revealError, setRevealError] = useState<{ path: string; message: string }>();
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [contentOutlineSheetOpen, setContentOutlineSheetOpen] = useState(false);
   const [articleStructureMapOpen, setArticleStructureMapOpen] = useState(false);
@@ -1624,6 +1625,16 @@ export function App(): React.JSX.Element {
     }
   };
 
+  const revealDocument = async (path: string): Promise<void> => {
+    setRevealError(undefined);
+    try {
+      const result = await window.fuxian.revealSourceDocument(path);
+      if (result.status === 'failed') setRevealError({ path, message: result.message });
+    } catch {
+      setRevealError({ path, message: t('暂时无法在文件管理器中显示该文件，请重试。') });
+    }
+  };
+
   const retryExternalRevision = async (): Promise<void> => {
     const path = sessionRef.current.activeDocumentPath;
     if (!path) return;
@@ -1879,6 +1890,7 @@ export function App(): React.JSX.Element {
         void reopenDocument(path);
       }}
       onRetry={(path) => void retryUnavailableDocument(path)}
+      onReveal={(path) => void revealDocument(path)}
       openDocuments={session.openDocuments}
       recentDocuments={session.recentDocuments}
       {...(updateAttention ? { updateAttention } : {})}
@@ -1896,6 +1908,21 @@ export function App(): React.JSX.Element {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        {revealError ? (
+          <div className="absolute right-4 bottom-4 z-50 w-96 max-w-[calc(100%-2rem)]">
+            <Alert variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>{t('无法显示文件位置')}</AlertTitle>
+              <AlertDescription>
+                <p className="break-all">{revealError.path}</p>
+                <p>{revealError.message}</p>
+                <Button variant="outline" size="sm" onClick={() => setRevealError(undefined)}>
+                  {t('关闭')}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
         <ResizablePanelGroup
           className="min-h-0 min-w-0"
           id="reader-shell"

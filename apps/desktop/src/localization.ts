@@ -14,6 +14,15 @@ const englishMessages = {
   'PlantUML Server 返回 HTTP {status}。': 'The PlantUML Server returned HTTP {status}.',
   'PlantUML Server 没有返回有效的 SVG。': 'The PlantUML server did not return a valid SVG.',
   '定位 Markdown': 'Locate Markdown',
+  在访达中显示: 'Reveal in Finder',
+  在文件资源管理器中显示: 'Show in File Explorer',
+  在文件管理器中显示: 'Show in File Manager',
+  无法显示文件位置: 'Cannot reveal file',
+  '文件已移动或删除，无法在文件管理器中显示。':
+    'The file has been moved or deleted and can no longer be revealed.',
+  '没有权限访问该文件，请检查文件或所在目录的访问权限。':
+    'Access to this file is denied. Check the permissions for the file and its folder.',
+  '暂时无法在文件管理器中显示该文件，请重试。': 'The file could not be revealed. Please try again.',
   '无法读取“{name}”。请确认文件仍然存在并可访问。':
     'Could not read “{name}”. Make sure the file still exists and is accessible.',
   '“{name}”不是 Markdown 文档。': '“{name}” is not a Markdown document.',

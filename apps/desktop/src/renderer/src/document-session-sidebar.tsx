@@ -10,9 +10,16 @@ import {
   Settings,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+} from '@/components/ui/context-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -39,6 +46,7 @@ interface DocumentSessionSidebarProps {
   onRemoveUnavailable(path: string): void;
   onReopen(path: string): void;
   onRetry(path: string): void;
+  onReveal(path: string): void;
   openDocuments: OpenDocumentItem[];
   recentDocuments: RecentDocument[];
   updateAttention?: 'available' | 'downloaded' | 'downloading';
@@ -60,6 +68,7 @@ interface DocumentItemProps {
   loading?: boolean;
   onActivate(): void;
   onAction?: () => void;
+  onReveal(): void;
 }
 
 interface SidebarActionTooltipProps {
@@ -154,50 +163,89 @@ function DocumentItem({
   loading,
   onActivate,
   onAction,
+  onReveal,
 }: DocumentItemProps): React.JSX.Element {
   const { t } = useLocalization();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const revealLabel = t(
+    window.fuxian.platform === 'darwin'
+      ? '在访达中显示'
+      : window.fuxian.platform === 'win32'
+        ? '在文件资源管理器中显示'
+        : '在文件管理器中显示',
+  );
   return (
-    <div
-      className={cn(
-        'group flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
-        active && 'border-primary bg-selected text-selected-foreground',
-      )}
+    <ContextMenu
+      onOpenChange={(open) => {
+        setMenuOpen(open);
+        setTooltipOpen(false);
+      }}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            aria-label={`${document.name}${loading ? `, ${t('正在更新')}` : ''}`}
-            aria-current={active ? 'page' : undefined}
-            className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={onActivate}
-            type="button"
-          >
-            {loading ? (
-              <Spinner aria-hidden="true" className="size-3.5 shrink-0" />
-            ) : (
-              <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate">{document.name}</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={30}>
-          {document.path}
-        </TooltipContent>
-      </Tooltip>
-      {onAction && actionAccessibleLabel && actionLabel ? (
-        <SidebarActionTooltip label={actionLabel}>
-          <Button
-            aria-label={actionAccessibleLabel}
-            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-            onClick={onAction}
-            size="icon-xs"
-            variant="ghost"
-          >
-            <X aria-hidden="true" />
-          </Button>
-        </SidebarActionTooltip>
-      ) : null}
-    </div>
+      <ContextMenuTrigger asChild>
+        <div
+          className={cn(
+            'group flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
+            active && 'border-primary bg-selected text-selected-foreground',
+          )}
+        >
+          <Tooltip open={!menuOpen && tooltipOpen} onOpenChange={setTooltipOpen}>
+            <TooltipTrigger asChild>
+              <button
+                ref={triggerRef}
+                aria-haspopup="menu"
+                aria-label={`${document.name}${loading ? `, ${t('正在更新')}` : ''}`}
+                aria-current={active ? 'page' : undefined}
+                className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={onActivate}
+                type="button"
+              >
+                {loading ? (
+                  <Spinner aria-hidden="true" className="size-3.5 shrink-0" />
+                ) : (
+                  <FileText
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                )}
+                <span className="min-w-0 flex-1 truncate">{document.name}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={30}>
+              {document.path}
+            </TooltipContent>
+          </Tooltip>
+          {onAction && actionAccessibleLabel && actionLabel ? (
+            <SidebarActionTooltip label={actionLabel}>
+              <Button
+                aria-label={actionAccessibleLabel}
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                onClick={onAction}
+                size="icon-xs"
+                variant="ghost"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </SidebarActionTooltip>
+          ) : null}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
+          setTooltipOpen(false);
+        }}
+      >
+        <ContextMenuGroup>
+          <ContextMenuItem onSelect={onReveal}>
+            <FolderSearch aria-hidden="true" />
+            {revealLabel}
+          </ContextMenuItem>
+        </ContextMenuGroup>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -241,6 +289,7 @@ export function DocumentSessionSidebar({
   onRemoveUnavailable,
   onReopen,
   onRetry,
+  onReveal,
   openDocuments,
   recentDocuments,
   updateAttention,
@@ -330,6 +379,13 @@ export function DocumentSessionSidebar({
                         : document.path,
                     )
                   }
+                  onReveal={() =>
+                    onReveal(
+                      document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path,
+                    )
+                  }
                 />
               ) : (
                 <UnavailableDocumentItem
@@ -353,6 +409,7 @@ export function DocumentSessionSidebar({
                 key={document.path}
                 onActivate={() => onReopen(document.path)}
                 onAction={() => onRemoveRecent(document.path)}
+                onReveal={() => onReveal(document.path)}
               />
             ))}
           </SessionSection>
