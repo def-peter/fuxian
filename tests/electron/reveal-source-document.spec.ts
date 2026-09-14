@@ -9,6 +9,8 @@ const electronPath = require('electron') as string;
 
 for (const locale of ['zh-CN', 'en-US']) {
   test(`document context menu reveals files and copies absolute paths without changing the session (${locale})`, async () => {
+    // Allow the full menu journey on hidden Windows runners; keep assertion deadlines.
+    if (process.platform === 'win32') test.setTimeout(60_000);
     const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-reveal-')));
     const firstPath = join(directory, '正在阅读.md');
     const secondPath = join(directory, '中文 长标题 with spaces # &.markdown');

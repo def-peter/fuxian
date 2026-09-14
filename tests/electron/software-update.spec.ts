@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { captureElectronWindow } from './capture-window';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -39,22 +40,7 @@ const captureSettingsWindow = async (
   electronApp: ElectronApplication,
   path: string,
 ): Promise<void> => {
-  // CDP page screenshots can wait indefinitely on hidden Windows windows.
-  const png = await electronApp.evaluate(async ({ BrowserWindow }) => {
-    const window = BrowserWindow.getAllWindows().find((candidate) =>
-      candidate.webContents.getURL().includes('view=settings'),
-    );
-    if (!window) throw new Error('Settings window did not open.');
-    const wasVisible = window.isVisible();
-    const image = await window.webContents.capturePage(undefined, {
-      stayHidden: true,
-      stayAwake: true,
-    });
-    if (image.isEmpty()) throw new Error('Settings screenshot is empty.');
-    if (!wasVisible && window.isVisible()) throw new Error('Screenshot exposed a hidden window.');
-    return image.toPNG().toString('base64');
-  });
-  await writeFile(path, Buffer.from(png, 'base64'));
+  await captureElectronWindow(electronApp, await findSettingsWindow(electronApp), path);
 };
 
 test('downloads an available update and flushes the reading session before install', async () => {

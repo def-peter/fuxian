@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { extname, join, relative, resolve } from 'node:path';
+import { captureElectronWindow } from './capture-window';
 
 const electronPath = createRequire(import.meta.url)('electron') as string;
 const rendererDirectory = resolve('apps/desktop/out/renderer');
@@ -44,6 +45,8 @@ test.afterAll(async () => {
 for (const mode of ['continuous', 'paper']) {
   for (const locale of ['zh-CN', 'en-US']) {
     test(`source-relative links and nonmodal failures (${mode}, ${locale})`, async () => {
+      // Hidden Windows UI actions take longer across this multi-step journey.
+      if (process.platform === 'win32') test.setTimeout(120_000);
       const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-local-links-')));
       const docs = join(directory, '文档');
       await mkdir(join(docs, 'nested'), { recursive: true });
@@ -126,7 +129,7 @@ for (const mode of ['continuous', 'paper']) {
         const nestedLink = reader.getByRole('link', { name: '嵌套脚本', exact: true });
         await scriptLink.hover();
         await expect(linkTooltip).toHaveText(targetPath);
-        await window.screenshot({ path: test.info().outputPath('local-link-tooltip.png') });
+        await captureElectronWindow(app, window, test.info().outputPath('local-link-tooltip.png'));
         const surface = await linkTooltip.evaluate((element) => {
           const css = getComputedStyle(element);
           return [
@@ -222,7 +225,7 @@ for (const mode of ['continuous', 'paper']) {
         });
         const close = alert.getByRole('button', { name: zh ? '关闭' : 'Close', exact: true });
         await expect(alert).toContainText('missing.sql');
-        await window.screenshot({ path: test.info().outputPath('local-link-error.png') });
+        await captureElectronWindow(app, window, test.info().outputPath('local-link-error.png'));
         await expect(alert).toContainText(zh ? '移动、重命名或删除' : 'moved, renamed, or deleted');
         expect(await reader.locator('body').evaluate(() => window.scrollY)).toBe(beforeScroll);
         await parent.focus();
