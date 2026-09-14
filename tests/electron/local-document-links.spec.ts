@@ -195,11 +195,14 @@ for (const mode of ['continuous', 'paper']) {
           .toEqual(['https://example.com/report?q=1#section']);
 
         await reader.getByRole('link', { name: '另一份', exact: true }).click();
+        // Hidden Windows windows paginate across several throttled animation frames.
         await expect(
           reader.getByRole('heading', { name: 'Other document', exact: true }),
-        ).toBeVisible();
+        ).toBeVisible({ timeout: mode === 'paper' ? 15_000 : 5_000 });
         await reader.getByRole('link', { name: '返回', exact: true }).click();
-        await expect(reader.getByRole('heading', { name: 'Links', exact: true })).toBeVisible();
+        await expect(reader.getByRole('heading', { name: 'Links', exact: true })).toBeVisible({
+          timeout: mode === 'paper' ? 15_000 : 5_000,
+        });
         const sidebar = window.getByRole('complementary', {
           name: zh ? '文档会话' : 'Document session',
         });

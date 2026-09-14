@@ -30,7 +30,7 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -679,19 +679,9 @@ export function App(): React.JSX.Element {
     sourceEditRef.current = sourceEdit;
   }, [sourceEdit]);
 
-  useLayoutEffect(() => {
-    const id = sourceEdit ? undefined : visibleFrameId;
-    visibleFrameIdRef.current = id;
-    // A cached iframe can finish loading before passive effects run. Bind in
-    // either order so paper snapshots never depend on receiving another load.
-    const controller = id ? frameControllers.current.get(id) : undefined;
-    if (id && controller) {
-      finishedDocumentController.current = controller;
-      setBoundDocumentFrame((current) =>
-        current?.id === id && current.controller === controller ? current : { id, controller },
-      );
-    }
-  }, [sourceEdit, visibleFrameId]);
+  useEffect(() => {
+    visibleFrameIdRef.current = sourceEdit ? undefined : visibleFrame?.id;
+  }, [sourceEdit, visibleFrame?.id]);
 
   useEffect(() => window.fuxian.onExternalRevision(beginExternalRevision), [beginExternalRevision]);
 
