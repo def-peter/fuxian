@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 
 for (const locale of ['zh-CN', 'en-US']) {
-  test(`document context menu reveals files without changing the session (${locale})`, async () => {
+  test(`document context menu reveals files and copies absolute paths without changing the session (${locale})`, async () => {
     const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-reveal-')));
     const firstPath = join(directory, '正在阅读.md');
     const secondPath = join(directory, '中文 长标题 with spaces # &.markdown');
@@ -82,8 +82,20 @@ for (const locale of ['zh-CN', 'en-US']) {
             : locale === 'zh-CN'
               ? '在文件管理器中显示'
               : 'Show in File Manager';
-      await expect(menu.getByRole('menuitem')).toHaveCount(1);
+      const copyPathLabel = locale === 'zh-CN' ? '复制文件路径' : 'Copy File Path';
+      await expect(menu.getByRole('menuitem')).toHaveText([copyPathLabel, label]);
       await expect(window.getByRole('tooltip')).toHaveCount(0);
+      await menu.getByRole('menuitem', { name: copyPathLabel }).click();
+      await expect(menu).toBeHidden();
+      await expect(first).toHaveAttribute('aria-current', 'page');
+      await expect(second).toBeFocused();
+      expect((await second.boundingBox())?.width).toBe(beforeWidth?.width);
+      expect(await frame.locator('body').evaluate(() => window.scrollY)).toBeGreaterThan(400);
+      await expect
+        .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .toBe(secondPath);
+
+      await second.click({ button: 'right' });
       await menu.getByRole('menuitem', { name: label }).click();
       await expect(menu).toBeHidden();
       await expect(first).toHaveAttribute('aria-current', 'page');
@@ -100,7 +112,7 @@ for (const locale of ['zh-CN', 'en-US']) {
       await expect(menu).toBeHidden();
       await expect(second).toBeFocused();
       await second.press('Shift+F10');
-      await window.keyboard.press('ArrowDown');
+      await menu.getByRole('menuitem', { name: label }).focus();
       await window.keyboard.press('Enter');
       await expect(menu).toBeHidden();
       expect(await app.evaluate(() => Reflect.get(globalThis, 'revealedPaths'))).toEqual([
@@ -122,6 +134,14 @@ for (const locale of ['zh-CN', 'en-US']) {
         .poll(async () => JSON.parse(await readFile(sessionPath, 'utf8')).recentDocuments.length)
         .toBe(1);
       const before = JSON.parse(await readFile(sessionPath, 'utf8'));
+      await second.click({ button: 'right' });
+      await menu.getByRole('menuitem', { name: copyPathLabel }).click();
+      await expect(menu).toBeHidden();
+      expect(JSON.parse(await readFile(sessionPath, 'utf8'))).toEqual(before);
+      await expect
+        .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .toBe(secondPath);
+
       await second.click({ button: 'right' });
       await menu.getByRole('menuitem', { name: label }).click();
       await expect(menu).toBeHidden();

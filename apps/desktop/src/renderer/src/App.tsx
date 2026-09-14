@@ -1870,6 +1870,7 @@ export function App(): React.JSX.Element {
           updateShellPreferences({ documentSessionExpanded: false });
         }
       }}
+      onCopyPath={(path) => void window.fuxian.copyText(path)}
       onLocate={(path) => void locateUnavailableDocument(path)}
       onOpen={() => void openSourceDocuments()}
       onOpenSettings={() =>

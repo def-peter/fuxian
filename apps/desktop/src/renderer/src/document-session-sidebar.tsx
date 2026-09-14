@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   CircleArrowUp,
+  Copy,
   FileText,
   FileWarning,
   FolderOpen,
@@ -39,6 +40,7 @@ interface DocumentSessionSidebarProps {
   onActivate(path: string): void;
   onClose(path: string): void;
   onCollapse(): void;
+  onCopyPath(path: string): void;
   onLocate(path: string): void;
   onOpen(): void;
   onOpenSettings(): void;
@@ -68,6 +70,7 @@ interface DocumentItemProps {
   loading?: boolean;
   onActivate(): void;
   onAction?: () => void;
+  onCopyPath(): void;
   onReveal(): void;
 }
 
@@ -163,6 +166,7 @@ function DocumentItem({
   loading,
   onActivate,
   onAction,
+  onCopyPath,
   onReveal,
 }: DocumentItemProps): React.JSX.Element {
   const { t } = useLocalization();
@@ -239,6 +243,10 @@ function DocumentItem({
         }}
       >
         <ContextMenuGroup>
+          <ContextMenuItem onSelect={onCopyPath}>
+            <Copy aria-hidden="true" />
+            {t('复制文件路径')}
+          </ContextMenuItem>
           <ContextMenuItem onSelect={onReveal}>
             <FolderSearch aria-hidden="true" />
             {revealLabel}
@@ -282,6 +290,7 @@ export function DocumentSessionSidebar({
   onActivate,
   onClose,
   onCollapse,
+  onCopyPath,
   onLocate,
   onOpen,
   onOpenSettings,
@@ -379,6 +388,13 @@ export function DocumentSessionSidebar({
                         : document.path,
                     )
                   }
+                  onCopyPath={() =>
+                    onCopyPath(
+                      document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path,
+                    )
+                  }
                   onReveal={() =>
                     onReveal(
                       document.status === 'available'
@@ -409,6 +425,7 @@ export function DocumentSessionSidebar({
                 key={document.path}
                 onActivate={() => onReopen(document.path)}
                 onAction={() => onRemoveRecent(document.path)}
+                onCopyPath={() => onCopyPath(document.path)}
                 onReveal={() => onReveal(document.path)}
               />
             ))}

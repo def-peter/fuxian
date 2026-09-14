@@ -448,6 +448,7 @@ const englishMessages = {
   '继续操作前需要处理尚未保存的 Markdown 源码。恢复草稿不能代替正式保存。':
     'Unsaved Markdown source must be handled before continuing. A recovery draft does not replace a saved document.',
   复制: 'Copy',
+  复制文件路径: 'Copy File Path',
   '复制 SVG': 'Copy SVG',
   复制失败: 'Copy failed',
   复制源码: 'Copy source',
