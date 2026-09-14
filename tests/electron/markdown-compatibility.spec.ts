@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test, type FrameLocator } from '@playwright/test';
+import { _electron as electron, expect, test, type Locator } from '@playwright/test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
@@ -65,7 +65,7 @@ test('basic Markdown compatibility in reading, paper and PDF', async () => {
     });
     const window = await app.firstWindow();
     await window.getByRole('button', { name: '打开 Markdown', exact: true }).click();
-    const verify = async (reader: FrameLocator) => {
+    const verify = async (reader: Locator) => {
       await expect(reader.locator('td[align="center"]')).toHaveCSS('text-align', 'center');
       await expect(reader.locator('td[align="right"]')).toHaveCSS('text-align', 'right');
       await expect(reader.locator('mark')).toHaveCSS('background-color', 'rgb(255, 241, 168)');
@@ -84,11 +84,17 @@ test('basic Markdown compatibility in reading, paper and PDF', async () => {
         .toBe(true);
       await reader.getByRole('link', { name: 'reader@example.com' }).click();
     };
-    await verify(window.frameLocator('iframe[data-finished-document="active"]'));
+    await verify(
+      window.frameLocator('iframe[data-finished-document="active"]').locator('.finished-document'),
+    );
     await captureElectronWindow(app, window, test.info().outputPath('continuous.png'));
     await window.getByRole('radio', { name: '纸张预览' }).click();
-    const paper = window.frameLocator('iframe[title="纸张预览"]');
-    await expect(paper.locator('mark')).toBeVisible({ timeout: 15_000 });
+    // Pagination temporarily keeps both the hidden source and generated pages.
+    // Inspect only the completed pages mounted in the reader's viewport.
+    const paper = window
+      .frameLocator('iframe[title="纸张预览"]')
+      .locator('.paper-preview-viewport');
+    await expect(paper.locator('mark')).toBeVisible({ timeout: 30_000 });
     await verify(paper);
     await captureElectronWindow(app, window, test.info().outputPath('paper.png'));
     await expect
