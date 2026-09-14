@@ -24,7 +24,10 @@ const sourceEditorTheme = EditorView.theme({
     height: '100%',
   },
   '&.cm-focused': { outline: 'none' },
-  '.cm-activeLine': { backgroundColor: 'var(--accent)' },
+  // CodeMirror paints selections behind line backgrounds.
+  '.cm-activeLine': {
+    backgroundColor: 'color-mix(in srgb, var(--accent) 30%, transparent)',
+  },
   '.cm-activeLineGutter': {
     backgroundColor: 'var(--accent)',
     color: 'var(--foreground)',
@@ -43,9 +46,11 @@ const sourceEditorTheme = EditorView.theme({
     lineHeight: '1.7',
     overflow: 'auto',
   },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
-    backgroundColor: 'var(--selected)',
-  },
+  // Match the built-in focused selector so the shell token wins in both states.
+  '.cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, ::selection':
+    {
+      backgroundColor: 'var(--selected)',
+    },
   '.cm-tooltip': {
     backgroundColor: 'var(--popover)',
     border: '1px solid var(--border)',
