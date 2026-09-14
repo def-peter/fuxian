@@ -35,6 +35,11 @@ const renderView = async (): Promise<void> => {
   // Only shell views use Tailwind/shadcn styles. Reading and export documents
   // own their styles so application resets cannot change their content.
   await import('./styles.css');
+  if (import.meta.env.DEV && parameters.get('prototype') === 'session-reveal') {
+    const { SessionRevealPrototype } = await import('./session-reveal.prototype');
+    createRoot(root).render(<SessionRevealPrototype />);
+    return;
+  }
   if (view === 'settings') {
     const { SettingsApp } = await import('./SettingsApp');
     createRoot(root).render(<StrictMode>{localized(<SettingsApp />)}</StrictMode>);

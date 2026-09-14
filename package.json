@@ -20,6 +20,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "prototype:session-reveal": "pnpm --filter @fuxian/desktop exec vite --config vite.prototype.config.ts",
     "postinstall": "pnpm --filter @fuxian/desktop run postinstall",
     "dev": "pnpm --filter @fuxian/desktop dev",
     "build": "pnpm -r --if-present build",
