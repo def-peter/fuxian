@@ -15,6 +15,7 @@ interface PaperPreviewMessageBase {
 }
 
 export type PaperPreviewHostPayload =
+  | { type: 'link-description'; requestId: number; target: string | null }
   | { command: 'clear-find'; type: 'command' }
   | { command: 'find'; query: string; type: 'command' }
   | { command: 'find-next' | 'find-previous' | 'scroll-to-end'; type: 'command' }
@@ -26,6 +27,8 @@ export type PaperPreviewHostPayload =
 export type PaperPreviewHostMessage = PaperPreviewMessageBase & PaperPreviewHostPayload;
 
 export type PaperPreviewFramePayload =
+  | { type: 'describe-link'; href: string; requestId: number; revisionId: string }
+  | { type: 'open-link'; href: string; revisionId: string }
   | { type: 'mounted' }
   | { text: string; type: 'copy-text' }
   | { message: string; revisionId: string; type: 'failed' }

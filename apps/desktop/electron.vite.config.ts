@@ -3,6 +3,32 @@ import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+
+const macFileAssociationHelper = (): Plugin => ({
+  name: 'fuxian-mac-file-association-helper',
+  buildStart() {
+    if (process.platform !== 'darwin') return;
+    mkdirSync(resolve('out/native'), { recursive: true });
+    execFileSync('xcrun', [
+      'clang',
+      '-fobjc-arc',
+      '-fblocks',
+      '-Wall',
+      '-Wextra',
+      '-Werror',
+      '-mmacosx-version-min=12.0',
+      resolve('native/macos-default-app.m'),
+      '-framework',
+      'AppKit',
+      '-framework',
+      'Foundation',
+      '-o',
+      resolve('out/native/fuxian-default-app-helper'),
+    ]);
+  },
+});
 
 const contentSecurityPolicyPlugin = (): Plugin => {
   let isDevelopment = false;
@@ -41,6 +67,7 @@ const contentSecurityPolicyPlugin = (): Plugin => {
 export default defineConfig({
   main: {
     plugins: [
+      macFileAssociationHelper(),
       externalizeDepsPlugin({
         exclude: [
           '@fuxian/shared-types',

@@ -17,6 +17,21 @@ const englishMessages = {
   在访达中显示: 'Reveal in Finder',
   在文件资源管理器中显示: 'Show in File Explorer',
   在文件管理器中显示: 'Show in File Manager',
+  无法打开文件: 'Cannot open file',
+  '跳转到：{target}': 'Go to: {target}',
+  打开所在目录: 'Open containing folder',
+  '文件可能已被移动、重命名或删除。': 'The file may have been moved, renamed, or deleted.',
+  '链接地址无效或使用了不支持的协议。': 'This link is invalid or uses an unsupported protocol.',
+  '不支持打开此类文件。可执行文件、脚本和快捷方式不能从文档中启动。':
+    'This file type is not supported. Executables, scripts, and shortcuts cannot be launched from documents.',
+  '没有可打开此类文件的默认应用，请先在系统中设置。':
+    'No default app is set for this file type. Choose one in your system settings.',
+  '系统未能打开文件，请检查默认应用后重试。':
+    'The system could not open the file. Check its default app and try again.',
+  '所在目录不存在或无法访问。': 'The containing folder does not exist or cannot be accessed.',
+  '无法打开所在目录，请重试。': 'The containing folder could not be opened. Please try again.',
+  '无法打开链接，请检查默认浏览器后重试。':
+    'The link could not be opened. Check your default browser and try again.',
   无法显示文件位置: 'Cannot reveal file',
   '文件已移动或删除，无法在文件管理器中显示。':
     'The file has been moved or deleted and can no longer be revealed.',

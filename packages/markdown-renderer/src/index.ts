@@ -1,4 +1,5 @@
 import type { Element, Root } from 'hast';
+import { classifyDocumentLink } from '@fuxian/shared-types';
 import { toText } from 'hast-util-to-text';
 import rehypeExternalLinks from 'rehype-external-links';
 import rehypeHighlight from 'rehype-highlight';
@@ -261,6 +262,7 @@ const finishedDocumentSchema: SanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    a: [...(defaultSchema.attributes?.a ?? []), 'dataInvalidDocumentLink'],
     blockquote: [
       ['className', 'callout'],
       [
@@ -314,6 +316,19 @@ const alignSanitizedFragmentLinks: Plugin<[], Root> = () => (tree) => {
     const sanitizedTarget = `${rawHtmlIdPrefix}${href.slice(1)}`;
     if (sanitizedIds.has(sanitizedTarget)) {
       node.properties.href = `#${sanitizedTarget}`;
+    }
+  });
+};
+
+// Keep rejected author links keyboard-accessible for an explicit error message,
+// while ensuring unsafe schemes never survive in a navigable href.
+const markInvalidDocumentLinks: Plugin<[], Root> = () => (tree) => {
+  visit(tree, 'element', (node) => {
+    if (node.tagName !== 'a' || typeof node.properties.href !== 'string') return;
+    delete node.properties.dataInvalidDocumentLink;
+    if (classifyDocumentLink(node.properties.href).kind === 'invalid') {
+      node.properties.href = '#';
+      node.properties.dataInvalidDocumentLink = 'true';
     }
   });
 };
@@ -940,6 +955,7 @@ const createMarkdownProcessor = (
     .use(transformCallouts)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
+    .use(markInvalidDocumentLinks)
     .use(rehypeSanitize, finishedDocumentSchema)
     .use(createRenderTasks, renderTasks)
     .use(alignSanitizedFragmentLinks)

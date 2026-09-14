@@ -41,6 +41,12 @@ static BOOL setDefaultApplication(NSURL *applicationURL, NSURL *documentURL, NSE
 
 int main(int argc, const char *argv[]) {
   @autoreleasepool {
+    if (argc == 3 && strcmp(argv[1], "--query-file") == 0) {
+      NSURL *documentURL = [NSURL fileURLWithPath:[NSString stringWithUTF8String:argv[2]]];
+      NSURL *applicationURL = [[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:documentURL];
+      printf("%s\n", applicationURL ? "true" : "false");
+      return 0;
+    }
     if (argc < 3) {
       fprintf(stderr, "Usage: fuxian-default-app-helper <application> <document> [...]\n");
       return 64;

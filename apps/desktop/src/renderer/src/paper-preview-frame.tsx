@@ -36,6 +36,8 @@ interface PaperPreviewFrameProps {
   onControllerChange(controller: FinishedDocumentController | undefined): void;
   onFailure(message: string): void;
   onFindRequest(): void;
+  onOpenLink(href: string): void;
+  onDescribeLink(href: string): Promise<string | null>;
   onFindResult(result: FindResult): void;
   onFocusRenderedVisual(visual: RenderedVisualSnapshot): void;
   onInspectRenderedVisual(visual: RenderedVisualSnapshot): void;
@@ -50,6 +52,8 @@ export function PaperPreviewFrame({
   onControllerChange,
   onFailure,
   onFindRequest,
+  onOpenLink,
+  onDescribeLink,
   onFindResult,
   onFocusRenderedVisual,
   onInspectRenderedVisual,
@@ -68,6 +72,8 @@ export function PaperPreviewFrame({
     onControllerChange,
     onFailure,
     onFindRequest,
+    onOpenLink,
+    onDescribeLink,
     onFindResult,
     onFocusRenderedVisual,
     onInspectRenderedVisual,
@@ -101,6 +107,8 @@ export function PaperPreviewFrame({
       onControllerChange,
       onFailure,
       onFindRequest,
+      onOpenLink,
+      onDescribeLink,
       onFindResult,
       onFocusRenderedVisual,
       onInspectRenderedVisual,
@@ -112,6 +120,8 @@ export function PaperPreviewFrame({
     onControllerChange,
     onFailure,
     onFindRequest,
+    onOpenLink,
+    onDescribeLink,
     onFindResult,
     onFocusRenderedVisual,
     onInspectRenderedVisual,
@@ -187,6 +197,23 @@ export function PaperPreviewFrame({
         post({ snapshot: snapshotRef.current, type: 'render' });
       } else if (message.type === 'copy-text') {
         void window.fuxian.copyText(message.text);
+      } else if (message.type === 'open-link') {
+        if (
+          message.revisionId === snapshotRef.current.revisionId &&
+          typeof message.href === 'string'
+        )
+          callbacks.onOpenLink(message.href);
+      } else if (message.type === 'describe-link') {
+        if (typeof message.href !== 'string' || !Number.isSafeInteger(message.requestId)) return;
+        const target =
+          message.revisionId === snapshotRef.current.revisionId
+            ? callbacks.onDescribeLink(message.href)
+            : Promise.resolve(null);
+        void target
+          .catch(() => null)
+          .then((target) =>
+            post({ type: 'link-description', requestId: message.requestId, target }),
+          );
       } else if (message.type === 'ready') {
         positionRef.current = message.position;
         callbacks.onControllerChange(controller);

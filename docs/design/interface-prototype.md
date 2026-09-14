@@ -89,6 +89,16 @@ end note
 
 ## State Treatments
 
+### Document Links
+
+In both continuous reading and paper preview, `#heading` navigates within the current document and HTTP(S) links open in the system browser. Local relative links resolve from the source Markdown's directory, including Chinese names, spaces, percent encoding and `../`. Markdown targets open or activate in the existing session; supported non-executable local documents use their system default application. Query/hash suffixes are excluded from filesystem lookup.
+
+Check targets only when clicked. Opening failures preserve the current document and reading position, and update a single bottom-right nonmodal Alert: **无法打开文件 / Cannot open file**, target filename, and a localized reason. Offer **打开所在目录 / Open containing folder** only when the parent directory is accessible; always offer **关闭 / Close**. Reuse the same alert surface as reveal-file failures. Do not scan every link, open a browser for local failures, or add failed targets to recent documents.
+
+Link tooltips use the global tooltip surface and appear after 300 ms of hovering, or immediately on keyboard focus. Show the complete web URL, the source-relative resolved local path, or **跳转到：标题 / Go to: heading** for a fragment. Suppress redundant tooltips when the visible link text already contains the full web URL. Long addresses wrap within the viewport. Leaving, scrolling, clicking, Escape, or replacing the document dismisses the hint and cancels pending responses. Local-path descriptions perform only lexical resolution in the main process, without checking files or default applications; tooltips never enter paper/PDF snapshots.
+
+### Document States
+
 | State             | Proposed treatment                                                                           |
 | ----------------- | -------------------------------------------------------------------------------------------- |
 | Empty             | One primary **Open Markdown** action and full-window drag target; no marketing content       |

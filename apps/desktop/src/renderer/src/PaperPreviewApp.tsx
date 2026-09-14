@@ -68,6 +68,8 @@ export function PaperPreviewApp(): React.JSX.Element {
 
   useEffect(() => {
     let disposed = false;
+    let linkRequestId = 0;
+    const linkDescriptions = new Map<number, (target: string | null) => void>();
 
     const processLatest = async (): Promise<void> => {
       if (processing.current || disposed) return;
@@ -113,6 +115,19 @@ export function PaperPreviewApp(): React.JSX.Element {
                 });
               },
               onFindRequest: () => postToHost({ type: 'find-request' }),
+              onOpenLink: (href) =>
+                postToHost({ type: 'open-link', href, revisionId: snapshot.revisionId }),
+              describeLocalLink: (href) =>
+                new Promise((resolve) => {
+                  const requestId = ++linkRequestId;
+                  linkDescriptions.set(requestId, resolve);
+                  postToHost({
+                    type: 'describe-link',
+                    requestId,
+                    href,
+                    revisionId: snapshot.revisionId,
+                  });
+                }),
               onFocusRenderedVisual: (visual) =>
                 postToHost({ action: 'focus', type: 'visual-action', visual }),
               onInspectRenderedVisual: (visual) =>
@@ -175,6 +190,11 @@ export function PaperPreviewApp(): React.JSX.Element {
       if (event.source !== globalThis.parent || !isPaperPreviewHostMessage(event.data, channelId))
         return;
       const message: PaperPreviewHostMessage = event.data;
+      if (message.type === 'link-description') {
+        linkDescriptions.get(message.requestId)?.(message.target);
+        linkDescriptions.delete(message.requestId);
+        return;
+      }
       if (message.type === 'render') {
         latestSnapshot.current = message.snapshot;
         activeAbortController.current?.abort();
@@ -208,6 +228,8 @@ export function PaperPreviewApp(): React.JSX.Element {
     postToHost({ type: 'mounted' });
     return () => {
       disposed = true;
+      for (const resolve of linkDescriptions.values()) resolve(null);
+      linkDescriptions.clear();
       activeAbortController.current?.abort();
       currentController.current?.destroy();
       currentPagination.current?.cleanup();

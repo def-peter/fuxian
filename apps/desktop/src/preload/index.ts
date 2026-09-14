@@ -7,6 +7,8 @@ import {
   type AppUpdateStatus,
   type ExternalRevisionEvent,
   type FuxianDesktopBridge,
+  type DocumentLinkRequest,
+  type OpenDocumentLinkResult,
   type LoadDocumentSessionResult,
   type LocateSourceDocumentResult,
   type MarkdownDefaultAppStatus,
@@ -86,6 +88,12 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     ipcRenderer.invoke(desktopIpcChannels.locateSourceDocument, path),
   revealSourceDocument: async (path: string): Promise<RevealSourceDocumentResult> =>
     ipcRenderer.invoke(desktopIpcChannels.revealSourceDocument, path),
+  openDocumentLink: async (request: DocumentLinkRequest): Promise<OpenDocumentLinkResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.openDocumentLink, request),
+  describeDocumentLink: async (request: DocumentLinkRequest): Promise<string | null> =>
+    ipcRenderer.invoke(desktopIpcChannels.describeDocumentLink, request),
+  openDocumentLinkParent: async (request: DocumentLinkRequest): Promise<OpenDocumentLinkResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.openDocumentLinkParent, request),
   onReaderPreferencesChanged: (
     listener: (preferences: ReaderPreferences) => void,
   ): (() => void) => {

@@ -1,4 +1,5 @@
 import { bindVegaTooltips } from './vega-tooltip';
+import { bindDocumentLinkTooltips } from './document-link-tooltip';
 import {
   documentThemeCss,
   getDocumentThemeVariables,
@@ -12,7 +13,11 @@ import {
   type RenderTaskAdapter,
   type RenderTaskScheduler,
 } from '@fuxian/render-protocol';
-import { defaultPlantUmlServerUrl, type ReadingPosition } from '@fuxian/shared-types';
+import {
+  classifyDocumentLink,
+  defaultPlantUmlServerUrl,
+  type ReadingPosition,
+} from '@fuxian/shared-types';
 import { Code2, Maximize2 } from 'lucide-react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -77,6 +82,8 @@ interface BindFinishedDocumentOptions {
   initialReadingPosition: ReadingPosition;
   onActiveHeadingChange(id: string | undefined): void;
   onFindRequest(): void;
+  onOpenLink?(href: string): void;
+  describeLocalLink(href: string): Promise<string | null>;
   onFocusRenderedVisual?(visual: RenderedVisualSnapshot): void;
   onInspectRenderedVisual?(visual: RenderedVisualSnapshot): void;
   onReadingPositionChange(position: ReadingPosition): void;
@@ -514,6 +521,10 @@ export function bindFinishedDocument(
   options: BindFinishedDocumentOptions,
 ): FinishedDocumentController {
   const disposeVegaTooltips = bindVegaTooltips(frameDocument);
+  const linkTooltips = bindDocumentLinkTooltips(frameDocument, {
+    describeLocalLink: options.describeLocalLink,
+    translate: options.translate ?? createTranslator('zh-CN'),
+  });
   const t = options.translate ?? createTranslator('zh-CN');
   for (const header of frameDocument.querySelectorAll<HTMLElement>(
     '.callout-header[data-callout-default-title]',
@@ -1017,7 +1028,21 @@ export function bindFinishedDocument(
   };
 
   const handleFinishedDocumentClick = (event: MouseEvent): void => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
     const target = event.target as Element | null;
+    const anchor = target?.closest('a[href]');
+    if (anchor) {
+      const href = anchor.hasAttribute('data-invalid-document-link')
+        ? 'invalid:'
+        : (anchor.getAttribute('href') ?? '');
+      event.preventDefault();
+      const link = classifyDocumentLink(href);
+      if (link.kind === 'fragment') {
+        if (!link.id) frameWindow.scrollTo({ top: 0 });
+        else frameDocument.getElementById(link.id)?.scrollIntoView({ block: 'start' });
+      } else options.onOpenLink?.(href);
+      return;
+    }
     const diagramAction = target?.closest<HTMLButtonElement>('[data-diagram-action]');
     if (diagramAction) {
       const id = diagramAction.closest<HTMLElement>('[data-render-task-id]')?.dataset.renderTaskId;
@@ -1097,6 +1122,7 @@ export function bindFinishedDocument(
   };
 
   frameDocument.addEventListener('click', handleFinishedDocumentClick);
+  frameDocument.addEventListener('auxclick', handleFinishedDocumentClick);
   frameDocument.addEventListener('error', handleResourceError, true);
   frameDocument.addEventListener('load', handleResourceLoad, true);
   frameWindow.addEventListener('keydown', handleFinishedDocumentKeyDown);
@@ -1134,6 +1160,7 @@ export function bindFinishedDocument(
       frameWindow.removeEventListener('resize', scheduleVegaResize);
       if (vegaResizeTimer) window.clearTimeout(vegaResizeTimer);
       disposeVegaTooltips();
+      linkTooltips.destroy();
       renderRevision.cancel();
       clearFindHighlights();
       if (scrollAnimationFrame) {
@@ -1147,6 +1174,7 @@ export function bindFinishedDocument(
       }
       delete frameDocument.documentElement.dataset.scrollActive;
       frameDocument.removeEventListener('click', handleFinishedDocumentClick);
+      frameDocument.removeEventListener('auxclick', handleFinishedDocumentClick);
       frameDocument.removeEventListener('error', handleResourceError, true);
       frameDocument.removeEventListener('load', handleResourceLoad, true);
       frameWindow.removeEventListener('keydown', handleFinishedDocumentKeyDown);
@@ -1168,6 +1196,7 @@ export function bindFinishedDocument(
     getViewportFollowState,
     getRenderSnapshot: () => renderRevision.snapshot(),
     getStaticSnapshotHtml: () => {
+      linkTooltips.hide();
       const source = frameDocument.querySelector<HTMLElement>('.finished-document');
       if (!source) throw new TypeError(t('完成文档快照不可用。'));
       const clone = source.cloneNode(true) as HTMLElement;

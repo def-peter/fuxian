@@ -1,6 +1,7 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import {
   readerPreferenceLimits,
+  type DocumentLinkRequest,
   type ExternalRevisionEvent,
   type OpenSourceDocumentsResult,
   type PdfExportProgress,
@@ -233,7 +234,13 @@ export function App(): React.JSX.Element {
   const [restorationStatus, setRestorationStatus] = useState<'loading' | 'ready'>('loading');
   const [opening, setOpening] = useState(false);
   const [blockingError, setBlockingError] = useState<string>();
-  const [revealError, setRevealError] = useState<{ path: string; message: string }>();
+  const [fileActionError, setFileActionError] = useState<{
+    kind: 'reveal' | 'link';
+    parentRequest?: DocumentLinkRequest;
+    name: string;
+    message: string;
+  }>();
+  const fileActionSequence = useRef(0);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [contentOutlineSheetOpen, setContentOutlineSheetOpen] = useState(false);
   const [articleStructureMapOpen, setArticleStructureMapOpen] = useState(false);
@@ -1036,6 +1043,12 @@ export function App(): React.JSX.Element {
     if (!frameDocument) return;
     const controller = bindFinishedDocument(frameDocument, {
       copyText: window.fuxian.copyText,
+      onOpenLink: (href) => {
+        if (visibleFrameIdRef.current === frame.id)
+          void openFinishedDocumentLink({ sourcePath: frame.document.document.path, href });
+      },
+      describeLocalLink: (href) =>
+        window.fuxian.describeDocumentLink({ sourcePath: frame.document.document.path, href }),
       initialPlantUmlServerUrl: preferences.plantUml.serverUrl,
       initialReadingPosition: frame.readingPosition,
       onActiveHeadingChange: (id) => {
@@ -1626,12 +1639,62 @@ export function App(): React.JSX.Element {
   };
 
   const revealDocument = async (path: string): Promise<void> => {
-    setRevealError(undefined);
+    const sequence = ++fileActionSequence.current;
+    setFileActionError(undefined);
     try {
       const result = await window.fuxian.revealSourceDocument(path);
-      if (result.status === 'failed') setRevealError({ path, message: result.message });
+      if (sequence === fileActionSequence.current && result.status === 'failed')
+        setFileActionError({ kind: 'reveal', name: path, message: result.message });
     } catch {
-      setRevealError({ path, message: t('暂时无法在文件管理器中显示该文件，请重试。') });
+      if (sequence === fileActionSequence.current)
+        setFileActionError({
+          kind: 'reveal',
+          name: path,
+          message: t('暂时无法在文件管理器中显示该文件，请重试。'),
+        });
+    }
+  };
+
+  const openFinishedDocumentLink = async (
+    request: DocumentLinkRequest,
+    parentOnly = false,
+  ): Promise<void> => {
+    const sequence = ++fileActionSequence.current;
+    setFileActionError(undefined);
+    try {
+      const result = await (parentOnly
+        ? window.fuxian.openDocumentLinkParent(request)
+        : window.fuxian.openDocumentLink(request));
+      if (sequence !== fileActionSequence.current) return;
+      if (result.status === 'failed')
+        setFileActionError({
+          kind: 'link',
+          name: result.name,
+          message: result.message,
+          ...(result.canOpenParent ? { parentRequest: request } : {}),
+        });
+      else if (result.status === 'document') {
+        const existing = sessionRef.current.openDocuments.find(
+          (item) =>
+            (item.status === 'available' ? item.latestSourceDocument.path : item.path) ===
+            result.document.path,
+        );
+        if (existing?.status === 'available')
+          requestSourceActionRef.current({ kind: 'activate', path: result.document.path });
+        else
+          acceptOpenResultRef.current({
+            status: 'opened',
+            documents: [result.document],
+            warnings: [],
+          });
+      }
+    } catch {
+      if (sequence === fileActionSequence.current)
+        setFileActionError({
+          kind: 'link',
+          name: request.href,
+          message: t('系统未能打开文件，请检查默认应用后重试。'),
+        });
     }
   };
 
@@ -1909,17 +1972,40 @@ export function App(): React.JSX.Element {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {revealError ? (
+        {fileActionError ? (
           <div className="absolute right-4 bottom-4 z-50 w-96 max-w-[calc(100%-2rem)]">
             <Alert variant="destructive">
               <AlertCircle aria-hidden="true" />
-              <AlertTitle>{t('无法显示文件位置')}</AlertTitle>
+              <AlertTitle>
+                {t(fileActionError.kind === 'reveal' ? '无法显示文件位置' : '无法打开文件')}
+              </AlertTitle>
               <AlertDescription>
-                <p className="break-all">{revealError.path}</p>
-                <p>{revealError.message}</p>
-                <Button variant="outline" size="sm" onClick={() => setRevealError(undefined)}>
-                  {t('关闭')}
-                </Button>
+                <p className="break-all">{fileActionError.name}</p>
+                <p>{fileActionError.message}</p>
+                <div className="flex flex-wrap gap-2">
+                  {fileActionError.parentRequest ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (fileActionError.parentRequest)
+                          void openFinishedDocumentLink(fileActionError.parentRequest, true);
+                      }}
+                    >
+                      {t('打开所在目录')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      fileActionSequence.current += 1;
+                      setFileActionError(undefined);
+                    }}
+                  >
+                    {t('关闭')}
+                  </Button>
+                </div>
               </AlertDescription>
             </Alert>
           </div>
@@ -2433,6 +2519,19 @@ export function App(): React.JSX.Element {
                               }}
                               onFailure={setPaperPreviewFailure}
                               onFindRequest={openFind}
+                              onOpenLink={(href) => {
+                                if (viewModeRef.current === 'paper')
+                                  void openFinishedDocumentLink({
+                                    sourcePath: activeDocument.latestSourceDocument.path,
+                                    href,
+                                  });
+                              }}
+                              onDescribeLink={(href) =>
+                                window.fuxian.describeDocumentLink({
+                                  sourcePath: activeDocument.latestSourceDocument.path,
+                                  href,
+                                })
+                              }
                               onFindResult={setFindResult}
                               onFocusRenderedVisual={setFocusedDiagram}
                               onInspectRenderedVisual={showDiagramSource}

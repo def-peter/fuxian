@@ -35,7 +35,7 @@ Electron E2E runs hidden by default. Use `FUXIAN_E2E_WINDOW_MODE=secondary` for 
 
 Use scoped Conventional Commits, for example `feat(renderer): add Mermaid task tracking`. Pull requests should cover behavior, tests, issues, and security. Include screenshots for UI changes and a sample PDF for rendering changes.
 
-Before publishing a stable version on the user's behalf, read `docs/release.md` and provide both English and Chinese release notes through the release helper. English remains expanded and Chinese is collapsed; a Release containing only GitHub's generated `Full Changelog` is incomplete.
+When writing release notes or publishing a stable version, read `docs/release.md` and follow its release-note content rules. Provide both English and Chinese notes through the release helper. English remains expanded and Chinese is collapsed; a Release containing only GitHub's generated `Full Changelog` is incomplete.
 
 ## Security & Configuration
 

@@ -213,6 +213,9 @@ importers:
 
   packages/markdown-renderer:
     dependencies:
+      '@fuxian/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       hast-util-to-text:
         specifier: ^4.0.2
         version: 4.0.2

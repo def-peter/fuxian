@@ -13,6 +13,7 @@ import {
   type LocateSourceDocumentResult,
   type MarkdownDefaultAppState,
   type OpenSourceDocumentsResult,
+  type OpenDocumentLinkResult,
   type OpenDocumentWatchesRequest,
   type PdfExportPayload,
   type PdfExportProgress,
@@ -87,6 +88,8 @@ import {
 import { productName, translate, type MessageKey, type MessageValues } from '../localization';
 import { configureWindowMenu } from './window-menu-policy';
 import { revealSourceDocument } from './reveal-source-document';
+import { describeDocumentLink, openDocumentLink } from './document-links';
+import { hasDefaultFileApplication } from './file-association';
 
 const { autoUpdater } = electronUpdater;
 
@@ -1186,6 +1189,54 @@ const registerDesktopHandlers = (
       return { status: 'failed', message: mainText(messages[outcome]) };
     },
   );
+  for (const channel of [
+    desktopIpcChannels.openDocumentLink,
+    desktopIpcChannels.openDocumentLinkParent,
+    desktopIpcChannels.describeDocumentLink,
+  ]) {
+    ipcMain.handle(
+      channel,
+      async (event, request: unknown): Promise<OpenDocumentLinkResult | string | null> => {
+        if (
+          !mainWindow ||
+          mainWindow.isDestroyed() ||
+          event.sender !== mainWindow.webContents ||
+          event.senderFrame !== event.sender.mainFrame
+        ) {
+          if (channel === desktopIpcChannels.describeDocumentLink) return null;
+          return {
+            status: 'failed',
+            name: '',
+            message: mainText('该文档不属于当前文档会话。'),
+            canOpenParent: false,
+          };
+        }
+        if (channel === desktopIpcChannels.describeDocumentLink)
+          return describeDocumentLink(request, knownDocumentPaths);
+        return openDocumentLink(
+          request,
+          {
+            knownPaths: knownDocumentPaths,
+            openExternal: openExternalUrl,
+            openPath: (path) => shell.openPath(path),
+            readDocument: readSourceDocument,
+            hasDefaultApplication: (path) => {
+              if (isE2ERuntime && process.env.FUXIAN_E2E_LINK_DEFAULT_APP)
+                return Promise.resolve(process.env.FUXIAN_E2E_LINK_DEFAULT_APP === '1');
+              return hasDefaultFileApplication(
+                path,
+                app.isPackaged
+                  ? join(process.resourcesPath, macDefaultApplicationHelperName)
+                  : join(currentDirectory, '../native', macDefaultApplicationHelperName),
+              );
+            },
+            translate: mainText,
+          },
+          channel === desktopIpcChannels.openDocumentLinkParent,
+        );
+      },
+    );
+  }
 };
 
 const openExternalUrl = async (url: string): Promise<void> => {

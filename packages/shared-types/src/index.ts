@@ -1,3 +1,5 @@
+export { classifyDocumentLink, type DocumentLink } from './document-links';
+
 export const desktopIpcChannels = {
   appCloseConfirmed: 'fuxian:app:close-confirmed',
   appCloseGuardReady: 'fuxian:app:close-guard-ready',
@@ -23,6 +25,9 @@ export const desktopIpcChannels = {
   loadReaderPreferences: 'fuxian:reader-preferences:load',
   locateSourceDocument: 'fuxian:source-documents:locate',
   revealSourceDocument: 'fuxian:source-documents:reveal',
+  openDocumentLink: 'fuxian:document-link:open',
+  describeDocumentLink: 'fuxian:document-link:describe',
+  openDocumentLinkParent: 'fuxian:document-link:open-parent',
   openDroppedSourceDocuments: 'fuxian:source-documents:open-dropped',
   openProjectHomepage: 'fuxian:project-homepage:open',
   openSettings: 'fuxian:settings:open',
@@ -482,6 +487,16 @@ export type ReadSourceDocumentResult =
 export type RevealSourceDocumentResult =
   { status: 'revealed' } | { status: 'failed'; message: string };
 
+export interface DocumentLinkRequest {
+  sourcePath: string;
+  href: string;
+}
+
+export type OpenDocumentLinkResult =
+  | { status: 'opened' }
+  | { status: 'document'; document: SourceDocumentData }
+  | { status: 'failed'; name: string; message: string; canOpenParent: boolean };
+
 export type LocateSourceDocumentResult =
   | { status: 'cancelled' }
   | { document: SourceDocumentData; status: 'available' }
@@ -560,6 +575,9 @@ export interface FuxianDesktopBridge {
   loadSourceRecoveryDrafts(): Promise<SourceRecoveryDraft[]>;
   locateSourceDocument(path: string): Promise<LocateSourceDocumentResult>;
   revealSourceDocument(path: string): Promise<RevealSourceDocumentResult>;
+  openDocumentLink(request: DocumentLinkRequest): Promise<OpenDocumentLinkResult>;
+  describeDocumentLink(request: DocumentLinkRequest): Promise<string | null>;
+  openDocumentLinkParent(request: DocumentLinkRequest): Promise<OpenDocumentLinkResult>;
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   onAppCloseRequested(listener: (request: AppCloseRequest) => void): () => void;

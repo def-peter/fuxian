@@ -62,6 +62,12 @@ It verifies both macOS package structures, smoke-tests the Windows and native Ap
 
 Published assets include `latest.yml`, `latest-mac.yml`, NSIS EXE, macOS ZIP and DMG files, and matching blockmaps.
 
+## Release-note content
+
+Write concise, user-facing entries describing features added, functionality improved, or bugs fixed in this version. Each bullet states the actual change directly. Omit design reasoning, implementation and testing details, observations about the interface, and assurances about unchanged behavior. Apply the same rule in English and Chinese; keep both versions equivalent. Include only meaningful changes instead of expanding one feature into several explanatory bullets.
+
+For example, the document context-menu feature needs just: “新增文档右键菜单，支持在访达或文件资源管理器中定位文件。” / “Add a document context menu to reveal files in Finder or File Explorer.”
+
 ## First-release acceptance
 
 Before announcing updater support, install a lower version on Windows x64 and verify: check, explicit download, progress, restart/install, restored document session and reading position, and the new version in “关于与更新”. On macOS x64 and arm64, launch each packaged architecture on matching hardware, then verify explicit DMG download, progress, cancellation, retry after restart, checksum verification, and opening the correct installer. Check the GitHub fallback while downloading and after failed checks. Also test offline checks, a cancelled Windows download, SmartScreen behavior, and Gatekeeper instructions.

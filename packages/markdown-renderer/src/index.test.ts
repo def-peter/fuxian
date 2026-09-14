@@ -8,6 +8,22 @@ const showcaseSource = readFileSync(
 );
 
 describe('renderMarkdown', () => {
+  it('preserves author-relative links and exposes rejected links without unsafe hrefs', () => {
+    const { html } = renderMarkdown({
+      source: [
+        '[脚本](../目录/query%20建表.sql?download=1#L2)',
+        '<a href="safe.sql" data-invalid-document-link="true">Safe</a>',
+        '<a href="file:///tmp/unsafe.sql">Unsupported</a>',
+      ].join('\n\n'),
+    });
+    expect(html).toContain(
+      'href="../%E7%9B%AE%E5%BD%95/query%20%E5%BB%BA%E8%A1%A8.sql?download=1#L2"',
+    );
+    expect(html).toContain('<a href="safe.sql">Safe</a>');
+    expect(html).toContain('<a href="#" data-invalid-document-link="true">Unsupported</a>');
+    expect(html).not.toContain('file:///');
+  });
+
   it('renders source-document text as semantic finished-document HTML', () => {
     const finishedDocument = renderMarkdown({
       source: '# Release notes\n\nThe renderer is ready.\n\n- Open a document\n- Start reading',
@@ -158,7 +174,9 @@ describe('renderMarkdown', () => {
     const finishedDocument = renderMarkdown({ source: showcaseSource });
 
     expect(finishedDocument.html).toContain('事件属性必须被清理。');
-    expect(finishedDocument.html).toContain('<a>危险原始链接</a>');
+    expect(finishedDocument.html).toContain(
+      '<a href="#" data-invalid-document-link="true">危险原始链接</a>',
+    );
     expect(finishedDocument.html).toContain('href="#fuxian-user-content-user-content-fn-reader"');
     expect(finishedDocument.html).not.toMatch(/<script|onclick=|onmouseover=|javascript:/i);
   });
