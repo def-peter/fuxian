@@ -21,6 +21,41 @@ afterEach(async () => {
 });
 
 describe('DocumentResourceTrustStore', () => {
+  it('loads and watches only explicitly referenced parent images, including encoded filenames and later revisions', async () => {
+    const directory = await createTemporaryDirectory();
+    const docs = join(directory, 'docs');
+    await mkdir(docs);
+    const sourcePath = join(docs, 'reader.md');
+    await writeFile(sourcePath, '# Reader');
+    const imagePath = join(directory, '图 片%20.png');
+    await writeFile(imagePath, 'image bytes');
+    const store = new DocumentResourceTrustStore();
+    const scope = await store.grantSourceDocument(sourcePath, '![Parent](../图%20片%2520.png)');
+    const url = new URL('_relative', scope);
+    url.searchParams.set('path', '../图 片%20.png');
+    await expect(store.resolve(url.href)).resolves.toMatchObject({
+      status: 'allowed',
+      path: await realpath(imagePath),
+    });
+    await expect(store.resolveWatchPath(url.href, await realpath(sourcePath))).resolves.toBe(
+      await realpath(imagePath),
+    );
+    url.searchParams.set('path', '../unreferenced.png');
+    await expect(store.resolve(url.href)).resolves.toMatchObject({
+      status: 'rejected',
+      httpStatus: 403,
+    });
+    await expect(
+      store.resolveWatchPath(url.href, await realpath(sourcePath)),
+    ).resolves.toBeUndefined();
+    await store.grantSourceDocument(sourcePath, '<img src="../future.png">');
+    url.searchParams.set('path', '../future.png');
+    await expect(store.resolveWatchPath(url.href, await realpath(sourcePath))).resolves.toBe(
+      join(await realpath(directory), 'future.png'),
+    );
+    await writeFile(join(directory, 'future.png'), 'new image');
+    await expect(store.resolve(url.href)).resolves.toMatchObject({ status: 'allowed' });
+  });
   it('keeps resource scopes stable across revisions and independent documents', async () => {
     const directory = await createTemporaryDirectory();
     const firstPath = join(directory, 'first.md');

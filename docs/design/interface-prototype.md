@@ -91,7 +91,9 @@ end note
 
 ### Document Links
 
-In both continuous reading and paper preview, `#heading` navigates within the current document and HTTP(S) links open in the system browser. Local relative links resolve from the source Markdown's directory, including Chinese names, spaces, percent encoding and `../`. Markdown targets open or activate in the existing session; supported non-executable local documents use their system default application. Query/hash suffixes are excluded from filesystem lookup.
+In both continuous reading and paper preview, `#heading` navigates within the current document, HTTP(S) links open in the system browser, and `mailto:` links open the system mail application. Local relative links resolve from the source Markdown's directory, including Chinese names, spaces, percent encoding and `../`. Markdown targets open or activate in the existing session; supported non-executable local documents use their system default application. Query/hash suffixes are excluded from filesystem lookup.
+
+Finished documents preserve GFM table-column alignment and basic authored HTML formatting (`mark`, `u`, inline `color` and `background-color`) across reading, paper preview, and PDF. HTTP(S) images load without a referrer, including extensionless endpoints; local images may reference parent directories when the source explicitly names those files. Parent-image changes follow the existing resource-watch pipeline. Default highlights follow document-theme tokens; explicit author colors remain unchanged.
 
 Check targets only when clicked. Opening failures preserve the current document and reading position, and update a single bottom-right nonmodal Alert: **无法打开文件 / Cannot open file**, target filename, and a localized reason. Offer **打开所在目录 / Open containing folder** only when the parent directory is accessible; always offer **关闭 / Close**. Reuse the same alert surface as reveal-file failures. Do not scan every link, open a browser for local failures, or add failed targets to recent documents.
 

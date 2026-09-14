@@ -54,7 +54,7 @@ const contentSecurityPolicyPlugin = (): Plugin => {
               scriptSource,
               "style-src 'self' 'unsafe-inline'",
               connectSource,
-              "img-src 'self' data: fuxian-resource:",
+              "img-src 'self' data: fuxian-resource: https: http:",
             ].join('; '),
           },
           injectTo: 'head-prepend',
@@ -71,6 +71,7 @@ export default defineConfig({
       externalizeDepsPlugin({
         exclude: [
           '@fuxian/shared-types',
+          '@fuxian/markdown-renderer',
           'builder-util-runtime',
           'electron-updater',
           'parse5',

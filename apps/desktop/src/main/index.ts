@@ -316,7 +316,10 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
       document: {
         name: basename(canonicalPath),
         path: canonicalPath,
-        resourceBaseUrl: await documentResourceTrustStore.grantSourceDocument(canonicalPath),
+        resourceBaseUrl: await documentResourceTrustStore.grantSourceDocument(
+          canonicalPath,
+          source,
+        ),
         source,
       },
     };
@@ -1217,7 +1220,9 @@ const registerDesktopHandlers = (
           request,
           {
             knownPaths: knownDocumentPaths,
-            openExternal: openExternalUrl,
+            // openDocumentLink has already classified HTTP(S)/mailto and
+            // validated the requesting source document at this boundary.
+            openExternal: (url) => shell.openExternal(url),
             openPath: (path) => shell.openPath(path),
             readDocument: readSourceDocument,
             hasDefaultApplication: (path) => {

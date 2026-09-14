@@ -23,6 +23,14 @@ describe('author document links', () => {
   });
 
   it.each([
+    'mailto:someone@example.com',
+    'mailto:reader@example.com?subject=Hello%20world',
+    'mailto:?subject=Feedback',
+  ])('allows mail composition links: %s', (url) => {
+    expect(classifyDocumentLink(url)).toEqual({ kind: 'external', url });
+  });
+
+  it.each([
     null,
     42,
     {},
@@ -37,7 +45,8 @@ describe('author document links', () => {
     'javascript:alert(1)',
     'data:text/html,test',
     'file:///tmp/test.sql',
-    'mailto:someone@example.com',
+    'mailto://someone@example.com',
+    'mailto:someone@example.com%0AInjected',
     '//server/file.sql',
     '\\\\server\\file.sql',
     '/tmp/file.sql',

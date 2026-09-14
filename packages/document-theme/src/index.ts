@@ -58,6 +58,7 @@ ${tooltipTokensCss}
   --document-link-hover: #25292d;
   --document-selection: #d0e7fc;
   --document-selection-current: #f3d77d;
+  --document-mark-background: #fff1a8;
   --document-subtle: #f7f8f9;
   --document-raised: #ffffff;
   --document-table-heading: #f0f1f2;
@@ -145,6 +146,7 @@ ${tooltipTokensCss}
   --document-link-hover: #f5f6f7;
   --document-selection: #294f7f;
   --document-selection-current: #776520;
+  --document-mark-background: #66571d;
   --document-subtle: #1f2226;
   --document-raised: #262a2e;
   --document-table-heading: #262a2e;
@@ -548,6 +550,16 @@ th {
   background: var(--document-table-heading);
   font-weight: 650;
 }
+
+th[align="center"], td[align="center"] { text-align: center; }
+th[align="right"], td[align="right"] { text-align: right; }
+
+mark {
+  color: inherit;
+  background-color: var(--document-mark-background);
+  box-decoration-break: clone;
+}
+
 
 .contains-task-list {
   padding-left: 4px;

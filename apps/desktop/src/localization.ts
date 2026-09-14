@@ -115,6 +115,9 @@ const englishMessages = {
   无法呈现公式: 'Unable to display formula',
   无法加载图片: 'Unable to load image',
   '图片地址无效或使用了不安全的协议。': 'The image address is invalid or uses an unsafe protocol.',
+  '无法打开邮件链接，请检查默认邮件应用后重试。':
+    'Could not open the email link. Check your default mail app and try again.',
+  '只支持相对路径或 HTTP(S) 图片地址。': 'Use a relative image path or an HTTP(S) image URL.',
   '图片路径超出了文档的授权范围。': 'The image path is outside the document’s authorized folder.',
   '不支持这种图片格式。': 'This image format is not supported.',
   '只允许访问文档目录内的相对图片。':

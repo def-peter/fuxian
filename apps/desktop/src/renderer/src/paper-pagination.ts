@@ -4,6 +4,7 @@ import {
   type DocumentThemePreferences,
 } from '@fuxian/document-theme';
 import type { Translator } from '../../localization';
+import { waitForExportImages } from './pdf-export-readiness';
 
 export const paperPageWidthPixels = (210 / 25.4) * 96;
 export const paperPageHeightPixels = (297 / 25.4) * 96;
@@ -260,20 +261,6 @@ const waitForAnimationFrames = (window: Window, count: number): Promise<void> =>
     next(count);
   });
 
-const waitForImage = (image: HTMLImageElement): Promise<void> => {
-  image.loading = 'eager';
-  if (image.complete) return Promise.resolve();
-  return new Promise((resolve) => {
-    const settle = (): void => {
-      image.removeEventListener('load', settle);
-      image.removeEventListener('error', settle);
-      resolve();
-    };
-    image.addEventListener('load', settle, { once: true });
-    image.addEventListener('error', settle, { once: true });
-  });
-};
-
 const svgFallbackSize = (svg: SVGSVGElement, axis: 'height' | 'width'): number => {
   const viewBox = svg.viewBox.baseVal;
   const viewBoxSize = axis === 'width' ? viewBox.width : viewBox.height;
@@ -502,7 +489,7 @@ export const paginateFinishedDocument = async ({
   signal?.addEventListener('abort', stop, { once: true });
 
   try {
-    await Promise.all(Array.from(source.querySelectorAll('img')).map(waitForImage));
+    await waitForExportImages(source, 15_000, signal);
     await document.fonts.ready;
     await waitForAnimationFrames(frameWindow, 2);
     preparePaperTables(source);

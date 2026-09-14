@@ -18,6 +18,11 @@ export function classifyDocumentLink(href: unknown): DocumentLink {
   try {
     if (hasControlCharacters(decodeURIComponent(value))) return { kind: 'invalid' };
     if (value.startsWith('#')) return { kind: 'fragment', id: decodeURIComponent(value.slice(1)) };
+    if (/^mailto:/iu.test(value)) {
+      const url = new URL(value);
+      if (url.host || url.hash || value.slice(7).startsWith('//')) return { kind: 'invalid' };
+      return { kind: 'external', url: url.href };
+    }
     if (/^https?:\/\//iu.test(value)) {
       const url = new URL(value);
       if (!url.hostname || url.username || url.password) return { kind: 'invalid' };

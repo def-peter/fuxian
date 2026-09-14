@@ -8,6 +8,45 @@ const showcaseSource = readFileSync(
 );
 
 describe('renderMarkdown', () => {
+  it('preserves email links and inert authored text formatting', () => {
+    const { html } = renderMarkdown({
+      source: [
+        '<reader@example.com>',
+        '[邮件](mailto:reader@example.com?subject=Hello)',
+        '<mark>重点</mark> <u>下划线</u>',
+        '<span style="color:red!important;color:blue">颜色优先级</span>',
+        '<span style="color: #c0392b; background-color: rgb(255, 240, 200); position:fixed; background-image:url(https://example.com/tracker)">彩色</span>',
+        '<span style="color:expression(alert(1)); background-color:garbage" onclick="alert(1)">无效</span>',
+      ].join('\n\n'),
+    });
+    expect(html).toContain('href="mailto:reader@example.com"');
+    expect(html).toContain('href="mailto:reader@example.com?subject=Hello"');
+    expect(html).toContain('<mark>重点</mark> <u>下划线</u>');
+    expect(html).toContain('color:red!important;color:blue');
+    expect(html).toContain('color:#c0392b;background-color:rgb(255,240,200)');
+    expect(html).not.toMatch(/position:|background-image|expression|onclick|garbage/);
+  });
+
+  it('resolves parent images without URL dot-segment normalization and accepts remote image endpoints', () => {
+    const { resources } = renderMarkdown({
+      source: '![Parent](../assets/图%20片.png)\n\n![Remote](https://example.com/image?id=1)',
+      resourceBaseUrl: 'fuxian-resource://document-scope/',
+    });
+    expect(resources).toEqual([
+      {
+        kind: 'image',
+        source: '../assets/%E5%9B%BE%20%E7%89%87.png',
+        status: 'resolved',
+        url: 'fuxian-resource://document-scope/_relative?path=..%2Fassets%2F%E5%9B%BE+%E7%89%87.png',
+      },
+      {
+        kind: 'image',
+        source: 'https://example.com/image?id=1',
+        status: 'resolved',
+        url: 'https://example.com/image?id=1',
+      },
+    ]);
+  });
   it('preserves author-relative links and exposes rejected links without unsafe hrefs', () => {
     const { html } = renderMarkdown({
       source: [
@@ -202,13 +241,13 @@ describe('renderMarkdown', () => {
     expect(finishedDocument.html).not.toContain('file://');
   });
 
-  it('turns traversal, absolute, remote, dangerous, and unsupported images into errors', () => {
+  it('turns absolute, malformed, dangerous, and unsupported images into errors', () => {
     const finishedDocument = renderMarkdown({
       resourceBaseUrl: 'fuxian-resource://document-scope/',
       source: [
-        '![Traversal](../private.png)',
+        '![Malformed](assets%2Fprivate.png)',
         '![Absolute](/tmp/private.png)',
-        '![Remote](https://example.com/tracker.png)',
+        '![Unsupported protocol](ftp://example.com/tracker.png)',
         '![Dangerous](javascript:alert(1))',
         '![Unsupported](assets/data.txt)',
       ].join('\n\n'),
@@ -222,7 +261,7 @@ describe('renderMarkdown', () => {
       'blocked',
     ]);
     expect(finishedDocument.html).toContain('图片路径超出了文档的授权范围。');
-    expect(finishedDocument.html).toContain('只允许访问文档目录内的相对图片。');
+    expect(finishedDocument.html).toContain('只支持相对路径或 HTTP(S) 图片地址。');
     expect(finishedDocument.html).toContain('图片地址无效或使用了不安全的协议。');
     expect(finishedDocument.html).toContain('不支持这种图片格式。');
     expect(finishedDocument.html).not.toContain('<img');

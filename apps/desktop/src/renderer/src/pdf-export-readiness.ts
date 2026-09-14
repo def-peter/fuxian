@@ -1,30 +1,61 @@
-const waitForImageSettled = (image: HTMLImageElement): Promise<void> => {
+const waitForImageSettled = (
+  image: HTMLImageElement,
+  timeoutMilliseconds: number,
+  signal?: AbortSignal,
+): Promise<void> => {
+  if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
   image.loading = 'eager';
-  if (image.complete) return Promise.resolve();
-  return new Promise((resolve) => {
-    const settle = (): void => {
+  const showFailure = (): void => {
+    const container = image.closest('.document-image');
+    const error = container?.querySelector<HTMLElement>('.resource-error');
+    image.hidden = true;
+    image.removeAttribute('src');
+    image.removeAttribute('srcset');
+    if (error) error.hidden = false;
+  };
+  if (image.complete) {
+    if (!image.naturalWidth) showFailure();
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => {
+      clearTimeout(timeout);
       image.removeEventListener('load', settle);
       image.removeEventListener('error', settle);
+      signal?.removeEventListener('abort', abort);
+    };
+    const settle = (): void => {
+      cleanup();
+      if (!image.naturalWidth) showFailure();
       resolve();
     };
+    const abort = (): void => {
+      cleanup();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timeout = setTimeout(() => {
+      // Freeze the failure before pagination. A late remote response must not
+      // change page geometry after export-ready has been signalled.
+      cleanup();
+      showFailure();
+      resolve();
+    }, timeoutMilliseconds);
     image.addEventListener('load', settle, { once: true });
     image.addEventListener('error', settle, { once: true });
+    signal?.addEventListener('abort', abort, { once: true });
   });
 };
 
 export const waitForExportImages = async (
-  document: Document,
+  document: Document | HTMLElement,
   timeoutMilliseconds = 15_000,
+  signal?: AbortSignal,
 ): Promise<void> => {
-  const images = Promise.all(
-    Array.from(document.querySelectorAll<HTMLImageElement>('img')).map(waitForImageSettled),
+  await Promise.all(
+    Array.from(document.querySelectorAll<HTMLImageElement>('img')).map((image) =>
+      waitForImageSettled(image, timeoutMilliseconds, signal),
+    ),
   );
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const timedOut = new Promise<void>((resolve) => {
-    timeout = setTimeout(resolve, timeoutMilliseconds);
-  });
-  await Promise.race([images, timedOut]);
-  if (timeout) clearTimeout(timeout);
 };
 
 const layoutFingerprint = (document: Document): string => {

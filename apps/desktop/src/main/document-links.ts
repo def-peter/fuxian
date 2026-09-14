@@ -96,7 +96,14 @@ export async function openDocumentLink(
       await dependencies.openExternal(link.url);
       return { status: 'opened' };
     } catch {
-      return fail(link.url, t('无法打开链接，请检查默认浏览器后重试。'));
+      return fail(
+        link.url,
+        t(
+          link.url.startsWith('mailto:')
+            ? '无法打开邮件链接，请检查默认邮件应用后重试。'
+            : '无法打开链接，请检查默认浏览器后重试。',
+        ),
+      );
     }
   }
   if (link.kind !== 'local') return fail('', t('链接地址无效或使用了不支持的协议。'));

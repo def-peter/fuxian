@@ -15,6 +15,7 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { type Plugin, unified } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
+import { preserveTextStyles } from './text-styles';
 
 export interface RenderMarkdownInput {
   resourceBaseUrl?: string;
@@ -260,8 +261,10 @@ const supportedImageExtensions = new Set([
 
 const finishedDocumentSchema: SanitizeSchema = {
   ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'mark', 'u'],
   attributes: {
     ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'style'],
     a: [...(defaultSchema.attributes?.a ?? []), 'dataInvalidDocumentLink'],
     blockquote: [
       ['className', 'callout'],
@@ -293,7 +296,7 @@ const finishedDocumentSchema: SanitizeSchema = {
   clobberPrefix: rawHtmlIdPrefix,
   protocols: {
     ...defaultSchema.protocols,
-    href: ['http', 'https'],
+    href: ['http', 'https', 'mailto'],
     src: ['http', 'https'],
   },
 };
@@ -450,7 +453,7 @@ const blockedImageMessages: Record<DocumentResourceError, string> = {
   'invalid-url': '图片地址无效或使用了不安全的协议。',
   'path-traversal': '图片路径超出了文档的授权范围。',
   'unsupported-format': '不支持这种图片格式。',
-  unauthorized: '只允许访问文档目录内的相对图片。',
+  unauthorized: '只支持相对路径或 HTTP(S) 图片地址。',
 };
 
 type ImageResourceResolution =
@@ -463,6 +466,11 @@ const resolveImageResource = (
   const trimmedSource = source.trim();
   if (!trimmedSource) {
     return { status: 'blocked', error: 'invalid-url' };
+  }
+
+  const link = classifyDocumentLink(trimmedSource);
+  if (link.kind === 'external' && /^https?:/i.test(link.url)) {
+    return { status: 'resolved', url: link.url };
   }
 
   if (
@@ -482,18 +490,31 @@ const resolveImageResource = (
       return { status: 'blocked', error: 'invalid-url' };
     }
 
-    if (
-      segment === '..' ||
-      segment.includes('/') ||
-      segment.includes('\\') ||
-      segment.includes('\0')
-    ) {
+    if (segment.includes('/') || segment.includes('\\') || segment.includes('\0')) {
       return { status: 'blocked', error: 'path-traversal' };
     }
   }
 
   try {
     const baseUrl = new URL(resourceBaseUrl);
+    if (baseUrl.protocol !== 'fuxian-resource:') {
+      return { status: 'blocked', error: 'unauthorized' };
+    }
+    if (link.kind === 'local' && link.path.split('/').includes('..')) {
+      if (
+        ![...supportedImageExtensions].some((extension) =>
+          link.path.toLowerCase().endsWith(extension),
+        )
+      ) {
+        return { status: 'blocked', error: 'unsupported-format' };
+      }
+      // Keep .. out of the URL pathname: Chromium normalizes dot segments before
+      // handing a custom-protocol request to the main process.
+      const url = new URL('_relative', baseUrl);
+      url.searchParams.set('path', link.path);
+      if (link.fragment) url.hash = link.fragment;
+      return { status: 'resolved', url: url.href };
+    }
     const resolvedUrl = new URL(trimmedSource, baseUrl);
     if (
       baseUrl.protocol !== 'fuxian-resource:' ||
@@ -603,6 +624,7 @@ const transformDocumentImages: Plugin<[TransformDocumentImagesOptions], Root> =
                 alt,
                 dataResourceUrl: resolution.url,
                 decoding: 'async',
+                referrerPolicy: 'no-referrer',
                 loading: 'lazy',
                 src: resolution.url,
                 ...(title ? { title } : {}),
@@ -942,10 +964,7 @@ const enhanceCallouts: Plugin<[], Root> = () => (tree) => {
   });
 };
 
-const createMarkdownProcessor = (
-  imageOptions: TransformDocumentImagesOptions,
-  renderTasks: DocumentRenderTask[],
-) =>
+const createSourceProcessor = () =>
   unified()
     .use(remarkParse)
     .use(remarkFrontmatter)
@@ -954,8 +973,27 @@ const createMarkdownProcessor = (
     .use(hideFrontmatter)
     .use(transformCallouts)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
+    .use(rehypeRaw);
+
+/** Extract authored image references using the same Markdown/HTML grammar as rendering. */
+export function collectDocumentImageSources(source: string): string[] {
+  const processor = createSourceProcessor();
+  const tree = processor.runSync(processor.parse(source));
+  const sources: string[] = [];
+  visit(tree, 'element', (node) => {
+    if (node.tagName === 'img' && typeof node.properties.src === 'string')
+      sources.push(node.properties.src);
+  });
+  return sources;
+}
+
+const createMarkdownProcessor = (
+  imageOptions: TransformDocumentImagesOptions,
+  renderTasks: DocumentRenderTask[],
+) =>
+  createSourceProcessor()
     .use(markInvalidDocumentLinks)
+    .use(preserveTextStyles)
     .use(rehypeSanitize, finishedDocumentSchema)
     .use(createRenderTasks, renderTasks)
     .use(alignSanitizedFragmentLinks)

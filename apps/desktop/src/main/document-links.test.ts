@@ -190,4 +190,16 @@ describe('source-relative local document opening', () => {
       message: expect.stringContaining('默认浏览器'),
     });
   });
+
+  it('opens mail composition links and reports a missing mail handler', async () => {
+    const url = 'mailto:reader@example.com?subject=Hello';
+    expect(await open(url)).toEqual({ status: 'opened' });
+    expect(dependencies.openExternal).toHaveBeenCalledWith(url);
+    expect(realpath).not.toHaveBeenCalled();
+    dependencies.openExternal.mockRejectedValue(new Error());
+    expect(await open(url)).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('默认邮件应用'),
+    });
+  });
 });

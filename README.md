@@ -42,7 +42,7 @@ Open a visual full screen for a closer look, or copy its source or SVG to use el
 
 ### 📖 Easy to open. Comfortable to read. Ready to share.
 
-- **Open a file and settle in.** Open `.md` or `.markdown` files directly, with headings, tables, code, math, and local images laid out for reading. Adjust the font, text size, line spacing, and page width to suit you.
+- **Open a file and settle in.** Open `.md` or `.markdown` files directly, with headings, aligned tables, code, math, and local or web images laid out for reading. Basic HTML highlights, underlines, and author-defined text colors carry through to paper preview and PDF. Adjust the font, text size, line spacing, and page width to suit you.
 - **Find your way through longer reads.** Jump to a section from the heading outline, or open the article outline map to see how the ideas fit together.
 - **Pick up where you left off.** Switch freely between documents. When you quit and relaunch Fuxian, your open documents return with your place saved in each one.
 - **Spot a typo? Fix it as you read.** Switch to source editing, make a change or find and replace text, then save and return to reading. Light editing, with reading at the center.

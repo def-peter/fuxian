@@ -959,7 +959,7 @@ test('find highlights matches without changing the finished document selection',
   }
 });
 
-test('local images stay inside the source-document trust scope and can retry', async () => {
+test('local images include authored parent references, reject absolute paths and can retry', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-resource-'));
   const documentDirectory = join(temporaryDirectory, 'document');
   const nestedAssetsDirectory = join(documentDirectory, 'assets', 'nested');
@@ -982,7 +982,7 @@ test('local images stay inside the source-document trust scope and can retry', a
       '![Authorized](assets/nested/pixel.png)',
       '![Missing](assets/missing.png)',
       '![Broken](assets/broken.png)',
-      '![Traversal](../outside.png)',
+      '![Parent](../outside.png)',
       `![Absolute](${outsideImagePath})`,
     ].join('\n\n'),
   );
@@ -1020,14 +1020,12 @@ test('local images stay inside the source-document trust scope and can retry', a
     await expect(brokenResource.locator('img')).toBeHidden();
     await expect(brokenResource.getByRole('button', { name: '重试' })).toBeVisible();
 
-    await expect(
-      finishedDocument.locator('[data-resource-source="../outside.png"] img'),
-    ).toHaveCount(0);
-    await expect(
-      finishedDocument
-        .locator('[data-resource-source="../outside.png"]')
-        .getByText('图片路径超出了文档的授权范围。'),
-    ).toBeVisible();
+    const parentImage = finishedDocument.locator('[data-resource-source="../outside.png"] img');
+    await parentImage.scrollIntoViewIfNeeded();
+    await expect(parentImage).toBeVisible();
+    await expect
+      .poll(() => parentImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBe(1);
     await expect(
       finishedDocument.locator(`[data-resource-source="${outsideImagePath}"] img`),
     ).toHaveCount(0);
