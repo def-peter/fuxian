@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useLocalization } from '@/localization-context';
+import { SettingsSection } from './settings-section';
 
 export function DiagnosticControls(): React.JSX.Element {
   const { t } = useLocalization();
@@ -26,41 +27,43 @@ export function DiagnosticControls(): React.JSX.Element {
     }
   };
   return (
-    <section aria-labelledby="diagnostics-title" className="flex flex-col gap-3">
-      <h3 id="diagnostics-title" className="text-sm font-medium">
-        {t('诊断日志')}
-      </h3>
-      <p className="text-sm text-fg-secondary">
-        {t('本机保留最近 7 天、最多 10 MB。不记录正文和文件名，路径匿名化，不会自动上传。')}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={Boolean(busy)}
-          onClick={() => void perform('export')}
-          size="sm"
-          variant="outline"
-        >
-          {busy === 'export' ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <Download data-icon="inline-start" />
-          )}
-          {t('导出诊断日志')}
-        </Button>
-        <Button
-          disabled={Boolean(busy)}
-          onClick={() => void perform('clear')}
-          size="sm"
-          variant="ghost"
-        >
-          {busy === 'clear' ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <Trash2 data-icon="inline-start" />
-          )}
-          {t('清理日志')}
-        </Button>
-      </div>
+    <SettingsSection
+      id="diagnostics-title"
+      title={t('诊断日志')}
+      description={t(
+        '用于排查运行问题。本机保留最近 7 天的日志，最多 10 MB，不包含文档正文、文件名或原始路径。',
+      )}
+      actions={
+        <>
+          <Button
+            disabled={Boolean(busy)}
+            onClick={() => void perform('export')}
+            size="sm"
+            variant="outline"
+          >
+            {busy === 'export' ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <Download data-icon="inline-start" />
+            )}
+            {t('导出诊断日志')}
+          </Button>
+          <Button
+            disabled={Boolean(busy)}
+            onClick={() => void perform('clear')}
+            size="sm"
+            variant="ghost"
+          >
+            {busy === 'clear' ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <Trash2 data-icon="inline-start" />
+            )}
+            {t('清理日志')}
+          </Button>
+        </>
+      }
+    >
       <div aria-live="polite">
         {result === 'failed' ? (
           <Alert variant="destructive">
@@ -75,6 +78,6 @@ export function DiagnosticControls(): React.JSX.Element {
           </p>
         ) : null}
       </div>
-    </section>
+    </SettingsSection>
   );
 }

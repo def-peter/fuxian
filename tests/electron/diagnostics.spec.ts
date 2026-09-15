@@ -123,7 +123,7 @@ test('exports private local diagnostics and clears them without changing the doc
     await settings
       .getByRole('button', { name: 'Export logs', exact: true })
       .scrollIntoViewIfNeeded();
-    await expect(settings.getByText(/Local logs: up to 7 days/)).toBeVisible();
+    await expect(settings.getByText(/Stored locally for up to 7 days/)).toBeVisible();
     await settings.screenshot({ path: testInfo.outputPath('diagnostics-en.png') });
     const before = JSON.parse(await readFile(sessionPath, 'utf8'));
     await settings.getByRole('button', { name: 'Clear logs', exact: true }).click();
@@ -143,7 +143,9 @@ test('exports private local diagnostics and clears them without changing the doc
     });
     await settings.getByRole('button', { name: 'Export logs', exact: true }).click();
     await expect(settings.getByRole('button', { name: 'Export logs', exact: true })).toBeEnabled();
-    await expect(settings.getByRole('alert')).not.toContainText('Could not export or clear logs');
+    await expect(settings.getByText('Could not export or clear logs', { exact: true })).toHaveCount(
+      0,
+    );
     await app.evaluate(
       ({ dialog }, path) => {
         dialog.showSaveDialog = async () => ({ canceled: false, filePath: path });

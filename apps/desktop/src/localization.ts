@@ -4,8 +4,26 @@ const englishMessages = {
   诊断日志: 'Diagnostics',
   导出诊断日志: 'Export logs',
   清理日志: 'Clear logs',
-  '本机保留最近 7 天、最多 10 MB。不记录正文和文件名，路径匿名化，不会自动上传。':
-    'Local logs: up to 7 days and 10 MB. No document text or filenames; paths are anonymized. Never uploaded automatically.',
+  '用于排查运行问题。本机保留最近 7 天的日志，最多 10 MB，不包含文档正文、文件名或原始路径。':
+    'Logs help troubleshoot problems. Stored locally for up to 7 days and 10 MB, without document text, filenames, or original paths.',
+  官网: 'Website',
+  扩展: 'Extensions',
+  反馈问题: 'Report an issue',
+  软件更新: 'Software updates',
+  '检查是否有新版本可用。': 'Check for a newer version.',
+  '请稍后重试。': 'Please try again later.',
+  '图表创作 Skill': 'Diagram authoring skill',
+  '安装到 Codex、Claude Code 等 AI 工具，指导 AI 为 Markdown 文档编写流程图、数据图表和信息图代码。':
+    'Install this skill in Codex, Claude Code, or another AI tool to guide it in writing code for flowcharts, data charts, and infographics in Markdown documents.',
+  查看安装步骤: 'Show installation steps',
+  收起安装步骤: 'Hide installation steps',
+  使用指南: 'Usage guide',
+  复制命令: 'Copy command',
+  '安装 Node.js 后，在终端运行以下命令，按提示选择你的 AI 工具和安装范围。':
+    'With Node.js installed, run this command in a terminal. Follow the prompts to choose your AI tool and installation scope.',
+  '安装后，告诉 AI：「使用 fuxian-diagram 为这份文档添加图表。」再用浮现打开生成的 Markdown。':
+    'Then ask your AI: “Use fuxian-diagram to add diagrams to this document.” Open the resulting Markdown in Fuxian.',
+  '复制失败，请选中命令手动复制。': 'Could not copy. Select the command and copy it manually.',
   无法处理诊断日志: 'Could not export or clear logs',
   '请检查保存位置和磁盘空间，然后重试。':
     'Check the save location and available disk space, then try again.',

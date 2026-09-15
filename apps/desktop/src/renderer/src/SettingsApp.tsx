@@ -14,18 +14,16 @@ import {
   type UiLocale,
 } from '@fuxian/shared-types';
 import {
-  CircleArrowUp,
   CircleAlert,
   CircleCheck,
   CircleMinus,
-  Download,
   ExternalLink,
   FileText,
   Info,
   Monitor,
   Moon,
   Network,
-  PackageOpen,
+  Puzzle,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -35,6 +33,9 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { AboutSettings } from '@/components/about-settings';
+import { ExtensionsSettings } from '@/components/extensions-settings';
+import { cn } from '@/lib/utils';
 import {
   Field,
   FieldDescription,
@@ -44,7 +45,6 @@ import {
   FieldTitle,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Spinner } from '@/components/ui/spinner';
@@ -52,13 +52,9 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
 import { DocumentWidthControls } from '@/document-width-controls';
 import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-document';
-import { FuxianAppIcon } from '@/fuxian-mark';
 import { useLocalization } from '@/localization-context';
-import { UpdateReleaseNotes } from '@/components/update-release-notes';
-import { DiagnosticControls } from '@/components/diagnostic-controls';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
-import { useAppUpdateStatus } from '@/use-app-update-status';
 
 type PlantUmlValidationState =
   | { status: 'idle' }
@@ -128,23 +124,19 @@ async function render(source: string) {
 const settingsSections: Array<{
   icon: typeof Sun;
   id: SettingsSectionId;
-  label: 'PlantUML' | '关于与更新' | '外观' | '文档' | '通用';
+  label: 'PlantUML' | '关于与更新' | '外观' | '文档' | '通用' | '扩展';
 }> = [
   { icon: Settings2, id: 'general', label: '通用' },
   { icon: Sun, id: 'appearance', label: '外观' },
   { icon: FileText, id: 'document', label: '文档' },
   { icon: Network, id: 'plantuml', label: 'PlantUML' },
+  { icon: Puzzle, id: 'extensions', label: '扩展' },
   { icon: Info, id: 'about', label: '关于与更新' },
 ];
 
 const initialSettingsSection = (): SettingsSectionId => {
   const requested = new URLSearchParams(globalThis.location.search).get('section');
   return isSettingsSectionId(requested) ? requested : 'appearance';
-};
-
-const formatBytes = (bytes: number | undefined): string => {
-  if (!bytes || bytes < 0) return '0 MB';
-  return `${(bytes / 1_048_576).toFixed(1)} MB`;
 };
 
 const appearanceOptions: Array<{
@@ -209,8 +201,8 @@ const updateDocumentTypography = (
 export function SettingsApp(): React.JSX.Element {
   const { preferences, ready, resolvedAppearance, updatePreferences } = useReaderPreferences();
   const { locale, t } = useLocalization();
-  const appUpdateStatus = useAppUpdateStatus();
   const [section, setSection] = useState<SettingsSectionId>(initialSettingsSection);
+  const showDocumentPreview = section !== 'about' && section !== 'extensions';
   const [plantUmlServerDraft, setPlantUmlServerDraft] = useState<string>();
   const [plantUmlValidation, setPlantUmlValidation] = useState<PlantUmlValidationState>({
     status: 'idle',
@@ -316,30 +308,6 @@ export function SettingsApp(): React.JSX.Element {
     }
   };
 
-  const checkForUpdates = (): void => {
-    void window.fuxian.checkForAppUpdates();
-  };
-
-  const downloadUpdate = (): void => {
-    void window.fuxian.downloadAppUpdate();
-  };
-
-  const cancelUpdateDownload = (): void => {
-    void window.fuxian.cancelAppUpdateDownload();
-  };
-
-  const installUpdate = (): void => {
-    void window.fuxian.installAppUpdate();
-  };
-
-  const openUpdateRelease = (): void => {
-    void window.fuxian.openAppUpdateRelease();
-  };
-
-  const openProjectHomepage = (): void => {
-    void window.fuxian.openProjectHomepage();
-  };
-
   const refreshMarkdownDefaultAppStatus = (): void => {
     setDefaultAppLoading(true);
     void window.fuxian
@@ -371,7 +339,14 @@ export function SettingsApp(): React.JSX.Element {
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[168px_292px_minmax(0,1fr)]">
+      <div
+        className={cn(
+          'grid min-h-0',
+          showDocumentPreview
+            ? 'grid-cols-[168px_292px_minmax(0,1fr)]'
+            : 'grid-cols-[168px_minmax(0,1fr)]',
+        )}
+      >
         <nav
           aria-label={t('设置分区')}
           className="border-r border-line-subtle bg-surface-sidebar p-2"
@@ -392,7 +367,10 @@ export function SettingsApp(): React.JSX.Element {
         </nav>
 
         <main
-          className="min-h-0 overflow-y-auto border-r border-line-subtle bg-surface-panel px-5 py-6"
+          className={cn(
+            'min-h-0 min-w-0 overflow-y-auto bg-surface-panel py-6',
+            showDocumentPreview ? 'border-r border-line-subtle px-5' : 'px-8',
+          )}
           aria-busy={!ready}
           data-settings-surface="form"
         >
@@ -496,218 +474,8 @@ export function SettingsApp(): React.JSX.Element {
             </section>
           ) : null}
 
-          {section === 'about' ? (
-            <section aria-labelledby="about-title">
-              <h2 className="text-base font-semibold" id="about-title">
-                {t('关于与更新')}
-              </h2>
-              <p className="mt-1 text-sm text-fg-secondary">
-                {appUpdateStatus.delivery === 'release-page'
-                  ? t('查看当前版本，有新版本时前往 GitHub Release 下载。')
-                  : t('查看当前版本，并在你准备好时下载和安装更新。')}
-              </p>
-              <Separator className="my-5" />
-
-              <div className="flex items-center gap-3">
-                <FuxianAppIcon className="size-12" decorative={false} />
-                <div className="min-w-0">
-                  <p className="font-semibold">{t('浮现')}</p>
-                  <p className="text-sm text-fg-secondary">
-                    {t('版本 {version}', { version: appUpdateStatus.currentVersion || '--' })}
-                  </p>
-                </div>
-              </div>
-              <Button className="mt-4" onClick={openProjectHomepage} size="sm" variant="outline">
-                <ExternalLink data-icon="inline-start" />
-                {t('项目主页')}
-              </Button>
-
-              <Separator className="my-5" />
-              <div aria-live="polite" className="flex flex-col gap-4">
-                {appUpdateStatus.phase === 'idle' ? (
-                  <Button onClick={checkForUpdates} size="sm">
-                    <RefreshCw data-icon="inline-start" />
-                    {t('检查更新')}
-                  </Button>
-                ) : null}
-
-                {appUpdateStatus.phase === 'checking' ? (
-                  <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
-                    <Spinner />
-                    {t('正在检查更新...')}
-                  </div>
-                ) : null}
-
-                {appUpdateStatus.phase === 'up-to-date' ? (
-                  <Alert>
-                    <CircleCheck aria-hidden="true" />
-                    <AlertTitle>{t('当前已是最新版本')}</AlertTitle>
-                    <AlertDescription>
-                      <Button onClick={checkForUpdates} size="sm" variant="outline">
-                        <RefreshCw data-icon="inline-start" />
-                        {t('重新检查')}
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-
-                {appUpdateStatus.phase === 'available' ? (
-                  <>
-                    <Alert>
-                      <CircleArrowUp aria-hidden="true" />
-                      <AlertTitle>
-                        {t('新版本 {version} 可用', {
-                          version: appUpdateStatus.availableVersion ?? '',
-                        })}
-                      </AlertTitle>
-                      <AlertDescription>
-                        <p>
-                          {t('当前版本 {version}', { version: appUpdateStatus.currentVersion })}
-                        </p>
-                      </AlertDescription>
-                    </Alert>
-                    {appUpdateStatus.message ? (
-                      <p className="text-sm text-fg-secondary">{appUpdateStatus.message}</p>
-                    ) : null}
-                    {appUpdateStatus.delivery === 'release-page' ? (
-                      <Button onClick={openUpdateRelease} size="sm">
-                        <ExternalLink data-icon="inline-start" />
-                        {t('前往 GitHub Release')}
-                      </Button>
-                    ) : (
-                      <Button onClick={downloadUpdate} size="sm">
-                        <Download data-icon="inline-start" />
-                        {t('下载更新')}
-                      </Button>
-                    )}
-                  </>
-                ) : null}
-
-                {appUpdateStatus.phase === 'downloading' ? (
-                  <>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span>
-                        {t('正在下载 {version}', {
-                          version: appUpdateStatus.availableVersion ?? '',
-                        })}
-                      </span>
-                      <output className="tabular-nums">
-                        {Math.round(appUpdateStatus.percent ?? 0)}%
-                      </output>
-                    </div>
-                    <Progress aria-label={t('更新下载进度')} value={appUpdateStatus.percent ?? 0} />
-                    <p className="text-xs tabular-nums text-fg-secondary">
-                      {formatBytes(appUpdateStatus.transferred)} /{' '}
-                      {formatBytes(appUpdateStatus.total)}
-                      {' · '}
-                      {formatBytes(appUpdateStatus.bytesPerSecond)}/s
-                    </p>
-                    <Button onClick={cancelUpdateDownload} size="sm" variant="outline">
-                      {t('取消下载')}
-                    </Button>
-                  </>
-                ) : null}
-
-                {appUpdateStatus.phase === 'downloaded' ? (
-                  <>
-                    <Alert>
-                      <CircleCheck aria-hidden="true" />
-                      <AlertTitle>{t('更新已准备好')}</AlertTitle>
-                      <AlertDescription>
-                        <p>
-                          {t(
-                            appUpdateStatus.delivery === 'manual-install'
-                              ? '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。'
-                              : '重启浮现即可安装 {version}。',
-                            {
-                              version: appUpdateStatus.availableVersion ?? '',
-                            },
-                          )}
-                        </p>
-                        {appUpdateStatus.message ? <p>{appUpdateStatus.message}</p> : null}
-                      </AlertDescription>
-                    </Alert>
-                    <div className="flex items-center gap-2">
-                      <Button onClick={installUpdate} size="sm">
-                        {appUpdateStatus.delivery === 'manual-install' ? (
-                          <PackageOpen data-icon="inline-start" />
-                        ) : (
-                          <RefreshCw data-icon="inline-start" />
-                        )}
-                        {t(
-                          appUpdateStatus.delivery === 'manual-install'
-                            ? '打开安装包'
-                            : '重启并更新',
-                        )}
-                      </Button>
-                      <Button onClick={() => window.close()} size="sm" variant="outline">
-                        {t('稍后')}
-                      </Button>
-                    </div>
-                  </>
-                ) : null}
-
-                {appUpdateStatus.phase === 'installing' ? (
-                  <div className="flex items-center gap-2 text-sm text-fg-secondary" role="status">
-                    <Spinner />
-                    {t('正在重启并安装更新...')}
-                  </div>
-                ) : null}
-
-                {appUpdateStatus.phase === 'error' ? (
-                  <Alert variant="destructive">
-                    <Info aria-hidden="true" />
-                    <AlertTitle>{t('软件更新失败')}</AlertTitle>
-                    <AlertDescription>
-                      <p>{appUpdateStatus.message ?? t('暂时无法完成更新。')}</p>
-                      <Button
-                        onClick={
-                          appUpdateStatus.availableVersion ? downloadUpdate : checkForUpdates
-                        }
-                        size="sm"
-                        variant="outline"
-                      >
-                        <RefreshCw data-icon="inline-start" />
-                        {t('重试')}
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-
-                {appUpdateStatus.phase === 'unsupported' ? (
-                  <Alert>
-                    <Info aria-hidden="true" />
-                    <AlertTitle>{t('当前环境不检查更新')}</AlertTitle>
-                    <AlertDescription>
-                      {t('正式安装的 Windows 和 macOS 版本支持软件更新。')}
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-
-                {appUpdateStatus.phase !== 'unsupported' &&
-                !(
-                  appUpdateStatus.delivery === 'release-page' &&
-                  appUpdateStatus.phase === 'available'
-                ) ? (
-                  <Button onClick={openUpdateRelease} size="sm" variant="ghost">
-                    <ExternalLink data-icon="inline-start" />
-                    {t('在 GitHub 下载')}
-                  </Button>
-                ) : null}
-                {appUpdateStatus.releaseNotes &&
-                ['available', 'downloading', 'downloaded', 'error'].includes(
-                  appUpdateStatus.phase,
-                ) ? (
-                  <UpdateReleaseNotes
-                    notes={appUpdateStatus.releaseNotes}
-                    onOpen={openUpdateRelease}
-                  />
-                ) : null}
-              </div>
-              <Separator className="my-5" />
-              <DiagnosticControls />
-            </section>
-          ) : null}
+          {section === 'about' ? <AboutSettings /> : null}
+          {section === 'extensions' ? <ExtensionsSettings /> : null}
 
           {section === 'appearance' ? (
             <section aria-labelledby="appearance-title">
@@ -946,19 +714,7 @@ export function SettingsApp(): React.JSX.Element {
           ) : null}
         </main>
 
-        {section === 'about' ? (
-          <aside
-            aria-label={t('关于浮现')}
-            className="flex min-h-0 flex-col items-center justify-center border-l border-line-subtle bg-surface-stage px-8 text-center"
-            data-settings-surface="preview"
-          >
-            <FuxianAppIcon className="size-24" decorative={false} />
-            <h2 className="mt-5 text-lg font-semibold">{t('浮现')}</h2>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-fg-secondary">
-              {t('让内容精彩浮现，让 Markdown 值得阅读。')}
-            </p>
-          </aside>
-        ) : (
+        {showDocumentPreview ? (
           <aside
             className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)] bg-surface-stage"
             aria-label={t('实时预览')}
@@ -978,7 +734,7 @@ export function SettingsApp(): React.JSX.Element {
               />
             </div>
           </aside>
-        )}
+        ) : null}
       </div>
     </div>
   );

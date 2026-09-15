@@ -136,7 +136,7 @@ test('manual language selection applies live, persists, and never translates doc
       )
       .toEqual([]);
     await settings.getByRole('button', { name: 'About & Updates', exact: true }).click();
-    await settings.getByRole('button', { name: 'Project Homepage', exact: true }).click();
+    await settings.getByRole('link', { name: 'GitHub', exact: true }).click();
     await expect
       .poll(() =>
         app.evaluate(() => Reflect.get(globalThis, '__fuxianOpenedExternalUrls') as unknown),

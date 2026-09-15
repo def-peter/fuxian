@@ -93,12 +93,14 @@ export interface AppUpdateStatus {
   transferred?: number | undefined;
 }
 
-export type SettingsSectionId = 'about' | 'appearance' | 'document' | 'general' | 'plantuml';
+export type SettingsSectionId =
+  'about' | 'appearance' | 'document' | 'extensions' | 'general' | 'plantuml';
 
 export const isSettingsSectionId = (value: unknown): value is SettingsSectionId =>
   value === 'about' ||
   value === 'appearance' ||
   value === 'document' ||
+  value === 'extensions' ||
   value === 'general' ||
   value === 'plantuml';
 

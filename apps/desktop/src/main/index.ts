@@ -1511,6 +1511,16 @@ const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
   configureWindowMenu(window, process.platform);
   configureE2EWindow(window);
   settingsWindow = window;
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    void openExternalUrl(url);
+    return { action: 'deny' };
+  });
+  window.webContents.on('will-navigate', (event, url) => {
+    if (url !== window.webContents.getURL()) {
+      event.preventDefault();
+      void openExternalUrl(url);
+    }
+  });
   window.once('ready-to-show', () => revealInteractiveWindow(window));
   window.on('closed', () => {
     settingsWindow = undefined;
