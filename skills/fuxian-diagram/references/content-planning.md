@@ -1,38 +1,38 @@
-# 从模糊请求到内容锚点
+# From vague requests to content anchors
 
-用户说“帮这篇报告加些图”时，不需要先知道图类型。先理解材料的读者、核心问题与证据，选出能显著降低理解成本的内容。
+Users asking to “add some diagrams to this report” need not know diagram types. Understand the audience, central questions, and evidence first, then choose content whose visualization substantially reduces the effort of understanding it.
 
-## 候选内容
+## Candidate content
 
-| 内容特征               | 需要解释的问题                 | 可能的图形方向           |
-| ---------------------- | ------------------------------ | ------------------------ |
-| 多角色交接、顺序与异常 | 谁在何时负责什么，失败会怎样   | 活动/泳道或时序          |
-| 多层组件、跨边界依赖   | 有哪些部分，它们如何协作       | 组件/部署或层级          |
-| 同一对象多个状态       | 何时进入/退出某个状态          | 状态图                   |
-| 许多可比数字           | 最大差异、变化趋势或分布是什么 | Vega-Lite 对应统计图     |
-| 多个观点、阶段、优劣   | 哪些重点应被记住               | 信息图列表、时间线或比较 |
-| 只有简单单句事实       | 是否真的比文字更清楚           | 通常保留文字             |
+| Content pattern                                       | Question to explain                                     | Possible representation                   |
+| ----------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------- |
+| Handoffs across roles, ordering, and exceptions       | Who owns each step, and what happens on failure?        | Activity/swimlane or sequence             |
+| Layered components and dependencies across boundaries | What are the parts, and how do they collaborate?        | Component/deployment or hierarchy         |
+| Several states of one object                          | When does it enter or leave a state?                    | State diagram                             |
+| Many comparable values                                | What is the largest difference, trend, or distribution? | Appropriate Vega-Lite statistical chart   |
+| Several viewpoints, stages, or tradeoffs              | Which points should readers remember?                   | Infographic list, timeline, or comparison |
+| A simple single-sentence fact                         | Would a diagram really be clearer?                      | Usually keep prose                        |
 
-## 示例：给一份上线说明配图
+## Example: illustrating a launch guide
 
-假设材料中已经包含：上线目标、人工审批与回退规则、各阶段耗时数据、交付清单。
+Suppose the material already includes launch goals, manual approval and rollback rules, stage durations, and a deliverables checklist.
 
-候选锚点可以是：
+Possible anchors:
 
-1. 审批段落 → “未通过时退回哪一步” → 审批人、条件、回退和终止 → 放在上线步骤之后 → PlantUML 泳道。
-2. 耗时表 → “哪个阶段耗时最多” → 相同单位的阶段耗时与统计窗口 → 放在性能结论旁 → Vega-Lite 条形。
-3. 交付清单 → “需要准备哪些成果” → 并列交付项 → 如果现有短列表已足够清楚，就保留列表。
+1. Approval passage → “Which step receives a rejected request?” → Approvers, conditions, rollback, and termination → After the launch steps → PlantUML swimlanes.
+2. Duration table → “Which stage takes longest?” → Stage durations in the same units and measurement window → Beside the performance conclusion → Vega-Lite bars.
+3. Deliverables checklist → “Which outputs must be prepared?” → Parallel deliverables → Retain the list if it is already short and clear.
 
-由内容决定图的数量与组合；不要求每份材料都用四种引擎，也不为每节机械配图。
+Let content determine the number and combination of diagrams. A document need not use all four engines or have a diagram in every section.
 
-## 缺失信息的处理
+## Missing information
 
-已有正文时先读正文，不问“你想画哪一部分”。主题或文件来源完全缺失时询问来源；只有某个数据字段缺失时继续能独立完成的关系图，并指出数据图缺什么。
+Read existing material before asking which part to illustrate. Ask for the topic or source when both are absent. If only a data field is missing, continue independently useful relationship diagrams and identify what the statistical chart still needs.
 
-事实不足以确定关系时保留“待确认”，不凭常见架构补出队列、缓存、重试或审批环节。用户只需要示意时，明确哪些是示意假设。
+Mark relationships as unconfirmed when evidence is insufficient. Do not invent queues, caches, retries, or approval steps from common architectures. For a purely illustrative request, state the illustrative assumptions.
 
-## 文档整合
+## Document integration
 
-图题陈述这幅图的目的；图放在读者刚遇到该难点的位置。附近正文交代口径、限制和例外，图内标签保持简洁。总览与细节分图时共用术语，避免同一实体在不同图里更名。
+Use a caption that states the diagram's purpose and place the diagram where the reader first encounters the difficulty. Explain definitions, limits, and exceptions in nearby prose; keep labels concise. Overview and detail views share terminology rather than renaming the same entity.
 
-检查一遍读者能否只凭图题、图和邻近说明回答原始问题，再进入 [validation.md](validation.md) 的渲染与排版验证。
+Check whether the caption, diagram, and adjacent explanation answer the original question, then follow [validation.md](validation.md) for rendering and layout verification.

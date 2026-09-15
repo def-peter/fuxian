@@ -43,6 +43,12 @@ Skill 提供创作指令和参考资料。阅读生成的 Markdown、导出 PDF 
 
 为整篇文档配图时，先锚定关键内容和难点，保留来源事实，交付可编辑源码。有渲染工具时校验语法与版式；无法验证渲染时明确说明。
 
+## 语言支持
+
+支持中文和英文请求。明确指定的输出语言优先；修改文档时沿用目标文档语言，其他任务默认跟随用户请求。图题、标签、图例和说明使用对应语言，语法关键字、标识符和数据字段保留原写法。
+
+执行指令、细分参考资料和示例文案统一以英文编写，生成结果仍按用户或目标文档的语言输出。需要中英双语标签或分别交付两个语言版本时，可直接提出。
+
 ## 试着这样说
 
 - “给这份设计文档配图，选出最难理解的部分，把图放在对应内容旁边。”
@@ -65,10 +71,10 @@ Skill 提供创作指令和参考资料。阅读生成的 Markdown、导出 PDF 
 - [图形选择指南](references/selection-guide.md)
 - [浮现能力与渲染边界](references/capabilities.md)
 - 引擎参考：[PlantUML](references/plantuml.md)、[Mermaid](references/mermaid.md)、[Vega-Lite](references/vega-lite.md)、[Infographic](references/infographic.md)
-- [参考来源与致谢](references/sources.md)
+- [官方来源与维护依据](references/sources.md)
 
 项目链接用于说明来源和提供阅读器下载入口；Skill 不要求 AI 在生成的图示或回答中插入宣传链接。
 
 ## 许可证
 
-由 Peter Li 创作，使用 [MIT 许可证](LICENSE)。上游参考来源见上述致谢文档。
+由 Peter Li 创作，使用 [MIT 许可证](LICENSE)。

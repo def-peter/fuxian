@@ -1,35 +1,35 @@
-# 架构、部署与代码映射
+# Architecture, deployment, and code mapping
 
-用户指定 Mermaid 时，常规架构和部署可以用 `flowchart` 的节点、分组与有标签连接表达。C4、architecture 等专用声明需核对目标版本；不要因为上游某个平台支持就假定 Fuxian 的版本也支持相同用法。
+When Mermaid is requested, ordinary architecture and deployment views can use `flowchart` nodes, groups, and labeled connections. Check the target version for dedicated declarations such as C4 or architecture; another platform's support does not establish support in Fuxian's version.
 
-### 事件驱动的系统总览（示例）
+### Event-driven system overview (example)
 
 ```mermaid
 flowchart TB
-  user["业务调用方"] -->|HTTPS| processing
-  subgraph processing["处理系统"]
-    api["接入服务"] -->|提交任务| queue["任务队列"]
-    queue -->|投递| worker["任务处理器"]
-    worker -->|写入| database[("结果库")]
-    api -->|查询| database
+  user["Business client"] -->|HTTPS| processing
+  subgraph processing["Processing system"]
+    api["API service"] -->|Submit task| queue["Task queue"]
+    queue -->|Deliver| worker["Worker"]
+    worker -->|Write| database[("Results database")]
+    api -->|Query| database
   end
-  processing -->|返回状态| user
+  processing -->|Return status| user
 ```
 
-节点在同一抽象层次上：这里是运行时服务，不展开函数和文件。队列箭头表示数据投递；它不是模块 import 关系。
+Keep nodes at the same abstraction level: runtime services here, without expanding functions or files. Queue arrows represent data delivery, not module imports.
 
-## 从材料提取
+## Extracting evidence
 
-- 应用入口和路由 → 外部调用方、系统入口。
-- 服务接口和调用实现 → 运行时交互；配置提供可用性条件。
-- Docker Compose、部署清单或 IaC → 实例、网络与存储；不要凭框架惯例添加网关或缓存。
-- 消息发布者、topic 与消费者 → 事件边；补充投递与确认边界所需的事实。
-- 源码目录和 import → 模块依赖图；不要自动等同于微服务部署。
+- Application entry points and routes → External callers and system entry points.
+- Service interfaces and call implementations → Runtime interactions; configuration establishes availability conditions.
+- Docker Compose, deployment manifests, or IaC → Instances, networks, and storage; do not add gateways or caches from framework conventions alone.
+- Message publishers, topics, and consumers → Event edges; include facts needed to explain delivery and acknowledgement boundaries.
+- Source directories and imports → Module dependencies, not automatically microservice deployment.
 
-详细证据流程见 [code-to-diagram.md](../code-to-diagram.md)。
+See [code-to-diagram.md](../code-to-diagram.md) for the evidence workflow.
 
-## 布局与降级
+## Layout and fallback
 
-总览保留参与者、系统边界和主数据流；内部组件或部署拓扑单独展开。每种边的标签说明协议或作用，不依赖颜色猜含义。子图跨边太多时调整分组依据，避免用同一张图承担“组织结构”“网络安全域”和“调用顺序”三个问题。
+Keep actors, system boundaries, and main dataflows in the overview. Expand internal components or deployment topology separately. Label each edge type with its protocol or purpose rather than relying on color. If too many edges cross subgraphs, reconsider the grouping: one diagram should not simultaneously explain organization, network security zones, and call order.
 
-目标平台不能渲染某个专用声明时，可以说明限制并用同一引擎的常规 flowchart 保留结构；如果用户要求严格 C4 语义，应明确指出简化后的标记差异。
+If the target cannot render a dedicated declaration, explain the limitation and preserve the structure with an ordinary flowchart in the same engine. If strict C4 semantics were requested, identify the notation differences introduced by simplification.

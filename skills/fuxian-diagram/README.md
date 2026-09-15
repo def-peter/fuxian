@@ -43,6 +43,12 @@ Your explicit diagram type, engine, theme, or colors take priority. PlantUML is 
 
 For a whole document, the skill selects the important or difficult passages first. It preserves source facts, supplies editable diagram source, and checks syntax and layout when rendering tools are available. If rendering cannot be verified, it reports that limit.
 
+## Languages
+
+Use the skill with Chinese or English requests. Explicit output-language instructions take priority; document edits follow the target document's language, and other tasks follow your request's language. Diagram titles, labels, legends, and explanations follow that choice. Syntax keywords, identifiers, and data fields keep their original spelling.
+
+The agent instructions, detailed references, and example copy are written in English; generated output follows the requested language. Ask explicitly for bilingual labels or separate language versions when needed.
+
 ## Try it
 
 - “Add diagrams to this design document. Choose the parts that are hardest to understand and place the diagrams beside the relevant text.”
@@ -65,10 +71,10 @@ Fuxian is a Markdown desktop reader for Windows and macOS. It renders all four d
 - [Diagram selection guide](references/selection-guide.md)
 - [Fuxian capabilities and rendering limits](references/capabilities.md)
 - Engine references: [PlantUML](references/plantuml.md), [Mermaid](references/mermaid.md), [Vega-Lite](references/vega-lite.md), [Infographic](references/infographic.md)
-- [Sources and acknowledgements](references/sources.md)
+- [Official sources and maintenance](references/sources.md)
 
 Project links provide attribution and a reader download path. The skill does not ask agents to insert promotional links into generated diagrams or answers.
 
 ## License
 
-Created by Peter Li. Released under the [MIT License](LICENSE). Upstream reference sources are acknowledged in the documentation above.
+Created by Peter Li. Released under the [MIT License](LICENSE).

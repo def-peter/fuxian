@@ -1,28 +1,28 @@
-# PlantUML 布局与故障定位
+# PlantUML layout and diagnosis
 
-先保留语义，再调整布局。`mars` 是默认主题，不是布局引擎；添加主题无法解决节点过多、长文本或错误关系。
+Preserve semantics before adjusting layout. `mars` is the default theme, not a layout engine; a theme cannot fix excessive nodes, long text, or incorrect relationships.
 
-| 现象                     | 优先检查                       | 修正方法                                                |
-| ------------------------ | ------------------------------ | ------------------------------------------------------- |
-| 返回 SVG，但显示语法错误 | 错误文本、错误行、开始标记     | 修正声明或图类型；不能把 HTTP 200 当作渲染通过          |
-| 活动图突然不识别         | 是否混用了旧节点语法或方向指令 | 使用同一套新活动语法，逐段恢复分支                      |
-| 类/组件图过宽            | 长标签、过多平级节点、长距离边 | 短别名、语义分组、上下排列、拆层次                      |
-| 时序图过宽               | 参与者数量和消息长度           | 短显示名、消息换行、按事务拆图                          |
-| 注释撑大整幅图           | note 是否复制正文              | 图中仅留关键约束，详细说明放附近正文                    |
-| 中文缺字                 | 实际渲染服务的字体             | 选择服务端可用字体；本机安装字体无法修复远程服务        |
-| 箭头穿过标签             | 布局约束或正交线与边标签       | 先减少强制方向/隐藏边，尝试默认连线；不要机械设置 ortho |
-| 主题或 include 失败      | 服务版本、库是否存在           | 核实目标服务支持；保留用户主题要求并说明具体限制        |
+| Symptom                             | Check first                                        | Correction                                                                                               |
+| ----------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| SVG contains a syntax error         | Error text, line, and start marker                 | Correct the declaration/type; HTTP 200 does not establish successful rendering                           |
+| Activity syntax stops working       | Mixed legacy nodes or direction directives         | Use modern activity syntax consistently; restore branches incrementally                                  |
+| Class/component diagram is too wide | Long labels, many peers, long-distance edges       | Short aliases, semantic groups, vertical layout, or separate levels                                      |
+| Sequence is too wide                | Participant count and message length               | Short display names, message wrapping, or separate transactions                                          |
+| Note expands the whole diagram      | Prose copied into a note                           | Keep key constraints in the diagram and details nearby                                                   |
+| Missing Chinese glyphs              | Fonts on the actual rendering service              | Choose a server-available font; local font installation cannot fix a remote service                      |
+| Arrows cross labels                 | Layout constraints or orthogonal edges with labels | Reduce forced directions/hidden edges first; try default routing rather than applying ortho mechanically |
+| Theme/include fails                 | Service version and library availability           | Verify target support, retain the requested theme requirement, and explain the specific limitation       |
 
-## 可用的布局手段
+## Available layout techniques
 
-结构图可选 `left to right direction`；默认上下通常更适合窄栏。`nodesep` 与 `ranksep` 可微调结构图节点和层次间距；调整后必须检查真实渲染，不按固定数值强制所有图。
+Structural diagrams may use `left to right direction`; the default vertical direction often suits narrow columns better. `nodesep` and `ranksep` tune node and rank spacing in structural diagrams. Inspect actual rendering after changes rather than imposing fixed values on every diagram.
 
-时序图可用 `hide footbox` 去掉重复的底部参与者框；消息长时用 `\n`；分段可用 `== 阶段 ==`。活动图优先调整分支组织与泳道，不套用结构图布局参数。
+Sequence diagrams can use `hide footbox` to remove repeated bottom participants, `\n` for long messages, and `== Stage ==` for sections. For activity diagrams, prioritize branch organization and lanes rather than structural-diagram layout parameters.
 
-隐藏边只用于已经确认语义后的局部对齐；不要让隐藏边与大量手工方向共同束缚布局。颜色代表角色或状态时附文字说明，错误路径除了颜色还应有标签。
+Use hidden edges only for local alignment after semantics are established. Avoid overconstraining layout with hidden edges and many manual directions. If colors denote roles or states, explain them in text; label error paths as well as coloring them.
 
-## 修复循环
+## Correction loop
 
-保留原始错误 → 用同一服务复现 → 缩小到相关声明/片段 → 修改完整源码 → 重渲染 → 检查普通文档宽度。网络失败与语法失败分开报告；不得为避开网络故障而偷偷改用户指定引擎。
+Preserve the original error → Reproduce with the same service → Isolate the relevant declaration/fragment → Edit complete source → Rerender → Inspect at normal document width. Report network and syntax failures separately; do not silently switch a requested engine to avoid a network failure.
 
-通用成品检查见 [validation.md](../validation.md)。
+See [validation.md](../validation.md) for shared artifact checks.

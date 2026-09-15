@@ -1,63 +1,65 @@
 ---
 name: fuxian-diagram
-description: 为 Fuxian Markdown 创建或改进图示。用户要求画图、可视化、解释复杂内容或为文档配图时，先锚定内容，再选择 PlantUML、Mermaid、Vega-Lite 或 AntV Infographic，生成源码并校验排版；用户无需了解这些引擎。
+description: Create or improve diagrams for Fuxian Markdown. When users ask for diagrams, visualizations, explanations of complex content, or document illustrations, identify the content to explain, choose PlantUML, Mermaid, Vega-Lite, or AntV Infographic, generate source, and validate layout. Users need no prior knowledge of these engines.
 ---
 
 # Fuxian Diagram
 
-项目来源：[浮现 Fuxian](https://github.com/def-peter/fuxian)，支持图示阅读与 PDF 导出的 Markdown 桌面应用。
+From [Fuxian](https://github.com/def-peter/fuxian), a Markdown desktop reader with diagram rendering and PDF export.
 
-把读者需要理解的关键内容转成可阅读、可交付的图示，默认输出 Fuxian 可渲染的 Markdown 代码块。沿用用户的语言与术语。
+Turn the reader's key questions into readable, deliverable diagrams. Default to Markdown fences that Fuxian can render. Preserve the user's terminology.
 
-## 1. 锚定内容
+**Language:** These instructions and references are written in English; output is not restricted to English. Support Chinese and English requests. Follow an explicitly requested output language first, otherwise the target document's language when editing a document, or the user's request language for other tasks. Use that language for titles, labels, legends, and explanations; translate example copy as needed. Preserve syntax keywords, identifiers, data fields, and text the user asks to retain. Produce both language versions only when requested, then recheck text length, fonts, and layout.
 
-区分用户是否指定了**内容、图类型、引擎、样式、交付位置**。例如“时序图”指定了图类型，并未指定 Mermaid；“用 Mermaid”指定了引擎，并未指定要画什么。
+## 1. Anchor the content
 
-- 已指定内容：围绕该内容作图，保留其范围。
-- 只说“帮这篇文档做可视化”：阅读正文、数据或相关源码，找出核心结论、跨角色交互、分支与异常、状态变化、容易混淆的概念，以及需要比较的数据。按解释收益选择，避免逐段配图。
-- 对每幅候选图，形成一个内容锚点：**来源段落或数据 → 读者要回答的问题 → 必须保留的事实或关系 → 放置位置**。先锚定，再选引擎。
-- 现有内容足够时，用一句话说明会图示哪些重点并继续。只有缺少内容来源、关键数据或会改变含义的事实时才询问；不要把引擎、模板选择交还给不了解它们的用户。
+Distinguish explicit choices of **content, diagram type, engine, style, and delivery location**. For example, “sequence diagram” specifies a type, not Mermaid; “use Mermaid” specifies an engine, not the subject.
 
-整篇文档配图、范围模糊或需要组合多图时，读取 [content-planning.md](references/content-planning.md)；从实际源码或配置生成图时，读取 [code-to-diagram.md](references/code-to-diagram.md)。
+- When content is specified, diagram that content and preserve its scope.
+- For “visualize this document,” read the prose, data, or relevant source code. Identify core conclusions, interactions across roles, branches and exceptions, state changes, confusing concepts, and data comparisons. Select content by explanatory value rather than illustrating every paragraph.
+- Establish an anchor for each candidate diagram: **source passage or data → reader's question → facts or relationships that must survive → placement**. Anchor first, then select the engine.
+- If the available content is sufficient, briefly state the intended focus and proceed. Ask only when the source, essential data, or meaning-changing facts are missing. Make engine and template choices for users unfamiliar with them.
 
-每幅图回答一个主要问题。复杂内容可拆成总览与局部图；简单事实保留文字或表格。未知关系标为待确认，示例数据明确标注，不能把推测画成既定事实。
+For whole documents, unclear scope, or multiple diagrams, read [content-planning.md](references/content-planning.md). For diagrams derived from actual code or configuration, read [code-to-diagram.md](references/code-to-diagram.md).
 
-## 2. 选择表达方式
+Each diagram answers one main question. Split complex material into overview and detail views; keep simple facts as prose or tables. Mark unknown relationships as unconfirmed and example data as illustrative. Do not present assumptions as established facts.
 
-用户指定的图类型、引擎和样式优先；编辑已有图时保留其格式，除非用户要求更换。未指定时依据内容选择：
+## 2. Choose the representation
 
-| 读者的问题                                             | 默认选择             | 判断依据                                                        |
-| ------------------------------------------------------ | -------------------- | --------------------------------------------------------------- |
-| 谁与谁交互、步骤如何分支、状态怎样变化、组件如何依赖？ | **PlantUML**         | 流程、时序、状态、架构、UML 等关系建模；默认 `!theme mars`      |
-| 明确要求 Mermaid，或交付环境需要 Mermaid？             | **Mermaid**          | 遵循指定语法和目标平台；两者同样适用且无其他约束时优先 PlantUML |
-| 哪个更多、如何变化、分布怎样、变量是否相关？           | **Vega-Lite**        | 需要准确的数值、坐标、比例尺和统计比较                          |
-| 有哪些重点、阶段、优劣、层级，需要快速理解与记忆？     | **AntV Infographic** | 叙事概览、要点、里程碑、对比卡片，文案与信息结构为主            |
+Explicit diagram type, engine, and style take priority. Preserve an existing diagram's format unless the user requests a change. Before automatic selection, read the [diagram-type inventory](references/selection-guide.md#diagram-type-inventory) to identify candidate types and their coverage status. For an explicit engine, read that engine's type inventory directly. Then choose by content:
 
-PlantUML 的优先级用于与 Mermaid 重叠的场景，不替代适合统计分析的 Vega-Lite 或适合叙事的信息图。边界案例见 [selection-guide.md](references/selection-guide.md)。
+| Reader's question                                                                                    | Default              | Rationale                                                                                                              |
+| ---------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Who interacts, how do steps branch, how do states change, or how do components depend on each other? | **PlantUML**         | Processes, sequences, states, architecture, and UML relationships; default to `!theme mars`                            |
+| Is Mermaid explicitly requested or required by the delivery environment?                             | **Mermaid**          | Follow the requested syntax and target platform; prefer PlantUML when both fit equally and no other constraint applies |
+| Which is larger, how does it change, how is it distributed, or are variables related?                | **Vega-Lite**        | Accurate values, coordinates, scales, and statistical comparison                                                       |
+| Which points, stages, tradeoffs, or levels should readers understand and remember?                   | **AntV Infographic** | Narrative overviews, key points, milestones, and comparison cards organized around copy and information structure      |
 
-## 3. 编写图示
+PlantUML takes priority only where its use cases overlap with Mermaid. It does not replace Vega-Lite for statistical analysis or Infographic for narrative summaries. See [selection-guide.md](references/selection-guide.md) for boundary cases.
 
-先读 [capabilities.md](references/capabilities.md) 确认 Fuxian 边界，再读取选中引擎的索引，并按其中的任务条件读取具体图类型指南。编写前读取 [validation.md](references/validation.md)，确定当前可用的渲染与截图入口：仓库内查根 package.json 的脚本与对应 tests/electron 用例；仓库外查可用应用或所选引擎工具，如 `command -v plantuml`、`command -v mmdc`。复用现有环境，无工具时继续完成源码并记录待验证项。
+## 3. Author the diagram
 
-- [plantuml.md](references/plantuml.md)：图类型、关系语义、mars 主题与布局。
-- [mermaid.md](references/mermaid.md)：声明、标签、分组、常见语法问题。
-- [vega-lite.md](references/vega-lite.md)：数据、mark、encoding、比例尺与快照行为。
-- [infographic.md](references/infographic.md)：模板选择、字段匹配、文案和样式。
+Read [capabilities.md](references/capabilities.md) for Fuxian's boundaries, then the selected engine's index and the relevant diagram-type guides. Before authoring, read [validation.md](references/validation.md) and locate available rendering and screenshot tools: inside the repository, inspect root package.json scripts and corresponding tests/electron cases; elsewhere, inspect available apps or engine tools such as `command -v plantuml` or `command -v mmdc`. Reuse the existing environment. If tools are unavailable, complete the source and record outstanding verification.
 
-细分指南包含可改写的完整示例、关系/数据语义、布局方法与排错要点。四类最小完整代码块见 [fence-syntax.md](references/fence-syntax.md)。默认把代码块放在对应内容附近，配简短图题和必要的数据口径或关系说明。交付独立图时保留可编辑源码；用户要求图片或 PDF 时再生成对应文件。
+- [plantuml.md](references/plantuml.md): diagram types, relationship semantics, mars theme, and layout.
+- [mermaid.md](references/mermaid.md): declarations, labels, grouping, and syntax pitfalls.
+- [vega-lite.md](references/vega-lite.md): data, marks, encodings, scales, and snapshot behavior.
+- [infographic.md](references/infographic.md): template selection, field mapping, copy, and styling.
 
-## 4. 校验与交付
+The detailed guides provide complete adaptable examples, relationship or data semantics, layout techniques, and troubleshooting. See [fence-syntax.md](references/fence-syntax.md) for minimal complete fences. Place diagrams near the corresponding content with a brief caption and any necessary metric definitions or relationship notes. Retain editable source for standalone diagrams; generate image or PDF files when requested.
 
-按 [validation.md](references/validation.md) 执行：源码检查 → 实际渲染 → 查看正常与较窄版面。parser/compile 通过只完成第一步。逐项对照内容锚点，确认**判定条件、边标签、基数、关键数值、方案名称、日期**在成品中完整可读；源码含有这些文本不代表图上显示了它们。需要 PDF 时另查真实分页。
+## 4. Validate and deliver
 
-| 触发条件                   | 修复动作                                                                                                                   | 仍未解决时                                                 |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| 标签遮挡、断行失真或字太小 | 流程图将条件保留在判定节点、边上用短标签；其他图保留各自的条件归属。调整分支、回路、方向或卡片尺寸，必要时拆图，再渲染查看 | 保留事实完整的源码，列明具体未通过的版面项                 |
-| 语法错误、空图、模板漏项   | 保存原始错误；按引擎指南核对声明、数据与 design 类型，再用同一运行时复现                                                   | 同因失败且无新证据时停止重复尝试，交付最小复现与已完成部分 |
-| 服务、字体或资源不可用     | 区分环境故障与源码错误；核查已有配置和可用本地路径，可选资源缺失时保留文本语义                                             | 说明受阻环节；用户指定的引擎或类型不静默替换               |
+Follow [validation.md](references/validation.md): source checks → actual rendering → inspection at normal and narrower widths. Parsing or compilation completes only the first step. Compare the result against each content anchor: **decision conditions, edge labels, cardinalities, key values, option names, and dates** must remain fully readable. Text present in source is not proof that it appears in the diagram. Check actual pagination separately when PDF is required.
 
-每次修复后重新检查受影响的图。自动选定的模板可在同一引擎内换成保留全部关键事实的已核实模板；只有会改变用户明确要求或事实含义的取舍才询问。
+| Trigger                                                  | Correction                                                                                                                                                                                                                    | If unresolved                                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Overlapping labels, distorted line breaks, or tiny text  | In flowcharts, keep conditions in decision nodes and use short edge labels; preserve each other diagram type's condition placement. Adjust branches, loops, direction, or card size; split if needed, then render and inspect | Keep source containing all facts and list the specific layout checks that failed                        |
+| Syntax error, blank diagram, or missing template content | Preserve the original error; check declarations, data, and design types against the engine guide, then reproduce in the same runtime                                                                                          | Stop repeating the same failure without new evidence; deliver a minimal reproduction and completed work |
+| Unavailable service, font, or resource                   | Distinguish environment failures from source errors; check existing configuration and available local paths; preserve textual meaning when optional resources are missing                                                     | Identify the blocked step; do not silently replace an explicitly requested engine or type               |
 
-交付时简述内容与图形理由，提供成品或 Markdown 路径，按**源码检查、实际渲染、版面检查**分别说明结果；做过视觉检查时保留截图或成品位置。没有渲染环境时标注“尚未渲染及视觉验证”；存在失败项时明确列出，不能统称验证通过。
+After each correction, recheck affected diagrams. An automatically selected template may be replaced within the same engine by a verified template that preserves all key facts. Ask only about tradeoffs that change an explicit requirement or factual meaning.
 
-维护本 skill、升级引擎或追溯参考取舍时，读取 [sources.md](references/sources.md)。
+Briefly explain the content and diagram choice, provide the artifact or Markdown path, and report **source checks, actual rendering, and layout inspection** separately. Retain screenshot or artifact locations when visual inspection was performed. Without rendering tools, state “Not yet rendered or visually verified.” List any failures explicitly rather than reporting an overall pass.
+
+When maintaining this skill, upgrading engines, or investigating known problems, read [sources.md](references/sources.md).

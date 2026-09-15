@@ -1,19 +1,40 @@
-# 选择边界
+# Diagram types and selection boundaries
 
-| 场景                                               | 选择与内容锚点                                                                             |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| “把审批规则画清楚”，有金额门槛、多人审批、拒绝回退 | PlantUML 活动图；锚定判定条件与角色责任，需要时用泳道                                      |
-| “解释支付接口”，有请求、回调、超时重试             | PlantUML 时序图；锚定同步与异步边界、成功与失败路径                                        |
-| “展示订单生命周期”                                 | PlantUML 状态图；状态是节点，动作或事件是迁移标签                                          |
-| “架构太复杂了”                                     | PlantUML 组件/部署图；先区分逻辑依赖与物理部署，不把全部细节堆到一张图                     |
-| “给老板看项目推进过程”                             | 只需阶段与成果时用 Infographic；存在关键分支或责任交接时用 PlantUML                        |
-| “比较两个方案”                                     | 定性优劣用 Infographic；同口径成本、延迟等数值用 Vega-Lite；精确查值可保留表格             |
-| “每月销售额对比”                                   | Vega-Lite；确认时间、单位、口径与系列，趋势用折线、类别比较用柱形                          |
-| “做一张思维导图”                                   | 只指定类型时优先 PlantUML mindmap；完整使用其专用起止标记；明确指定 Mermaid 时用 `mindmap` |
-| “整理文章目录”                                     | 普通 Markdown 标题即可让 Fuxian 生成文章结构图；只有需要正文内的图时才创作图块             |
-| “用 Mermaid 画这个流程”                            | Mermaid flowchart；PlantUML 默认偏好不覆盖明确选择                                         |
-| “必须离线画流程”                                   | PlantUML 仅在可用的本地服务下符合要求；否则说明原因并用 Mermaid                            |
-| “给长报告配图”，已有正文与数据                     | 先找关键结论与理解难点，再逐图选型；允许流程图与统计图组合，不要求四种引擎都出现           |
-| “帮我做个可视化”，没有任何内容                     | 询问要解释的主题或内容来源；不虚构业务、数据和关系                                         |
+## Diagram-type inventory
 
-指定引擎与指定类型冲突时，说明具体不匹配处；有等价表达时保留用户意图并说明映射，没有等价表达时询问取舍。目标环境不支持用户指定格式时同样处理，不能静默改成另一种图。
+Use this overview before automatic selection, then read the relevant engine inventory for type-specific guides or official references. Choose the representation from the content anchor, required semantics, and delivery constraints.
+
+| Engine inventory                   | Types covered by local guides                                                                                                                                                                    | Further candidates in the engine inventory                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PlantUML](plantuml.md)            | Activity/flowchart, swimlanes, sequence, state, class, ER, component, deployment, use case, object, package, mindmap, WBS                                                                        | Timing, Gantt, chronology, network, ArchiMate, wireframe, structured data, grammar, file trees, and other specialized families                                |
+| [Mermaid](mermaid.md)              | Flowchart, sequence, state, class, ER, mindmap, Gantt; architecture modeled with flowchart groups                                                                                                | Journey, timeline, pie, quadrant, requirements, Git graph, C4, Sankey, XY, block, packet, Kanban, native architecture, and further version-dependent families |
+| [Vega-Lite](vega-lite.md)          | Bar/column, grouped bars, line, area, histogram, box plot, scatter, heatmap, normalized stack, donut, layered charts, facets                                                                     | Density, dot/strip, error bars/bands, ranged bars/Gantt, waterfall, streamgraph, maps, and composed views                                                     |
+| [AntV Infographic](infographic.md) | Lists/cards, steps/timeline/roadmap, binary comparison, SWOT, quadrants, hierarchy/organization trees, mindmap, relations, column chart, word cloud; catalog candidates for cycle/funnel/pyramid | Bar, line, pie/donut, network/circular relations, interaction sequences, and structural hierarchies                                                           |
+
+**Coverage is not a universal support guarantee:**
+
+- **Local guide:** Authoring guidance or adaptable examples exist in this skill. A verified example does not certify every syntax variant or target version.
+- **Further candidate:** The engine documents the family or the inspected runtime registers it; this skill does not yet provide a full guide or rendered verification for it. Check the official syntax, installed version/service, and Fuxian's [capabilities](capabilities.md), then render and inspect before claiming support. A missing local guide alone is not grounds to reject a requested type.
+- **Unavailable in the target:** A required declaration, plugin, resource, or behavior is absent or excluded by the capability contract. Explain the actual constraint and preserve explicit choices when discussing alternatives.
+
+For example, dependency scheduling may need a Gantt chart; weighted flows may need a Sankey diagram; requirements traceability may need a requirement diagram. Discover these candidates before falling back to a familiar flowchart. Keep quantitative analysis in Vega-Lite where it can represent the required semantics; an engine's narrative chart templates do not replace statistical scales.
+
+## Scenario boundaries
+
+| Scenario                                                                                       | Choice and content anchor                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| “Clarify these approval rules,” with amount thresholds, several approvers, and rejection loops | PlantUML activity diagram; anchor decision conditions and role responsibilities, using swimlanes when useful                                               |
+| “Explain the payment API,” with requests, callbacks, timeouts, and retries                     | PlantUML sequence diagram; anchor sync/async boundaries and success/failure paths                                                                          |
+| “Show the order lifecycle”                                                                     | PlantUML state diagram; states are nodes, actions or events label transitions                                                                              |
+| “The architecture is too complex”                                                              | PlantUML component/deployment diagrams; distinguish logical dependencies from physical deployment and split detail across views                            |
+| “Show project progress to management”                                                          | Infographic for stages and outcomes; PlantUML when meaningful branches or responsibility handoffs matter                                                   |
+| “Compare two options”                                                                          | Infographic for qualitative tradeoffs; Vega-Lite for comparable costs, latency, or other values; retain a table for precise lookup                         |
+| “Compare monthly sales”                                                                        | Vega-Lite; establish time, units, metric definitions, and series; lines for trends, bars for category comparisons                                          |
+| “Create a mind map”                                                                            | Prefer PlantUML mindmap when only the type is specified, using its dedicated start/end markers; use Mermaid `mindmap` if explicitly requested              |
+| “Organize the article outline”                                                                 | Ordinary Markdown headings let Fuxian generate the article structure map; author a diagram fence only when an in-document diagram is needed                |
+| “Use Mermaid for this process”                                                                 | Mermaid flowchart; the PlantUML preference does not override an explicit choice                                                                            |
+| “The process diagram must work offline”                                                        | PlantUML meets the requirement only with an available local service; otherwise explain the constraint and use Mermaid                                      |
+| “Illustrate this long report,” with prose and data supplied                                    | Identify core conclusions and difficulties, then choose per diagram; combine processes and statistical charts as useful without requiring all four engines |
+| “Make a visualization,” with no content supplied                                               | Ask for the topic or source; do not fabricate a business scenario, data, or relationships                                                                  |
+
+If the specified engine and type conflict, explain the mismatch. Preserve intent with an equivalent representation and explain the mapping when one exists; otherwise ask about the tradeoff. Apply the same approach when the target environment does not support the requested format rather than silently substituting another diagram.

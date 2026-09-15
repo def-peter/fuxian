@@ -1,68 +1,68 @@
-# 用例、对象与包图
+# Use case, object, and package diagrams
 
-这些图解决不同问题，按当前任务只选其中一种。
+These solve different questions; select the one relevant to the current task.
 
-## 用例：角色能完成什么目标
+## Use cases: goals an actor can accomplish
 
-用例不是页面清单或执行顺序。系统边界内画能力，边界外画角色；`include` 的箭头指向必需复用的用例，`extend` 的箭头指向被扩展的基本用例。
+Use cases are neither page lists nor execution sequences. Put capabilities inside the system boundary and actors outside. An `include` arrow points to the required reused use case; an `extend` arrow points to the base use case being extended.
 
 ```plantuml
 @startuml
 !theme mars
 left to right direction
-title 报告交付用例
-actor "作者" as Author
-rectangle "报告系统" {
-  usecase "交付报告" as Deliver
-  usecase "检查完整性" as Validate
-  usecase "附加水印" as Watermark
+title Report delivery use cases
+actor "Author" as Author
+rectangle "Report system" {
+  usecase "Deliver report" as Deliver
+  usecase "Check completeness" as Validate
+  usecase "Add watermark" as Watermark
 }
 Author --> Deliver
 Deliver ..> Validate : <<include>>
-Watermark ..> Deliver : <<extend>>\n[需要标记版本]
+Watermark ..> Deliver : <<extend>>\n[Version marking needed]
 @enduml
 ```
 
-这里完整性检查总会发生，水印为条件性扩展。若实际业务并非如此，应改关系而不是沿用示例。
+Completeness checking always occurs here; watermarking is conditional. Change the relationships if the real business differs rather than copying the example's assumptions.
 
-## 对象：某一时刻的具体实例
+## Objects: concrete instances at a moment in time
 
-从故障现场或示例输入解释“这些实例如何关联”，用对象图；类型职责用类图。
+Use object diagrams to explain instance relationships from an incident or example input; use class diagrams for type responsibilities.
 
 ```plantuml
 @startuml
 !theme mars
-title 订单快照（示例）
+title Order snapshot (example)
 object "order42 : Order" as Order {
-  status = "待发货"
+  status = "Awaiting shipment"
   total = 120
 }
 object "line1 : OrderLine" as Line {
   quantity = 2
   unitPrice = 60
 }
-Order *-- Line : 包含
+Order *-- Line : contains
 @enduml
 ```
 
-显示的是实例值而非类字段声明；数据脱敏与来源标记遵从任务约束。例子的数量、单价与总额应自洽。
+These are instance values, not class field declarations. Follow task constraints for redaction and source labeling. Keep example quantity, unit price, and total consistent.
 
-## 包：模块分层与依赖
+## Packages: module layers and dependencies
 
 ```plantuml
 @startuml
 !theme mars
-title 模块依赖
-package "界面层" as UI
-package "应用层" as App
-package "领域层" as Domain
-package "持久化适配器" as Storage
-UI ..> App : 调用
-App ..> Domain : 使用模型
-Storage ..> Domain : 实现领域契约
+title Module dependencies
+package "UI layer" as UI
+package "Application layer" as App
+package "Domain layer" as Domain
+package "Persistence adapter" as Storage
+UI ..> App : calls
+App ..> Domain : uses model
+Storage ..> Domain : implements domain contract
 @enduml
 ```
 
-依赖方向以源码为准，不能按分层架构教科书自动补边。发现循环依赖时保留它并解释，不能通过移动节点假装依赖消失。
+Derive dependency directions from source rather than automatically adding textbook layers. Preserve and explain cyclic dependencies; moving nodes does not remove the cycle.
 
-官方语法：[用例](https://plantuml.com/use-case-diagram)、[对象](https://plantuml.com/object-diagram)、[包与类组织](https://plantuml.com/class-diagram)。
+Official syntax: [Use case](https://plantuml.com/use-case-diagram), [Object](https://plantuml.com/object-diagram), [Package/class organization](https://plantuml.com/class-diagram).

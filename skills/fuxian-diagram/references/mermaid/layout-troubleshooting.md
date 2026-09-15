@@ -1,30 +1,30 @@
-# Mermaid 布局与排错
+# Mermaid layout and troubleshooting
 
-| 现象                | 常见原因                             | 修正                                         |
-| ------------------- | ------------------------------------ | -------------------------------------------- |
-| 首行解析失败        | 声明拼写、两种图语法混用             | 确认图类型，声明单独成行                     |
-| 标签含括号就报错    | 未引用特殊字符                       | `node["文本（补充）"]`，稳定 ID 与文案分开   |
-| `end` 附近报错      | 关键字作为 ID、缺失分组结束          | 改 ID，逐层核对 `subgraph/alt/loop` 的闭合   |
-| 箭头变成圆头/叉头   | 连线紧邻以 o/x 开头的 ID             | 在边和 ID 之间留空格，核对目标箭头语法       |
-| 颜色未生效          | classDef 用了 CSS 大括号或分号分属性 | 使用逗号分隔属性，并核对 class 绑定          |
-| 子图 direction 无效 | 内部节点直接连接外部，布局继承父图   | 调整整体方向与分组，检查实际布局             |
-| HTML 标签缺失       | strict 安全模式或目标版本差异        | 使用简单文本，核对受支持标签，不降低安全模式 |
-| 时序执行条错误      | 分支中重复 deactivate                | 成对管理执行范围，必要时省略非关键执行条     |
+| Symptom                            | Common cause                                             | Correction                                                          |
+| ---------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
+| First-line parse failure           | Misspelled declaration or mixed diagram grammars         | Confirm the type and put the declaration on its own line            |
+| Parentheses in labels cause errors | Unquoted special characters                              | Use `node["Text (detail)"]`; separate stable IDs from copy          |
+| Error near `end`                   | Keyword used as ID or missing group closure              | Rename the ID and check `subgraph/alt/loop` closures at every level |
+| Unexpected circle/cross arrowhead  | Edge immediately followed by an ID starting with o/x     | Add whitespace between edge and ID; check the target arrow syntax   |
+| Colors do not apply                | CSS braces or semicolon-separated properties in classDef | Separate properties with commas and check class assignment          |
+| Subgraph direction has no effect   | Internal nodes connect outside, inheriting parent layout | Adjust overall direction/grouping and inspect the actual layout     |
+| HTML labels are missing            | Strict security or target-version differences            | Use simple text and supported tags; retain strict security          |
+| Incorrect sequence activation      | Repeated deactivate inside branches                      | Pair activation scopes; omit nonessential activations when needed   |
 
-## 本地渲染中需要特别检查
+## Special checks for local rendering
 
-- 类/ER 的基数或边标签裁切时，可在图源码 frontmatter 设置 `config.htmlLabels: false` 使用 SVG 文本，再检查所有标签。不要降低 securityLevel。
-- 分组标题被跨组边穿过时，总览可将边连到组边界；需要动作级精度时保留真实边，调整布局或拆出细图。
-- Gantt 原始宽度过大时，尝试 `config.gantt.useWidth` 配合 fontSize、barHeight 调整，并用明确 tickInterval 避免日期刻度重复。
+- If class/ER cardinalities or edge labels are clipped, try `config.htmlLabels: false` in source frontmatter to use SVG text, then inspect all labels. Do not lower securityLevel.
+- If cross-group edges run through group titles, an overview can connect group boundaries. Retain real edges for action-level precision, adjusting layout or separating detail views.
+- If a Gantt chart's native width is excessive, try `config.gantt.useWidth` with fontSize and barHeight, and set an explicit tickInterval to avoid repeated date ticks.
 
-## 布局原则
+## Layout principles
 
-先减少跨层边与冗余节点，再修改方向。流程、架构的边标签宜短；需要大段解释的术语用正文或图注。类图/ER 保留关键字段，时序图缩短参与者名。图例说明颜色和线型的含义；用户未要求时不必强制图标或 Emoji。
+Reduce cross-layer edges and redundant nodes before changing direction. Keep process and architecture edge labels short; explain longer terms in prose or captions. Retain key fields in class/ER diagrams and shorten sequence participant names. Explain colors and line styles in a legend; icons and emoji are optional unless requested.
 
-检查 SVG 中实际文本、背景和边框的对比度。某些图类型支持的样式命令不同，不能把 flowchart 的 `classDef` 当作所有图形的通用配色 API。
+Inspect actual SVG text, background, and border contrast. Styling commands differ by diagram type; flowchart `classDef` is not a universal color API.
 
-## 验证范围
+## Verification scope
 
-`parse` 只确认语法；实际渲染可暴露自动布局、字体和尺寸问题。Fuxian 中再次检查 sanitizer 后的成品以及目标宽度；只有在支持 `mmdc` 的环境才使用 CLI，它不是安装此 skill 的前置条件。
+`parse` confirms syntax only; rendering exposes automatic-layout, font, and size problems. Recheck the sanitized result in Fuxian at the target width. Use `mmdc` only where available; it is not a prerequisite for installing this skill.
 
-通用成品检查见 [validation.md](../validation.md)。
+See [validation.md](../validation.md) for shared artifact checks.

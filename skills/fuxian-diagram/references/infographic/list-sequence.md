@@ -1,55 +1,55 @@
-# 要点、步骤与里程碑
+# Key points, steps, and milestones
 
-并列观点用 list；有明确顺序、日期或阶段推进用 sequence。先统一每项表达粒度，再选择横排、纵排或网格。
+Use lists for parallel ideas and sequences for explicit order, dates, or stages. Make item granularity consistent before choosing horizontal, vertical, or grid layout.
 
-## 并列要点（示例）
+## Parallel points (example)
 
 ```infographic
 infographic list-grid-badge-card
 data
-  title 报告交付重点
+  title Report delivery priorities
   lists
-    - label 内容
-      desc 事实有据
+    - label Content
+      desc Evidence-based
       icon lucide/file-text
-    - label 结构
-      desc 层次清晰
+    - label Structure
+      desc Clear hierarchy
       icon lucide/list-tree
-    - label 图示
-      desc 突出重点
+    - label Diagrams
+      desc Highlight key points
       icon lucide/chart-bar
-    - label 校验
-      desc 成品可读
+    - label Validation
+      desc Readable output
       icon lucide/check
 ```
 
-列表的条目应能平行阅读。标签是类别，desc 是具体解释；不要四项分别写成部门、动作、时间和结论。
+Items should be readable as peers. Labels name categories and desc supplies specifics; do not mix a department, action, time, and conclusion as four parallel items.
 
-## 时间线（示例）
+## Timeline (example)
 
 ```infographic
 infographic sequence-timeline-simple
 data
-  title 项目交付里程碑
-  desc 日期为示例
+  title Project delivery milestones
+  desc Illustrative dates
   sequences
-    - label 09-01 明确范围
-      desc 确认阅读目标
-    - label 09-05 完成初稿
-      desc 整理事实依据
-    - label 09-10 完成交付
-      desc 检查成品排版
+    - label 09-01 Define scope
+      desc Confirm reading goals
+    - label 09-05 Finish draft
+      desc Organize evidence
+    - label 09-10 Deliver
+      desc Check final layout
 ```
 
-当前 `sequence-timeline-simple` 不单独绘制 `time`，所以把日期明确写入标签；其他模板也要实际核对 time 是否显示。若时间间隔长短很重要，时间线装饰布局不等于等比例时间轴，应考虑 Gantt 或 Vega-Lite。
+The current `sequence-timeline-simple` does not draw `time` separately, so dates belong in visible labels. Verify time visibility for other templates too. Decorative timeline layout is not a proportional time axis; consider Gantt or Vega-Lite when interval lengths matter.
 
-## 替换模式
+## Alternative patterns
 
-- 简短步骤：横向 sequence/list-arrow；有长解释时选纵向模板，如 `sequence-roadmap-vertical-plain-text`。
-- 并列要点多：网格比横向长条更适合文档；不要一味缩小字体。
-- 循环过程：仅在回到起点有业务含义时使用 circular 模板。
-- 漏斗/金字塔：只有存在筛选递减或层级含义时使用，不为了装饰把任意列表画成漏斗。
+- Short steps: horizontal sequence/list-arrow. For longer explanations, choose a vertical template such as `sequence-roadmap-vertical-plain-text`.
+- Many parallel points: a grid suits documents better than an excessively wide row; avoid repeatedly shrinking fonts.
+- Cyclic process: use circular templates only when returning to the beginning has business meaning.
+- Funnel/pyramid: use only for actual filtering, decreasing quantities, or hierarchy, not as decoration for an arbitrary list.
 
-## 内容与版面检查
+## Content and layout checks
 
-核对顺序、日期和文字层级；每项只保留一个主意思。若某项比其他项长很多，先拆分或将说明移到正文。模板选择可参考 [template-catalog.md](template-catalog.md)。
+Verify order, dates, and text hierarchy. Keep one main idea per item. If one item is much longer, split it or move explanation into prose. See [template-catalog.md](template-catalog.md) for template selection.

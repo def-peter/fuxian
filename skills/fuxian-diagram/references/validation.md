@@ -1,41 +1,41 @@
-# 内容与排版校验
+# Content and layout validation
 
-## 内容检查
+## Content checks
 
-对照每幅图的内容锚点检查：核心问题得到回答，关键实体/条件/异常没有遗漏，边方向和基数正确，数值/单位/时间范围与来源一致，推断和示例有明确标识。图题与附近正文解释同一件事。
+Compare each diagram with its content anchor: the main question is answered; key entities, conditions, and exceptions are present; edge directions and cardinalities are correct; values, units, and time windows match the source; and assumptions and examples are identified. The caption and adjacent prose explain the same subject.
 
-## 源码与渲染
+## Source and rendering
 
-使用当前环境中可用的目标渲染器，优先在 Fuxian 中检查最终 Markdown。独立渲染器可帮助修复语法，但不能替代 Fuxian 成品验证。
+Use the target renderer available in the current environment, preferably inspecting the final Markdown in Fuxian. Standalone renderers help diagnose syntax but do not replace verification of the finished Fuxian document.
 
-| 引擎        | 有意义的检查                                                                                                                |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| PlantUML    | 用可用的本地 CLI 或配置的服务渲染完整源码；检查输出是否是错误图以及中文字体、主题和布局。HTTP 成功或存在 SVG 不代表源码有效 |
-| Mermaid     | 用目标版本的 parser 检查，再用 Fuxian 或可用的 Mermaid CLI 渲染 SVG；解析成功并不证明标签没有裁切                           |
-| Vega-Lite   | JSON 解析、匹配版本 schema 校验、compile，再运行数据流生成 SVG；只有 compile 成功仍可能存在资源、表达式或尺寸错误           |
-| Infographic | `parseSyntax` 的 errors/warnings、模板名称及字段检查，再实际渲染；核对条目是否遗漏和可选图标是否缺失                        |
+| Engine      | Meaningful checks                                                                                                                                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PlantUML    | Render complete source using the available local CLI or configured service; check for an error diagram and inspect target-language fonts, theme, and layout. HTTP success or an SVG file does not prove valid source |
+| Mermaid     | Check with the target version's parser, then render SVG in Fuxian or an available Mermaid CLI; successful parsing does not prove labels are unclipped                                                                |
+| Vega-Lite   | Parse JSON, validate against the matching schema, compile, then execute the dataflow to generate SVG; compilation alone can miss resource, expression, or sizing failures                                            |
+| Infographic | Check `parseSyntax` errors/warnings, template names, and fields, then render; verify all items and optional icons are present                                                                                        |
 
-把图源码送往服务时遵循内容与目标环境的约束；离线要求下使用本地渲染器。已有工具就使用，不为普通作图强制安装一套全局工具链。
+Respect content and environment constraints when sending source to services; use local rendering for offline requirements. Reuse existing tools rather than requiring a global toolchain for ordinary diagram authoring.
 
-## 实际视觉检查
+## Visual inspection
 
-渲染后查看截图或导出的图，不能仅凭源码推断排版。按用户交付场景检查：
+Inspect screenshots or exported diagrams after rendering rather than inferring layout from source. Check the intended delivery context:
 
-- **正常阅读宽度**：标题、中文与符号完整，文字无重叠、裁切，箭头和图例可辨；缩放后仍可在文档正常字号下读清。
-- **较窄文档宽度**：检查宽图被整体缩小后是否难读，横向标签是否溢出。优先改方向、换模板、短标签或拆图。
-- **流程连线**：沿分支、合流和回路确认去向；PlantUML 活动图执行 [连线简洁性检查](plantuml/activity-swimlanes.md#连线简洁性检查)，核查中途箭头是否造成歧义。
-- **正文衔接**：图靠近对应解释，留白适量，图题不与图分离；不依赖单独全屏观看才能理解。
-- **纸张预览/PDF**：用户需要打印或 PDF 时检查真实分页、纸张边界、图题归属、长图缩放，以及静态帧是否保留含义。连续阅读的 A4 宽度不等于纸张预览。
+- **Normal reading width:** Titles, target-language text, and symbols are complete; text is neither overlapping nor clipped; arrows and legends are distinguishable; scaled diagrams remain readable at normal document text sizes.
+- **Narrower document width:** Check whether shrinking a wide diagram makes it unreadable or horizontal labels overflow. Prefer direction changes, another template, shorter labels, or splitting the diagram.
+- **Process connectors:** Follow branches, merges, and loops to verify their destinations. For PlantUML activity diagrams, apply the [connector clarity checks](plantuml/activity-swimlanes.md#connector-clarity-checks) and assess whether intermediate arrowheads introduce ambiguity.
+- **Prose integration:** Place the diagram near its explanation with appropriate whitespace and its caption attached. Understanding should not depend on opening a separate full-screen view.
+- **Paper preview/PDF:** When printing or PDF is requested, inspect actual pagination, page boundaries, caption placement, scaling of tall diagrams, and whether a static frame preserves meaning. An A4-width continuous view is not paper preview.
 
-处理顺序通常是：修正内容组织 → 标签换行/精简 → 方向/分组/模板 → 拆分总览和细节。修改后重新渲染受影响的图，并检查实际交付版面。
+A useful correction order is content organization → label wrapping/shortening → direction/grouping/template → separate overview and detail views. Rerender affected diagrams and inspect the actual delivery layout after changes.
 
-## 在 Fuxian 仓库内验证
+## Verification inside the Fuxian repository
 
-- `packages/markdown-renderer/src/skill-contract.test.ts` 检查本 skill 各级指南的完整示例能识别为对应图任务；它不是引擎渲染或排版测试。
-- 参考 `tests/electron/` 中对应图形与 PDF 测试使用现有隐藏 E2E 环境；默认保持隐藏，需要可视调试时使用仓库约定的 secondary 模式。
-- 等待图形任务成功并等待文档就绪；失败任务可能已经结束等待，但不代表图形正确。PDF 测试必须等待 `export-ready` 再检查导出结果。
-- 不在仓库内时使用可用的 Fuxian 应用或匹配版本渲染器；这些仓库路径不是安装 skill 后必须存在的依赖。
+- `packages/markdown-renderer/src/skill-contract.test.ts` checks that complete examples throughout this skill are recognized as the corresponding render tasks; it is not an engine-rendering or layout test.
+- Reuse the hidden E2E environment shown in the relevant diagram and PDF tests under `tests/electron/`. Keep it hidden by default; use the repository's secondary mode when visual debugging is needed.
+- Wait for diagram tasks to succeed and for document readiness. Failed tasks may have finished waiting without producing correct diagrams. PDF tests must wait for `export-ready` before checking exported output.
+- Outside the repository, use an available Fuxian app or matching renderer. These repository paths are not required dependencies of an installed skill.
 
-## 完成条件
+## Completion criteria
 
-区分并如实报告：**已检查源码**、**已实际渲染**、**已查看并通过目标版面检查**。达到用户需要的交付范围才称为验证通过。无渲染或截图工具时交付可编辑源码，列明未验证项，不声称排版通过，也不因校验条件不足而丢弃已完成内容。
+Report **source checked**, **actually rendered**, and **inspected and passed at the target layout** separately and truthfully. Call verification complete only within the requested delivery scope. If rendering or screenshot tools are unavailable, deliver editable source and list unverified checks. Do not claim layout success or discard completed work because verification is unavailable.

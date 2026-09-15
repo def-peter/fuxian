@@ -1,65 +1,65 @@
-# 类图与实体关系
+# Classes and entity relationships
 
-类图解释职责、接口、属性和类型关系；实体关系图解释持久化实体、主外键及基数。先判断用户要理解代码模型还是数据模型。
+Class diagrams explain responsibilities, interfaces, properties, and type relationships; ER diagrams explain persistent entities, primary/foreign keys, and cardinalities. Determine whether the question concerns the code model or the data model.
 
-## 类关系
+## Class relationships
 
-- `Child --|> Parent` 为继承，`Implementation ..|> Contract` 为接口实现，三角形指向更一般的类型。
-- `Whole *-- Part` 为组合，实心菱形在整体端；只有部分的生命周期由整体拥有时使用。
-- `Owner o-- Member` 为共享聚合；仅持有引用并不自动需要聚合符号，普通关联往往更明确。
-- `A ..> B` 为依赖；`A --> B` 为可导航关联。基数放在两端双引号内。
-- 成员可用 `+`、`-`、`#` 表示可见性；图只保留解释当前设计需要的成员。
+- `Child --|> Parent` is inheritance; `Implementation ..|> Contract` is interface realization. The triangle points to the more general type.
+- `Whole *-- Part` is composition, with the filled diamond at the whole. Use only when the whole owns the part's lifecycle.
+- `Owner o-- Member` is shared aggregation. Holding a reference does not automatically warrant aggregation; ordinary association is often clearer.
+- `A ..> B` is dependency; `A --> B` is navigable association. Quote cardinalities at each end.
+- Members may use `+`, `-`, and `#` for visibility. Retain only members needed to explain the current design.
 
-### 接口与职责（示例）
+### Interfaces and responsibilities (example)
 
 ```plantuml
 @startuml
 !theme mars
-title 报表导出职责
+title Report export responsibilities
 hide empty members
-interface "导出器" as Exporter {
+interface "Exporter" as Exporter {
   +export(document): File
 }
-class "PDF 导出器" as PdfExporter
-class "导出服务" as ExportService {
+class "PDF exporter" as PdfExporter
+class "Export service" as ExportService {
   +deliver(document): File
 }
-class "文档" as Document
-class "段落" as Paragraph
+class "Document" as Document
+class "Paragraph" as Paragraph
 PdfExporter ..|> Exporter
-ExportService --> Exporter : 使用
+ExportService --> Exporter : uses
 ExportService ..> Document
-Document "1" *-- "0..*" Paragraph : 包含
+Document "1" *-- "0..*" Paragraph : contains
 @enduml
 ```
 
-### 持久化关系（示例）
+### Persistent relationships (example)
 
 ```plantuml
 @startuml
 !theme mars
-title 订单数据关系
-entity "客户" as Customer {
+title Order data relationships
+entity "Customer" as Customer {
   * customer_id : uuid <<PK>>
   --
   name : text
 }
-entity "订单" as Order {
+entity "Order" as Order {
   * order_id : uuid <<PK>>
   --
   * customer_id : uuid <<FK>>
   total : decimal
 }
-Customer ||--o{ Order : 下单
+Customer ||--o{ Order : places
 @enduml
 ```
 
-此例表示每个订单恰好属于一个客户，一个客户可以没有订单或拥有多个订单。`*` 标识必填属性，与 `<<PK>>` 的主键标记是不同信息。
+Each order belongs to exactly one customer; a customer may have zero or many orders. `*` marks a required attribute, distinct from the `<<PK>>` primary-key marker.
 
-## 校验与排版
+## Validation and layout
 
-从模型定义或表结构验证外键可空性、唯一约束和真实基数；一对多不等于组合关系。多对多表结构需要展示关联表时就画出它，不能用一条边隐藏关键字段。引用外部类型只列相关接口，按领域分组，避免把整份 schema 或所有方法塞进一张图。
+Verify foreign-key nullability, uniqueness, and actual cardinalities from model definitions or table structures. One-to-many does not imply composition. Show the association table when a many-to-many schema requires it; a single edge must not hide important fields. Include only relevant interfaces for external types and group by domain rather than copying an entire schema or all methods into one diagram.
 
-Markdown 表格单元内的管道字符要转义；独立代码块里的 `|` 保持原样。
+Escape pipe characters inside Markdown table cells; keep `|` unchanged in standalone code fences.
 
-官方语法：[类图](https://plantuml.com/class-diagram)、[Information Engineering](https://plantuml.com/ie-diagram)。
+Official syntax: [Class](https://plantuml.com/class-diagram), [Information Engineering](https://plantuml.com/ie-diagram).

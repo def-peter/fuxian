@@ -1,29 +1,29 @@
-# 比较与排名
+# Comparisons and ranking
 
-用于回答“哪个更多、相差多少”。先确认比较对象、同一度量、时间窗口与单位；长类别名称优先横向条形。以下数据仅用于示例，不代表业务结论。
+Explain which is larger and by how much. Establish comparison subjects, a shared metric, time window, and units. Prefer horizontal bars for long category names. The data below is illustrative, not a business conclusion.
 
-## 排名条形
+## Ranked bars
 
-数量使用零基线，按值排序。明确图题与单位，必要时在正文提供精确值。
+Use a zero baseline for counts and sort by value. State the title and units clearly; provide exact values in prose when needed.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "渠道订单数（示例）",
+  "title": "Orders by channel (example)",
   "width": "container",
   "height": 180,
   "data": {
     "values": [
       {
-        "channel": "自然访问",
+        "channel": "Organic",
         "orders": 120
       },
       {
-        "channel": "推荐访问",
+        "channel": "Referral",
         "orders": 75
       },
       {
-        "channel": "广告访问",
+        "channel": "Advertising",
         "orders": 96
       }
     ]
@@ -42,7 +42,7 @@
     "x": {
       "field": "orders",
       "type": "quantitative",
-      "title": "订单数（笔）",
+      "title": "Orders (count)",
       "scale": {
         "zero": true
       }
@@ -84,46 +84,46 @@
 }
 ```
 
-## 同一类别的多个系列
+## Multiple series within a category
 
-并排柱形适合比较计划与实际、今年与去年。用 `xOffset` 分组，`color` 说明系列，不把两个系列堆叠成不成立的总量。
+Grouped bars suit planned/actual or this-year/last-year comparisons. Group with `xOffset` and identify series with `color`; do not stack series into a meaningless total.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "计划与实际（示例）",
+  "title": "Planned versus actual (example)",
   "width": "container",
   "height": 220,
   "data": {
     "values": [
       {
         "quarter": "Q1",
-        "series": "计划",
+        "series": "Planned",
         "value": 100
       },
       {
         "quarter": "Q1",
-        "series": "实际",
+        "series": "Actual",
         "value": 90
       },
       {
         "quarter": "Q2",
-        "series": "计划",
+        "series": "Planned",
         "value": 120
       },
       {
         "quarter": "Q2",
-        "series": "实际",
+        "series": "Actual",
         "value": 130
       },
       {
         "quarter": "Q3",
-        "series": "计划",
+        "series": "Planned",
         "value": 140
       },
       {
         "quarter": "Q3",
-        "series": "实际",
+        "series": "Actual",
         "value": 125
       }
     ]
@@ -141,19 +141,19 @@
       "axis": {
         "labelAngle": 0
       },
-      "title": "季度"
+      "title": "Quarter"
     },
     "xOffset": {
       "field": "series",
       "sort": [
-        "计划",
-        "实际"
+        "Planned",
+        "Actual"
       ]
     },
     "y": {
       "field": "value",
       "type": "quantitative",
-      "title": "交付量（份）",
+      "title": "Deliveries (documents)",
       "scale": {
         "zero": true
       }
@@ -161,11 +161,11 @@
     "color": {
       "field": "series",
       "type": "nominal",
-      "title": "系列",
+      "title": "Series",
       "scale": {
         "domain": [
-          "计划",
-          "实际"
+          "Planned",
+          "Actual"
         ],
         "range": [
           "#91CAFF",
@@ -213,12 +213,12 @@
 }
 ```
 
-## 判断与排错
+## Decisions and troubleshooting
 
-- 排名与时间顺序冲突时，以读者问题为准；趋势不能按数值排序。
-- 同比/环比要写清基期，百分比变化不等于百分点差。
-- 分类过多时先聚合或按任务选择 top N，说明其余项如何处理，不静默删去重要类别。
-- 正负差值图应保留零线与正负方向；柱形截断轴会夸大差异。
-- 标签裁切时改为横向条形、加大左边留白或缩短文案，不隐藏区分类别所需的信息。
+- If ranking conflicts with chronological order, follow the reader's question; do not sort a time trend by value.
+- State the comparison base for year-over-year or period-over-period metrics. Percentage change differs from percentage-point difference.
+- For many categories, aggregate or select a task-appropriate top N and explain how remaining categories are handled. Do not silently remove important categories.
+- Preserve zero and sign direction in difference charts. Truncated bar axes exaggerate differences.
+- For clipped labels, use horizontal bars, more left padding, or shorter copy without hiding text needed to distinguish categories.
 
-官方参考：[Bar](https://vega.github.io/vega-lite/docs/bar.html)、[Offset](https://vega.github.io/vega-lite/docs/encoding.html)。
+Official references: [Bar](https://vega.github.io/vega-lite/docs/bar.html), [Offset](https://vega.github.io/vega-lite/docs/encoding.html).

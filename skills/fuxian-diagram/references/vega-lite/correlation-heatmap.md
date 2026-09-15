@@ -1,15 +1,15 @@
-# 散点与热力图
+# Scatterplots and heatmaps
 
-散点解释两个变量的共同变化，热力图解释二维分类中的强度分布。以下样本仅演示结构，不能据此断言因果。
+Scatterplots explain covariation between two variables; heatmaps show intensity across two categorical dimensions. These samples illustrate structure, not evidence of causation.
 
-## 散点
+## Scatterplot
 
-每个点应是同一种观测单位，x/y 字段来自同一条记录；不要误把分别汇总的数据按行拼接。
+Each point must use the same observation unit, with x/y from the same record. Do not join separately aggregated values by row position.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "文档长度与处理耗时（示例）",
+  "title": "Document length and processing time (example)",
   "width": "container",
   "height": 240,
   "data": {
@@ -17,32 +17,32 @@
       {
         "pages": 3,
         "seconds": 2,
-        "kind": "纯文本"
+        "kind": "Text only"
       },
       {
         "pages": 8,
         "seconds": 4,
-        "kind": "纯文本"
+        "kind": "Text only"
       },
       {
         "pages": 12,
         "seconds": 6,
-        "kind": "纯文本"
+        "kind": "Text only"
       },
       {
         "pages": 5,
         "seconds": 7,
-        "kind": "含图表"
+        "kind": "With charts"
       },
       {
         "pages": 9,
         "seconds": 11,
-        "kind": "含图表"
+        "kind": "With charts"
       },
       {
         "pages": 14,
         "seconds": 15,
-        "kind": "含图表"
+        "kind": "With charts"
       }
     ]
   },
@@ -56,24 +56,24 @@
     "x": {
       "field": "pages",
       "type": "quantitative",
-      "title": "页数"
+      "title": "Pages"
     },
     "y": {
       "field": "seconds",
       "type": "quantitative",
-      "title": "处理耗时（秒）"
+      "title": "Processing time (seconds)"
     },
     "color": {
       "field": "kind",
       "type": "nominal",
-      "title": "文档类型",
+      "title": "Document type",
       "legend": {
         "orient": "top"
       },
       "scale": {
         "domain": [
-          "纯文本",
-          "含图表"
+          "Text only",
+          "With charts"
         ],
         "range": [
           "#1677FF",
@@ -118,46 +118,46 @@
 }
 ```
 
-## 二维热力图
+## Two-dimensional heatmap
 
-颜色编码数值，提供清晰色标；有序类别给出显式顺序。
+Encode values with color and a clear legend; explicitly order ordinal categories.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "时段任务量（示例）",
+  "title": "Tasks by time slot (example)",
   "width": "container",
   "height": 180,
   "data": {
     "values": [
       {
-        "day": "周一",
-        "period": "上午",
+        "day": "Monday",
+        "period": "Morning",
         "tasks": 12
       },
       {
-        "day": "周一",
-        "period": "下午",
+        "day": "Monday",
+        "period": "Afternoon",
         "tasks": 20
       },
       {
-        "day": "周二",
-        "period": "上午",
+        "day": "Tuesday",
+        "period": "Morning",
         "tasks": 18
       },
       {
-        "day": "周二",
-        "period": "下午",
+        "day": "Tuesday",
+        "period": "Afternoon",
         "tasks": 9
       },
       {
-        "day": "周三",
-        "period": "上午",
+        "day": "Wednesday",
+        "period": "Morning",
         "tasks": 7
       },
       {
-        "day": "周三",
-        "period": "下午",
+        "day": "Wednesday",
+        "period": "Afternoon",
         "tasks": 15
       }
     ]
@@ -168,9 +168,9 @@
       "field": "day",
       "type": "ordinal",
       "sort": [
-        "周一",
-        "周二",
-        "周三"
+        "Monday",
+        "Tuesday",
+        "Wednesday"
       ],
       "title": null,
       "axis": {
@@ -181,15 +181,15 @@
       "field": "period",
       "type": "ordinal",
       "sort": [
-        "上午",
-        "下午"
+        "Morning",
+        "Afternoon"
       ],
       "title": null
     },
     "color": {
       "field": "tasks",
       "type": "quantitative",
-      "title": "任务数",
+      "title": "Tasks",
       "scale": {
         "zero": true,
         "range": [
@@ -239,10 +239,10 @@
 }
 ```
 
-## 细化与校验
+## Refinement and validation
 
-点重叠先调整透明度或改分箱汇总；未经说明不添加随机抖动。离群点核对数据来源，不因影响美观删除。添加回归线时注明模型与样本范围，它不会证明因果。
+For overlapping points, adjust opacity or aggregate into bins; do not add unexplained random jitter. Verify outliers against their source rather than deleting them for appearance. State the model and sample scope for a regression line; it does not establish causation.
 
-热力图正负偏差使用以有意义中心值（通常零）为中心的发散色；绝对量用连续色。缺失单元格不应显示为已知零值。同一图中不要把多个单位映射到同一色标。
+Use diverging colors around a meaningful center, usually zero, for signed deviations; use sequential colors for absolute quantities. Missing cells must not appear as known zero values. Do not map different units to the same color scale.
 
-官方参考：[Point](https://vega.github.io/vega-lite/docs/point.html)、[Rect](https://vega.github.io/vega-lite/docs/rect.html)、[Scale](https://vega.github.io/vega-lite/docs/scale.html)。
+Official references: [Point](https://vega.github.io/vega-lite/docs/point.html), [Rect](https://vega.github.io/vega-lite/docs/rect.html), [Scale](https://vega.github.io/vega-lite/docs/scale.html).

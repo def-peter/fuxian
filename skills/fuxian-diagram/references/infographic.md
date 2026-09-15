@@ -1,24 +1,52 @@
 # AntV Infographic
 
-把叙事材料整理为清楚的信息结构，再选官方模板。不是先找漂亮模板，再把内容塞进去。
+Organize narrative material into a clear information structure, then choose an official template. Let the content determine the template.
 
-## 按需读取
+## Diagram types with local guides
 
-选定图类型后，读取对应指南并据其完整示例改写；遇到渲染或版面问题再读排错指南。无需一次加载全部分支。
+Use the table to identify a suitable diagram type, then read its guide and adapt a complete example. Read troubleshooting guidance when rendering or layout problems arise. Load only the relevant branches.
 
-| 当前任务                                    | 指南                                                         | 内容                                    |
-| ------------------------------------------- | ------------------------------------------------------------ | --------------------------------------- |
-| 并列要点、步骤、时间线、里程碑              | [list-sequence.md](infographic/list-sequence.md)             | 列表与序列；短文案、时间字段与版面      |
-| 两方案、SWOT、四象限分类                    | [comparison.md](infographic/comparison.md)                   | 三个完整示例，根项与比较维度            |
-| 概念层级、组织树、关系网络                  | [hierarchy-relations.md](infographic/hierarchy-relations.md) | 单一 root、children、nodes 与 relations |
-| 同口径数值摘要、关键词权重                  | [charts.md](infographic/charts.md)                           | 数字图与词云，特定模板字段              |
-| 自定义主题/design、动画、卡片换行、资源问题 | [theme-layout.md](infographic/theme-layout.md)               | 完整 design 示例与故障定位              |
-| 需要选择模板、核实精确名称或寻找变体        | [template-catalog.md](infographic/template-catalog.md)       | 按信息结构整理的已核实候选模板          |
+| Diagram type or task                                      | Guide                                                        | Coverage                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| Lists/cards; steps; timeline; roadmap                     | [list-sequence.md](infographic/list-sequence.md)             | Lists and sequences; concise copy, time fields, and layout     |
+| Binary comparison; SWOT; four quadrants                   | [comparison.md](infographic/comparison.md)                   | Three complete examples, root items, and comparison dimensions |
+| Hierarchy / organization tree; relationship graph         | [hierarchy-relations.md](infographic/hierarchy-relations.md) | A single root, children, nodes, and relations                  |
+| Column chart; word cloud                                  | [charts.md](infographic/charts.md)                           | Numeric charts, word clouds, and template-specific fields      |
+| Custom themes/design, animation, card wrapping, resources | [theme-layout.md](infographic/theme-layout.md)               | Complete design example and diagnosis                          |
+| Template selection, exact names, or variants              | [template-catalog.md](infographic/template-catalog.md)       | Verified candidates organized by information structure         |
 
-## 共通约束
+Coverage terms follow the [selection inventory](selection-guide.md#diagram-type-inventory).
 
-- 官方 DSL 使用缩进与 `key value`，不是 JSON 或带冒号的 YAML。
-- 字段按实际模板映射；`lists`、`sequences`、`compares`、`root` 等有各自语义，不用通用 items 猜测。
-- 普通模板第一行写 `infographic <精确名称>`；自定义 design 的完整写法见对应指南。
-- Fuxian 支持官方主题、design 与动画能力；输出 `infographic` 围栏即可，资源和快照边界见 [capabilities.md](capabilities.md)。
-- 模板存在、源码通过解析和全部内容正确显示，是三个不同的验证点。
+## Template families available for selection
+
+The local catalog provides candidates for six families, including more types than the complete examples. Read [template-catalog.md](infographic/template-catalog.md) for exact names and the distinction between registry checks and visible-field verification.
+
+| Family        | Diagram types and selection use                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `list-*`      | Parallel lists, checklists, rows, grids, and summary cards                                                                     |
+| `sequence-*`  | Steps, timelines, roadmaps, cycles, funnels, pyramids, stairs, and interaction sequences; preserve actual order or progression |
+| `compare-*`   | Binary option comparison, SWOT, four-quadrant classification, and hierarchical comparison                                      |
+| `hierarchy-*` | Trees, organization structures, mindmaps, and structural hierarchies                                                           |
+| `relation-*`  | Directed flows, networks, and circular relationships; animated variants still need a meaningful static frame                   |
+| `chart-*`     | Column/bar, line, pie/donut, and word cloud; intended for concise numeric or keyword summaries                                 |
+
+Additional exact candidates registered in the inspected 0.2.20 runtime are listed below. They have not received the complete-example layout checks in this skill; inspect their template definitions and data mapping before use.
+
+| Type                        | Candidate                                                           |
+| --------------------------- | ------------------------------------------------------------------- |
+| Horizontal bar              | `chart-bar-plain-text`                                              |
+| Line                        | `chart-line-plain-text`                                             |
+| Pie; donut                  | `chart-pie-plain-text`; `chart-pie-donut-plain-text`                |
+| Network; circular relations | `relation-network-simple-circle-node`; `relation-circle-icon-badge` |
+| Interaction sequence        | `sequence-interaction-default-badge-card`                           |
+| Structural hierarchy        | `hierarchy-structure`; `hierarchy-structure-mirror`                 |
+
+Check the [official documentation](https://infographic.antv.vision/) and the target registry after upgrades. A family prefix identifies candidates; the actual template definition determines accepted fields and visible content.
+
+## Shared constraints
+
+- The official DSL uses indentation and `key value`, not JSON or colon-separated YAML.
+- Map fields to the actual template. `lists`, `sequences`, `compares`, and `root` have distinct semantics; do not guess a generic items field.
+- For ordinary templates, start with `infographic <exact-name>`. See the relevant guide for complete custom-design syntax.
+- Fuxian supports official themes, design, and animation. Emit an `infographic` fence; see [capabilities.md](capabilities.md) for resource and snapshot boundaries.
+- Template existence, successful parsing, and correct display of all content are separate checks.

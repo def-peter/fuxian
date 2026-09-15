@@ -1,112 +1,112 @@
-# 活动图与泳道
+# Activity diagrams and swimlanes
 
-用于回答“满足什么条件才进入下一步”“失败后去哪”“这一步由谁负责”。读图重点是控制流；跨系统请求的时间关系用时序图。
+Use to explain conditions for the next step, failure destinations, and step ownership. The focus is control flow; use sequences for the timing of requests across systems.
 
-## 建模
+## Modeling
 
-先列出起点、动作、判定、出口；动作写动词短语，判定写可判断的问题。互斥选择用 `if/else/endif`，全部执行的并发任务用 `fork/fork again/end fork`。循环要标明继续与退出条件，避免把有限重试画成无限循环。
+List starts, actions, decisions, and exits first. Write actions as verb phrases and decisions as answerable questions. Use `if/else/endif` for mutually exclusive choices and `fork/fork again/end fork` for concurrent tasks that all execute. State loop continuation and exit conditions; do not depict bounded retries as infinite loops.
 
-### 条件与并行：发布检查（示例）
+### Conditions and parallelism: release checks (example)
 
 ```plantuml
 @startuml
 !theme mars
-title 发布检查
+title Release checks
 start
-:构建候选版本;
+:Build release candidate;
 fork
-  :运行单元测试;
+  :Run unit tests;
 fork again
-  :检查依赖;
+  :Check dependencies;
 end fork
-if (两项均通过？) then (是)
-  :部署测试环境;
-  :执行验收;
-else (否)
-  :修复并重新提交;
+if (Both checks pass?) then (Yes)
+  :Deploy to test;
+  :Run acceptance checks;
+else (No)
+  :Fix and resubmit;
   stop
 endif
-if (验收通过？) then (是)
-  :交付候选版本;
-else (否)
-  :记录问题;
+if (Acceptance passed?) then (Yes)
+  :Deliver candidate;
+else (No)
+  :Record issues;
 endif
 stop
 @enduml
 ```
 
-`end fork` 表示并行分支汇合，不能将“任选其一”表达成必须等待全部完成。
+`end fork` joins parallel branches. Do not depict an “either one” choice as waiting for all branches.
 
-### 泳道与返工：材料审批（示例）
+### Swimlanes and rework: materials approval (example)
 
 ```plantuml
 @startuml
 !theme mars
-title 材料审批
-|申请人|
+title Materials approval
+|Applicant|
 start
-:提交申请;
-|审核人|
-while (材料不完整？) is (是)
-  :列出缺失项;
-  |申请人|
-  :补充材料;
-  |审核人|
-endwhile (否)
-if (符合审批条件？) then (是)
-  :批准申请;
-else (否)
-  :说明拒绝原因;
+:Submit request;
+|Reviewer|
+while (Materials incomplete?) is (Yes)
+  :List missing items;
+  |Applicant|
+  :Add missing materials;
+  |Reviewer|
+endwhile (No)
+if (Approval criteria met?) then (Yes)
+  :Approve request;
+else (No)
+  :Explain rejection;
 endif
-|申请人|
-:接收结果;
+|Applicant|
+:Receive result;
 stop
 @enduml
 ```
 
-泳道标记之后的动作属于该角色，直到下一次切换。循环后应回到正确责任人；边表示交接，不是组织汇报关系。
+Actions after a swimlane marker belong to that role until the next switch. Return to the correct owner after a loop. Edges represent handoffs, not reporting lines in an organization.
 
-### 减少嵌套与合流：报销审批（示例）
+### Less nesting and merging: expense approval (example)
 
-主管通过且金额超过 5000 元才执行财务复核；任一本次已执行的审核拒绝，员工修改后重新提交，重新从主管审核开始。5000 元整不触发财务复核，全部必要审核通过后付款。
+Finance review runs only when the manager approves and the amount exceeds CNY 5,000. Rejection by any review performed in the current round sends the employee to revise and resubmit, restarting manager review. Exactly CNY 5,000 does not trigger finance review. Payment follows all required approvals.
 
 ```plantuml
 @startuml
 !theme mars
-title 报销审批与返工
+title Expense approval and rework
 skinparam defaultFontSize 15
 start
-repeat :员工：提交报销;
-  :主管：审核;
-  if (主管通过且\n金额 > 5000 元？) then (是)
-    :财务：复核;
-  else (否)
+repeat :Employee: submit claim;
+  :Manager: review;
+  if (Manager approves and\namount > CNY 5000?) then (Yes)
+    :Finance: review;
+  else (No)
   endif
-backward :员工：修改报销;
-repeat while (任一本次审核拒绝？) is (是) not (否)
-:付款;
+backward :Employee: revise claim;
+repeat while (Any review in this round rejects?) is (Yes) not (No)
+:Pay;
 stop
 @enduml
 ```
 
-这里用一个联合条件控制财务复核，减少嵌套后逐层合流；`repeat :动作;` 直接以提交动作作为返回目标。联合条件仅在事实等价且读者仍能识别责任与门槛时使用；需要逐级展示审核结果时，分别画判定，或拆成总览与单次审核子流程。本例的拒绝判定只读取本次已执行的审核结果，不能沿用上一轮结果。
+A compound condition gates finance review, reducing nested merges. `repeat :action;` uses submission itself as the return target. Combine conditions only when facts remain equivalent and readers can still identify responsibilities and thresholds. Use separate decisions or an overview plus a single-review subprocess when individual outcomes need emphasis. The rejection check reads only reviews performed in this round, never stale results from a previous round.
 
-## 连线简洁性检查
+## Connector clarity checks
 
-先沿成功、拒绝和返工路径逐条走读，再查看正常与窄版成品：
+Trace success, rejection, and rework paths, then inspect the rendered result at normal and narrow widths:
 
-- **合流有用途**：区分互斥路径合流与并行同步；检查空分支、连续无文字菱形和逐层嵌套是否只增加绕行。事实等价时合并条件、以动作作为循环入口；责任或异常不宜压缩时拆出子流程。
-- **方向可追踪**：分支标签靠近所属出口，返工明确回到应重新执行的步骤。中途箭头属于活动图分段连线的常见表现；检查它是否造成反向、断路或额外步骤的错觉，出现歧义时先重组路径，再渲染。
-- **保留控制流语义**：不能为美化把拒绝后的返工改成 `stop`，或把互斥合流改成并行同步。`skinparam ArrowHeadColor none` 会隐藏全图箭头头部，不作为仅移除中途箭头的修复方式；也不直接删除生成 SVG 中的箭头。
+- **Purposeful merges:** Distinguish mutually exclusive path merging from parallel synchronization. Check whether empty branches, successive unlabeled diamonds, or nesting merely add detours. Combine equivalent conditions or use an action as the loop entry; split out a subprocess when responsibilities or exceptions should not be compressed.
+- **Traceable direction:** Keep branch labels close to their exits and route rework to the step that must repeat. Intermediate arrowheads are a common result of segmented activity connectors. Check for misleading reversal, disconnection, or extra steps; reorganize ambiguous paths before rerendering.
+- **Preserved control flow:** Do not replace rejection/rework with `stop` or turn an exclusive merge into parallel synchronization for appearance. `skinparam ArrowHeadColor none` hides arrowheads throughout the diagram, not only intermediate ones; it is not a selective fix. Do not delete arrowheads from the generated SVG.
 
-完成条件：关键条件和责任可读，每个出口、合流及回路可解释；修复没有改变到达付款或重新提交的条件。正常方向标记无需为追求“零中途箭头”而消除。报销例至少核对：主管拒绝；主管通过且金额等于/小于 5000；金额超过 5000 时财务通过/拒绝；修改后再次提交。
+Completion means key conditions and responsibilities are readable, every exit/merge/loop is explainable, and corrections preserve the conditions for payment or resubmission. Normal direction markers need not be eliminated to achieve “zero intermediate arrowheads.” Check at least: manager rejection; manager approval with an amount equal to or below 5,000; finance approval/rejection above 5,000; and resubmission after revision.
 
-## 改写与排版
+## Adaptation and layout
 
-- 需要先执行一次再判断时用 `repeat ... repeat while (...)`；先判断能否执行时用 `while ... endwhile`。
-- 多个长条件可考虑 `!pragma useVerticalIf on`，但先尝试缩短判定标签或拆出子流程。
-- 泳道一多就会显著变宽；只保留参与当前流程的角色。不要为每个动作建独立泳道。
-- 有限重试需要次数、失败出口和成功出口。源码没有重试时不能为了完整感添加重试。
-- `:动作;` 的分号、分支结束标记和泳道切换是排错重点；不要混入旧活动图的节点箭头写法。
+- Use `repeat ... repeat while (...)` when the body executes before checking; use `while ... endwhile` when checking before execution.
+- Consider `!pragma useVerticalIf on` for several long conditions, after trying shorter decision labels or a separate subprocess.
+- Many swimlanes make a diagram wide. Include only roles involved in the current process, not a separate lane per action.
+- Bounded retries need attempt limits, failure exits, and success exits. Do not add retries absent from the source merely for completeness.
+- Check semicolons in `:action;`, branch closures, and lane switches. Do not mix in legacy activity-node arrow syntax.
 
-官方语法：[活动图](https://plantuml.com/activity-diagram-beta)；中途箭头行为见 [官方论坛讨论](https://forum.plantuml.net/18079/activity-diargram-remove-arrow-heads-at-junctions)。
+Official syntax: [Activity](https://plantuml.com/activity-diagram-beta); intermediate arrowheads: [official forum discussion](https://forum.plantuml.net/18079/activity-diargram-remove-arrow-heads-at-junctions).

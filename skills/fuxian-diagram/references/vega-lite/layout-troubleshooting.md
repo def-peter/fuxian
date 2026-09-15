@@ -1,21 +1,21 @@
-# Vega-Lite 布局与故障定位
+# Vega-Lite layout and diagnosis
 
-## 默认配色
+## Default colors
 
-用户明确指定的主题、配色和已有图的颜色映射优先。新图未指定时优先使用 **Ant Design 色板**；默认避免棕色、褐色和土色系，只有实际语义需要（如土壤类别）或用户明确指定时使用。单指标不为装饰按类别上色；颜色承担比较、分组或状态含义。
+Explicit themes, colors, and existing color mappings take priority. For unspecified new charts, prefer an **Ant Design palette**. Avoid brown and earth tones by default; use them when the subject requires them, such as soil categories, or the user explicitly requests them. Do not color categories merely to decorate a single metric; color should support comparison, grouping, or status.
 
-以下为从 Ant Design 基础色板选出的 Fuxian 默认组合，不是名为 `antd` 的 Vega 内置 scheme；直接写十六进制颜色，无需安装 Ant Design 或额外主题包。
+The following Fuxian defaults are selected from Ant Design's base palette. They are not a built-in Vega scheme named `antd`. Use the hexadecimal values directly; no Ant Design installation or extra theme package is needed.
 
-| 用途                 | 默认颜色与使用方式                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 单系列柱、线、点     | 蓝 `#1677FF`，显式写入 mark.color；面积填充可降低 opacity，边线保留可辨强度                                        |
-| 无序类别             | 按需取蓝 `#1677FF`、青 `#13C2C2`、紫 `#722ED1`、绿 `#52C41A`、品红 `#EB2F96`；同一文档用一致的 domain → range 映射 |
-| 连续大小             | 由浅到深的蓝色：`#E6F4FF`、`#91CAFF`、`#4096FF`、`#1677FF`、`#0958D9`；保留连续色标，浅色格配边界或数值以便辨认    |
-| 有意义中心两侧的偏差 | 蓝 `#1677FF` → 中性灰 `#F5F5F5` → 紫 `#722ED1`；把已确定的中性值映射到中间，说明正负与单位                         |
-| 明确状态             | 成功绿 `#52C41A`、失败红 `#F5222D`、警告橙 `#FA8C16`；文字/符号同时表达状态，暖色不用于随机装饰                    |
-| 文字与网格           | 文字 `#262626`、次级文字 `#595959`、网格 `#F0F0F0`；低对比浅色不承担正文标签                                       |
+| Purpose                               | Default colors and usage                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Single-series bars, lines, points     | Blue `#1677FF`, explicitly in mark.color; area opacity may be reduced while outlines remain distinguishable                                                  |
+| Unordered categories                  | Blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, green `#52C41A`, magenta `#EB2F96` as needed; keep domain → range mapping consistent across the document   |
+| Continuous magnitude                  | Light-to-dark blue: `#E6F4FF`, `#91CAFF`, `#4096FF`, `#1677FF`, `#0958D9`; retain a continuous legend and add boundaries or values to distinguish pale cells |
+| Deviations around a meaningful center | Blue `#1677FF` → neutral gray `#F5F5F5` → purple `#722ED1`; map the established neutral value to the center and explain sign and units                       |
+| Explicit status                       | Success green `#52C41A`, failure red `#F5222D`, warning orange `#FA8C16`; also express status through text/symbols; warm colors are not random decoration    |
+| Text and grid                         | Text `#262626`, secondary text `#595959`, grid `#F0F0F0`; pale low-contrast colors must not carry primary labels                                             |
 
-类别颜色使用 `encoding.color.scale.domain/range` 固定对应关系；类别数超过可区分颜色时，按语义分面、分组或补充形状与线型。下面是合并到顶层的默认配置片段；字段级 scale 或 mark 中已有的颜色会覆盖默认配置，修改时一并核查。
+Fix category mappings with `encoding.color.scale.domain/range`. If categories exceed distinguishable colors, use semantic facets/groups or additional shapes and line styles. Merge the following configuration fragment at the top level. Existing field scales or mark colors override defaults; inspect them when editing.
 
 ```json
 {
@@ -29,7 +29,7 @@
 }
 ```
 
-连续色必须写在对应数值字段的 `scale.range` 中；设置 category 不会改变连续比例尺。使用 `interpolate: "rgb"` 可使渐变直接沿指定颜色变化。偏差范围已知为 −10 到 10 且零为中心时，色标片段可写为：
+Put continuous colors in the numeric field's `scale.range`; category settings do not change continuous scales. `interpolate: "rgb"` makes the gradient follow the specified colors directly. For an established deviation range of −10 to 10 centered on zero, a scale fragment is:
 
 ```json
 {
@@ -41,36 +41,36 @@
 }
 ```
 
-这里的范围是示例，真实图从数据与分析口径确定。用户指定深色主题时，保留其背景并使用适合该背景的色阶、文字与网格；应用外壳的深色模式不会自动替作者改图。最终检查实际 SVG 的图例、标记、渐变与文字对比度，不能只看 JSON 中有没有目标颜色。
+This range is illustrative; derive real ranges from data and analytical definitions. For an explicitly requested dark theme, preserve the background and choose compatible scales, text, and grid colors. Application-shell dark mode does not automatically restyle authored charts. Inspect the actual SVG's legends, marks, gradients, and text contrast rather than only checking JSON for the desired colors.
 
-来源：[Ant Design 色彩体系](https://ant.design/docs/spec/colors/)、[官方基础色值](https://github.com/ant-design/ant-design-colors/blob/main/generate-presets.ts)、[Vega-Lite Scale](https://vega.github.io/vega-lite/docs/scale.html)。
+Sources: [Ant Design color system](https://ant.design/docs/spec/colors/), [official base values](https://github.com/ant-design/ant-design-colors/blob/main/generate-presets.ts), [Vega-Lite Scale](https://vega.github.io/vega-lite/docs/scale.html).
 
-## 从输入到成品
+## From input to finished output
 
-JSON 解析 → 官方 schema → compile → 数据流执行 → SVG → Fuxian 成品。错误发生在哪一层，就在那里修复；编译成功不能证明字段有值、标签可读或外部资源被允许。
+JSON parsing → Official schema → Compilation → Dataflow execution → SVG → Finished Fuxian document. Fix errors at the failing layer; compilation does not prove fields contain values, labels are readable, or external resources are allowed.
 
-| 现象             | 诊断                                       | 修正                                                   |
-| ---------------- | ------------------------------------------ | ------------------------------------------------------ |
-| 空白图           | 字段名、大小写、filter 后样本数、数值类型  | 核对实际数据和每步变换结果                             |
-| 比率异常         | 分母为零、平均了各组比率、百分比重复乘 100 | 明确分子分母，先聚合再相除                             |
-| 日期顺序混乱     | 字符串按字母排序、日期不可解析             | 正确 temporal 字段或显式 ordinal 顺序                  |
-| 同类拆成多个点   | 聚合粒度、color/detail/tooltip 引入分组    | 核对各 encoding 的分组效果                             |
-| 图过宽或标签截断 | 长类别、分面总宽、legend 布局              | 横向条形、分面改为分行、图例移到上/下方                |
-| layer 标签跑偏   | 层之间字段/尺度/单位不一致                 | 共享坐标语义；必要时拆图                               |
-| 响应式尺寸无效   | 把 container 放进不适用的嵌套规范          | 查官方单视图/layer 与 facet 尺寸规则                   |
-| schema 报错      | JSON 合法但 mark/encoding/transform 不合法 | 使用目标版本官方 schema，不能以添加 `$schema` 掩盖错误 |
-| Fuxian 拒绝资源  | data.url、image mark 或外部 mark 链接      | 数据内联，使用支持的静态视觉表达                       |
+| Symptom                                 | Diagnosis                                                                   | Correction                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Blank chart                             | Field names/case, sample count after filter, numeric types                  | Check actual data and each transform result                                             |
+| Invalid ratio                           | Zero denominator, averaged group ratios, percentage multiplied by 100 twice | Define numerator/denominator; aggregate before dividing                                 |
+| Incorrect date order                    | Alphabetical string sorting or unparseable dates                            | Use temporal fields or explicit ordinal order                                           |
+| One category splits into several points | Aggregation grain or grouping introduced by color/detail/tooltip            | Inspect grouping effects of each encoding                                               |
+| Chart too wide or labels clipped        | Long categories, total facet width, legend layout                           | Horizontal bars, facets in rows, legends above/below                                    |
+| Layer labels misaligned                 | Inconsistent fields/scales/units across layers                              | Share coordinate semantics or split the chart                                           |
+| Responsive sizing has no effect         | Container used in an unsupported nested specification                       | Check official single-view/layer and facet sizing rules                                 |
+| Schema error                            | Valid JSON but invalid mark/encoding/transform                              | Use the target version's schema; adding `$schema` does not fix an invalid specification |
+| Fuxian rejects resources                | data.url, image marks, or external mark links                               | Inline data and use supported static representations                                    |
 
-多图文档若出现“标记颜色正确、渐变图例却像另一张图”，先将该图单独渲染，再检查同页 SVG 是否有重名渐变 ID。单图正常而同页异常时，保留最小复现并报告渲染层问题，不靠修改数据或颜色口径掩盖；需要立即交付时可分别导出独立图文件。
+If a multi-chart document has correct mark colors but a gradient legend resembling another chart, render the chart alone, then check for duplicate gradient IDs across same-page SVGs. If only the combined page fails, retain a minimal reproduction and report a rendering-layer problem. Do not alter data or color semantics to hide it; separate exported chart files can support immediate delivery.
 
-## 图形语义检查
+## Chart semantics
 
-柱形通常从零开始；对数轴不能包含非正数，并要明确说明。相关性不作因果结论，缺失值不作零值，聚合后保存单位与时间范围。颜色用于类别时采用可区分色，用于连续数值时采用连续色；发散色需有有意义中心。
+Bars normally start at zero. Log scales cannot include nonpositive values and must be identified. Correlation is not causation; missing is not zero. Preserve units and time windows after aggregation. Use distinguishable categorical colors for categories and sequential colors for continuous values; diverging scales require a meaningful center.
 
-## 版面调整
+## Layout adjustments
 
-优先减少读者不需要的系列/重复标签，保持重要维度。图例位置、轴标签角度、title 和 labelLimit 可以帮助版面，但不能截去区分实体所需的文字。需要展示精确值时提供文字层或附近表格，tooltip 只作为补充。
+Remove unnecessary series or repeated labels first while retaining important dimensions. Legend position, axis-label angle, title, and labelLimit can help, but must not hide text needed to identify entities. Provide a text layer or nearby table for exact values; tooltips are supplementary.
 
-指定数值宽度的图检查窄栏下缩放后的字号；单视图/layer 可以尝试 container 宽度。改变尺寸后重新执行渲染并检查最大/最小值的标记和轴标题。
+For fixed numeric widths, check font size after scaling into narrow columns. Single views/layers can try container width. Rerender after resizing and inspect marks at minimum/maximum values and axis titles.
 
-参考：[尺寸](https://vega.github.io/vega-lite/docs/size.html)、[Axis](https://vega.github.io/vega-lite/docs/axis.html)、[Legend](https://vega.github.io/vega-lite/docs/legend.html)。
+References: [Size](https://vega.github.io/vega-lite/docs/size.html), [Axis](https://vega.github.io/vega-lite/docs/axis.html), [Legend](https://vega.github.io/vega-lite/docs/legend.html).

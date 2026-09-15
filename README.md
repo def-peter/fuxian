@@ -126,7 +126,7 @@ Before submitting a change, run:
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-See [`docs/release.md`](docs/release.md) for the release process and [`fuxian-diagram`](skills/fuxian-diagram/README.md) for the companion visual-authoring skill.
+See [`docs/release.md`](docs/release.md) for the release process and [`fuxian-diagram`](skills/fuxian-diagram/README.md) for the companion skill that identifies what to visualize, chooses a suitable format, and checks the finished layout.
 
 ## 💬 Feedback
 

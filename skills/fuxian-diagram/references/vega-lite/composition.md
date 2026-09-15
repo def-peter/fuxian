@@ -1,37 +1,37 @@
-# 组成与占比
+# Composition and shares
 
-先确认分母与各部分是否互斥且覆盖同一总体。存在重复计数、负值或不同单位时，不能直接使用饼图或百分比堆叠。
+Establish the denominator and whether parts are mutually exclusive and cover the same population. Duplicate counts, negative values, or mixed units cannot be directly represented as a pie or normalized stack.
 
-## 百分比堆叠
+## Normalized stacks
 
-用于比较不同总体的内部组成。归一化之后，总体大小差异不可见；需要时附总量。
+Compare internal composition across populations. Normalization hides differences in total size; include totals when needed.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "任务状态占比（示例）",
+  "title": "Task status shares (example)",
   "width": "container",
   "height": 180,
   "data": {
     "values": [
       {
-        "batch": "第一批",
-        "state": "完成",
+        "batch": "Batch 1",
+        "state": "Completed",
         "count": 80
       },
       {
-        "batch": "第一批",
-        "state": "失败",
+        "batch": "Batch 1",
+        "state": "Failed",
         "count": 20
       },
       {
-        "batch": "第二批",
-        "state": "完成",
+        "batch": "Batch 2",
+        "state": "Completed",
         "count": 180
       },
       {
-        "batch": "第二批",
-        "state": "失败",
+        "batch": "Batch 2",
+        "state": "Failed",
         "count": 20
       }
     ]
@@ -42,8 +42,8 @@
       "field": "batch",
       "type": "ordinal",
       "sort": [
-        "第一批",
-        "第二批"
+        "Batch 1",
+        "Batch 2"
       ],
       "title": null
     },
@@ -54,16 +54,16 @@
       "axis": {
         "format": ".0%"
       },
-      "title": "批次内占比"
+      "title": "Share within batch"
     },
     "color": {
       "field": "state",
       "type": "nominal",
-      "title": "状态",
+      "title": "Status",
       "scale": {
         "domain": [
-          "完成",
-          "失败"
+          "Completed",
+          "Failed"
         ],
         "range": [
           "#52C41A",
@@ -111,28 +111,28 @@
 }
 ```
 
-## 少量类别的环形图
+## Donut chart for a few categories
 
-适合简短组成摘要；精确比较仍优先条形。图例与正文提供类别含义，不能只显示百分比颜色。
+Suitable for a brief composition summary; prefer bars for precise comparison. Explain categories in the legend and prose rather than displaying only colored percentages.
 
 ```vega-lite
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "title": "支持渠道组成（示例）",
+  "title": "Support channel mix (example)",
   "width": 300,
   "height": 220,
   "data": {
     "values": [
       {
-        "channel": "在线咨询",
+        "channel": "Online chat",
         "requests": 60
       },
       {
-        "channel": "邮件",
+        "channel": "Email",
         "requests": 25
       },
       {
-        "channel": "电话",
+        "channel": "Phone",
         "requests": 15
       }
     ]
@@ -149,15 +149,15 @@
     "color": {
       "field": "channel",
       "type": "nominal",
-      "title": "渠道",
+      "title": "Channel",
       "legend": {
         "orient": "bottom"
       },
       "scale": {
         "domain": [
-          "在线咨询",
-          "邮件",
-          "电话"
+          "Online chat",
+          "Email",
+          "Phone"
         ],
         "range": [
           "#1677FF",
@@ -208,10 +208,10 @@
 }
 ```
 
-## 校验
+## Validation
 
-总量为零时占比没有定义，需要保留“无数据/无任务”的含义。百分比字段若已为 0–100，不能再直接使用期望 0–1 的 `.0%` 格式。舍入造成合计 99% 或 101% 时，说明口径或调整展示精度，不篡改原始值。
+Shares are undefined when the total is zero; preserve the meaning of “no data/no tasks.” A field already scaled to 0–100 must not use `.0%` directly, which expects 0–1. If rounding produces 99% or 101%, explain rounding or adjust display precision rather than changing raw values.
 
-堆叠比较中只有共享基线的部分容易精确比较；中间部分的变化重要时改为并排柱形或分面。
+Only stack segments sharing a baseline are easy to compare precisely. Use grouped bars or facets when changes in middle segments matter.
 
-官方参考：[Stack](https://vega.github.io/vega-lite/docs/stack.html)、[Arc](https://vega.github.io/vega-lite/docs/arc.html)。
+Official references: [Stack](https://vega.github.io/vega-lite/docs/stack.html), [Arc](https://vega.github.io/vega-lite/docs/arc.html).

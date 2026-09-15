@@ -126,7 +126,7 @@ pnpm dev
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-发布流程见 [`docs/release.md`](docs/release.md)，配套图形创作 Skill 见 [`fuxian-diagram`](skills/fuxian-diagram/README.zh-CN.md)。
+发布流程见 [`docs/release.md`](docs/release.md)，配套图形创作 Skill 见 [`fuxian-diagram`](skills/fuxian-diagram/README.zh-CN.md)：识别值得图示的内容、选择合适的图形，并校验成品排版。
 
 ## 💬 反馈
 

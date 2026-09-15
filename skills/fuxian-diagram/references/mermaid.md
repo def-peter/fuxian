@@ -1,23 +1,47 @@
 # Mermaid
 
-用户指定 Mermaid、维护已有 Mermaid，或目标环境要求它时使用。下面按实际图类型加载；不要把一种声明的语法套到另一种图中。
+Use Mermaid when the user requests it, when maintaining existing Mermaid content, or when the target environment requires it. Load by diagram type; do not transfer syntax between incompatible declarations.
 
-## 按需读取
+## Diagram types with local guides
 
-选定图类型后，读取对应指南并据其完整示例改写；遇到渲染或版面问题再读排错指南。无需一次加载全部分支。
+Use the table to identify a suitable diagram type, then read its guide and adapt a complete example. Read troubleshooting guidance when rendering or layout problems arise. Load only the relevant branches.
 
-| 当前任务                               | 指南                                                             | 内容                                |
-| -------------------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
-| 流程、判断、回退、轻量分组             | [flowchart.md](mermaid/flowchart.md)                             | 流程图；条件回路与分组示例          |
-| 消息先后、请求返回、异步和并发         | [sequence.md](mermaid/sequence.md)                               | 时序图；消息类型与片段语法          |
-| 生命周期、类关系、数据库实体           | [state-class-er.md](mermaid/state-class-er.md)                   | 状态、类与 ER；三个完整示例         |
-| 架构总览、服务依赖、代码或部署配置转图 | [architecture-deployment.md](mermaid/architecture-deployment.md) | 分层与代码取证；常规 flowchart 表达 |
-| 概念树、任务日期、里程碑               | [mindmap-gantt.md](mermaid/mindmap-gantt.md)                     | 思维导图与 Gantt；层级与依赖的区别  |
-| 声明报错、标签异常、分组方向、样式失效 | [layout-troubleshooting.md](mermaid/layout-troubleshooting.md)   | 常见语法问题与成品布局检查          |
+| Diagram type or task                                                    | Guide                                                            | Coverage                                               |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Flowchart                                                               | [flowchart.md](mermaid/flowchart.md)                             | Flowcharts, conditional loops, and groups              |
+| Sequence                                                                | [sequence.md](mermaid/sequence.md)                               | Sequence diagrams, message types, and fragments        |
+| State; class; ER                                                        | [state-class-er.md](mermaid/state-class-er.md)                   | State, class, and ER diagrams; three complete examples |
+| Architecture overview using flowchart groups                            | [architecture-deployment.md](mermaid/architecture-deployment.md) | Layers and code evidence using ordinary flowcharts     |
+| Mindmap; Gantt                                                          | [mindmap-gantt.md](mermaid/mindmap-gantt.md)                     | Mindmaps and Gantt; hierarchy versus dependencies      |
+| Declaration errors, label problems, group direction, ineffective styles | [layout-troubleshooting.md](mermaid/layout-troubleshooting.md)   | Syntax pitfalls and finished-layout checks             |
 
-## 共通约束
+Coverage terms follow the [selection inventory](selection-guide.md#diagram-type-inventory).
 
-- ID 与标签分开，含特殊字符的流程图标签用双引号，如 `node["支付服务（含重试）"]`。
-- 声明、箭头、分组和配色语法按图类型与目标版本核实；不把 flowchart 的样式视为所有图的通用 API。
-- Fuxian 采用 strict 安全模式，成品的核心含义不能依赖回调或任意 HTML。
-- 原始源码可解析和最终版面可读要分别验证。
+## Further engine families: check the target version
+
+The following families are registered in the inspected Mermaid 11.17.2 package but lack local authoring guides/rendered verification in this skill. Consult the [official syntax index](https://mermaid.ai/open-source/intro/) for the matching type, then check its declaration in the target version and render it in Fuxian. Registration alone does not prove usable output.
+
+| Type                                      | Use when the content requires                                                                  |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Native swimlanes                          | Role-based process lanes; distinct from flowchart subgraphs                                    |
+| User journey; timeline                    | Experience stages and scores; dated events                                                     |
+| Pie; quadrant; XY; radar                  | Part-to-whole shares; two-axis positioning; Cartesian values; comparable multivariate profiles |
+| Requirement                               | Requirements and typed traceability relationships                                              |
+| Git graph                                 | Branching and merging history                                                                  |
+| C4; native architecture; block            | C4 abstractions; infrastructure/service topology; explicit block arrangement                   |
+| Sankey                                    | Weighted transfers between stages, with actual flow values                                     |
+| Packet                                    | Bit/byte field layouts of protocol packets                                                     |
+| Kanban                                    | Work items grouped by workflow status                                                          |
+| Treemap; Venn; tree view                  | Hierarchical area allocation; set intersections; nested tree listings                          |
+| Event modeling; Ishikawa                  | Event-centered system behavior; cause-and-effect/fishbone analysis                             |
+| Wardley; Cynefin                          | Evolution/value-chain mapping; decision contexts classified by complexity                      |
+| Railroad (including EBNF/ABNF/PEG inputs) | Grammar productions as syntax diagrams; confirm the exact input dialect                        |
+
+The live documentation may target a newer major release. For example, a listed use-case type must be checked against the installed package rather than inferred from the website. ZenUML requires an external integration and is not registered by the inspected Fuxian runtime; do not emit `zenuml` expecting the ordinary Mermaid bundle to handle it. The local architecture guide deliberately uses flowcharts and does not validate native architecture or C4 syntax.
+
+## Shared constraints
+
+- Separate IDs from labels. Double-quote flowchart labels containing special characters, for example `node["Payment service (with retries)"]`.
+- Verify declarations, arrows, grouping, and colors against the diagram type and target version. Flowchart styling is not a universal API for all diagram types.
+- Fuxian uses strict security. The diagram's core meaning must not depend on callbacks or arbitrary HTML.
+- Validate source parsing and final-layout readability separately.

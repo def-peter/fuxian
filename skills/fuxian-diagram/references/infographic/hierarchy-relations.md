@@ -1,8 +1,8 @@
-# 层级树与关系网络
+# Hierarchies and relationship networks
 
-层级树是一棵有根树，关系图可以有跨层连接、多个父节点和环。存在多重归属时不要强行把关系塞进单根层级。
+A hierarchy is a rooted tree. A relationship graph may have cross-level connections, multiple parents, and cycles. Do not force multiple memberships into a single-root hierarchy.
 
-## 单根层级（示例）
+## Single-root hierarchy (example)
 
 ```infographic
 infographic hierarchy-tree-lr-curved-line-rounded-rect-node
@@ -19,44 +19,44 @@ design
     type rounded-rect-node
     width 160
 data
-  title 报告内容结构
+  title Report structure
   root
-    label 报告
+    label Report
     children
-      - label 结论
+      - label Conclusions
         children
-          - label 主要发现
-          - label 建议行动
-      - label 依据
+          - label Key findings
+          - label Recommended actions
+      - label Evidence
         children
-          - label 数据
-          - label 方法
+          - label Data
+          - label Method
 ```
 
-示例显式补上 title 设计，并设置较窄节点与向右展开的方向，避免默认宽节点将字体整体缩小。只有一个 `root`，下级通过 `children` 递归。层级跳跃或同级混用分类轴时先调整内容。`hierarchy-structure` 等特殊结构不套用通用 root 规则，查对应模板定义。
+The example explicitly adds a title design and narrower nodes expanding rightward to prevent wide defaults from shrinking all text. There is one `root`; descendants recurse through `children`. Fix skipped levels or mixed sibling classification before styling. Special structures such as `hierarchy-structure` do not follow a universal root rule; check the template definition.
 
-## 带边标签的关系（示例）
+## Relationships with edge labels (example)
 
 ```infographic
 infographic relation-dagre-flow-tb-badge-card
 data
-  title 文档信息流
+  title Document information flow
   nodes
     - id source
-      label 源文档
+      label Source
     - id render
-      label 渲染
+      label Render
     - id delivery
-      label 成品
+      label Output
   relations
-    source -->|输入| render
-    render -->|输出| delivery
+    source -->|Input| render
+    render -->|Output| delivery
 ```
 
-使用 badge-card 让节点名称清晰可读；simple-circle-node 等小节点模板需要特别检查标签是否落在可见范围内。节点 ID 与显示文本分开，关系引用已定义 ID。边标签描述作用；仅仅相邻或箭头相连，不能自动说明包含、依赖或先后。
+Use badge-card for readable node names. Small-node templates such as simple-circle-node need extra checks that labels stay visible. Separate node IDs from display text and reference defined IDs. Edge labels state the relationship; adjacency or an arrow alone does not establish containment, dependency, or ordering.
 
-## 复杂情况
+## Complex cases
 
-树太宽时选择已验证的左右方向模板或分开重点分支；每次变体名称都要核对真实注册名。关系图跨边过多时先明确主关系，再把次要关系放入局部图。
+For a wide tree, choose a verified left/right template or split important branches. Verify each variant's registered name. If relationship edges cross excessively, establish the main relationship and move secondary relationships into detail views.
 
-需要严格 UML 的时序、基数、状态语义时优先 PlantUML；用户明确要信息图时，保留其选择并说明采用的简化表达。动态边可用于屏幕演示，静态图仍应能够读懂，见 [theme-layout.md](theme-layout.md)。
+Prefer PlantUML for strict UML sequence, cardinality, or state semantics. If Infographic is explicit, retain it and explain the simplified representation. Animated edges may help screen presentations, but the static diagram must remain understandable; see [theme-layout.md](theme-layout.md).

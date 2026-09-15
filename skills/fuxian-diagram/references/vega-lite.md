@@ -1,25 +1,45 @@
 # Vega-Lite
 
-统计图先确定观测单位、指标与数据口径，再选择 mark、encoding 和变换。全部示例数据为演示用途。
+For statistical charts, establish the observation unit, metrics, and measurement definitions before selecting marks, encodings, and transforms. All example data is illustrative.
 
-## 按需读取
+## Diagram types with local guides
 
-编写任何 Vega-Lite 图前，读取 [配色规则](vega-lite/layout-troubleshooting.md#默认配色)。选定图类型后读取对应指南并据其完整示例改写；遇到渲染或版面问题再读排错部分。无需一次加载全部分支。
+Before authoring any Vega-Lite chart, read the [color rules](vega-lite/layout-troubleshooting.md#default-colors). Use the table to identify a suitable diagram type, then read its guide and adapt a complete example. Read troubleshooting guidance when rendering or layout problems arise. Load only the relevant branches.
 
-| 当前任务                               | 指南                                                             | 内容                                     |
-| -------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------- |
-| 类别比较、排名、计划与实际             | [comparison.md](vega-lite/comparison.md)                         | 条形、并排柱形、排序与零基线             |
-| 时间趋势、多系列、累计量               | [trends.md](vega-lite/trends.md)                                 | 折线、面积、日期与累计变换               |
-| 分布形状、分箱、组间离散程度           | [distribution.md](vega-lite/distribution.md)                     | 直方图与箱线图，样本与统计口径           |
-| 两个变量的共同变化、二维强度           | [correlation-heatmap.md](vega-lite/correlation-heatmap.md)       | 散点与热力图，连续/发散色标              |
-| 组成、批次内占比、少量类别摘要         | [composition.md](vega-lite/composition.md)                       | 百分比堆叠与环形图                       |
-| 派生指标、宽表转长表、标注叠加、分面   | [transforms-facets.md](vega-lite/transforms-facets.md)           | aggregate/calculate/fold、layer 与 facet |
-| 空白图、异常比率、错位、尺寸和资源错误 | [layout-troubleshooting.md](vega-lite/layout-troubleshooting.md) | 逐层诊断与版面修正                       |
+| Diagram type or task                                                  | Guide                                                            | Coverage                                                    |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| Bar/column; grouped bar                                               | [comparison.md](vega-lite/comparison.md)                         | Bars, grouped bars, sorting, and zero baselines             |
+| Line; area; cumulative trend                                          | [trends.md](vega-lite/trends.md)                                 | Lines, areas, dates, and cumulative transforms              |
+| Histogram; box plot                                                   | [distribution.md](vega-lite/distribution.md)                     | Histograms, box plots, samples, and statistical definitions |
+| Scatterplot; heatmap                                                  | [correlation-heatmap.md](vega-lite/correlation-heatmap.md)       | Scatterplots, heatmaps, sequential and diverging colors     |
+| Normalized stacked bar; donut                                         | [composition.md](vega-lite/composition.md)                       | Normalized stacks and donut charts                          |
+| Layered charts; facets / small multiples                              | [transforms-facets.md](vega-lite/transforms-facets.md)           | aggregate/calculate/fold, layer, and facet                  |
+| Blank charts, invalid ratios, misalignment, sizing or resource errors | [layout-troubleshooting.md](vega-lite/layout-troubleshooting.md) | Layered diagnosis and layout correction                     |
 
-## 共通约束
+Coverage terms follow the [selection inventory](selection-guide.md#diagram-type-inventory).
 
-- 输出合法 JSON 与 `vega-lite` 围栏；完整 Vega 不是 Fuxian 接受的围栏，不能靠改名转换。
-- 字段大小写、类型、单位和日期口径保持一致；缺失不自动当作零，聚合要可回溯。
-- 数据内联，可用命名 datasets；Fuxian 的 schema/compiler 与静态快照边界见 [capabilities.md](capabilities.md)。
-- 报告关键数值在初始快照就应可读，hover/交互只能作为额外辅助。
-- 示例 schema 为当前 Vega-Lite v6，较早目标版本应先核对能力。
+## Further chart families and compositions
+
+Vega-Lite composes charts from marks, encodings, transforms, and views; a chart name is not necessarily a dedicated `mark` value. These [official gallery](https://vega.github.io/vega-lite/examples/) candidates have no complete local example here. Check their specification and the target compiler, then apply Fuxian's inline-data and snapshot constraints.
+
+| Type                       | Use and construction                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Density; dot/strip plot    | Distribution shape using density transforms or positioned point/tick marks                                  |
+| Error bars; error bands    | Uncertainty intervals with defined statistical meaning, using composite marks or layers                     |
+| Ranged bars / Gantt        | Start/end intervals using paired position channels; task dependency routing needs separate modeling         |
+| Waterfall                  | Contributions to a running total using calculations, window transforms, and ranged bars                     |
+| Streamgraph; stacked area  | Composition over time; choose the baseline to match the question                                            |
+| Pie; radial plot           | Angular/radial encodings using arc or polar-positioned marks; prefer bars for precise comparison            |
+| Geographic maps            | Inline geographic features/coordinates and projections; adapt gallery examples that fetch external datasets |
+| Text table; colored matrix | Exact lookup with text marks, optionally layered on rectangles                                              |
+| Repeat; concatenated views | Repeated metrics or coordinated panels; ensure important information is visible in the initial snapshot     |
+
+Sankey, general network layouts, treemaps, and word clouds are not built-in Vega-Lite chart constructors. Full Vega examples requiring layout transforms are not directly portable. Prefer another suitable engine, or explicitly derive coordinates before authoring a custom Vega-Lite view and verify that it preserves the requested semantics.
+
+## Shared constraints
+
+- Emit valid JSON in a `vega-lite` fence. Fuxian does not accept full Vega fences; renaming a fence does not convert a Vega specification.
+- Keep field case, types, units, and date conventions consistent. Do not treat missing values as zero automatically; make aggregation traceable.
+- Inline data, optionally through named datasets. See [capabilities.md](capabilities.md) for Fuxian's schema/compiler and static-snapshot boundaries.
+- Key report values must be readable in the initial snapshot; hover and interaction are supplementary.
+- Examples use the current Vega-Lite v6 schema. Check capabilities first for older target versions.
