@@ -101,6 +101,16 @@ Mermaid、PlantUML、Vega-Lite 和 AntV Infographic 都会直接成为文档的�
 > [!IMPORTANT]
 > 当前安装包尚未签名。Windows 可能显示未知发布者或 SmartScreen 提示；macOS 可能需要在**系统设置 > 隐私与安全性**中手动允许打开。
 
+## 🎨 图形创作 Skill
+
+让 AI 根据内容选择合适的图形，再生成 PlantUML、Mermaid、Vega-Lite 或 AntV Infographic 的 Markdown 源码。安装配套 **fuxian-diagram** Skill：
+
+```bash
+npx skills add def-peter/fuxian --skill fuxian-diagram
+```
+
+使用示例、默认样式和渲染条件见 [Skill 指南](skills/fuxian-diagram/README.zh-CN.md)。
+
 ## 🛠️ 开发
 
 需要 Node.js 22.12 或更高版本，以及由 Corepack 管理的 pnpm 11.18。
@@ -116,7 +126,7 @@ pnpm dev
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-发布流程见 [`docs/release.md`](docs/release.md)，配套图形创作 Skill 见 [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md)。
+发布流程见 [`docs/release.md`](docs/release.md)，配套图形创作 Skill 见 [`fuxian-diagram`](skills/fuxian-diagram/README.zh-CN.md)。
 
 ## 💬 反馈
 
