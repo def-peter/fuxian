@@ -73,6 +73,7 @@ export default defineConfig({
           '@fuxian/shared-types',
           '@fuxian/markdown-renderer',
           'builder-util-runtime',
+          'electron-log',
           'electron-updater',
           'parse5',
           'plantuml-encoder',
