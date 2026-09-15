@@ -45,15 +45,68 @@ end
   "title": "季度交付数量（示例数据）",
   "width": "container",
   "height": 220,
-  "data": { "values": [
-    { "quarter": "Q1", "documents": 18 },
-    { "quarter": "Q2", "documents": 27 },
-    { "quarter": "Q3", "documents": 23 }
-  ] },
-  "mark": { "type": "bar", "color": "#426B87" },
+  "data": {
+    "values": [
+      {
+        "quarter": "Q1",
+        "documents": 18
+      },
+      {
+        "quarter": "Q2",
+        "documents": 27
+      },
+      {
+        "quarter": "Q3",
+        "documents": 23
+      }
+    ]
+  },
+  "mark": {
+    "type": "bar",
+    "color": "#1677FF"
+  },
   "encoding": {
-    "x": { "field": "quarter", "type": "ordinal", "sort": ["Q1", "Q2", "Q3"], "axis": { "title": "季度", "labelAngle": 0 } },
-    "y": { "field": "documents", "type": "quantitative", "scale": { "zero": true }, "axis": { "title": "文档数（份）", "tickMinStep": 1 } }
+    "x": {
+      "field": "quarter",
+      "type": "ordinal",
+      "sort": [
+        "Q1",
+        "Q2",
+        "Q3"
+      ],
+      "axis": {
+        "title": "季度",
+        "labelAngle": 0
+      }
+    },
+    "y": {
+      "field": "documents",
+      "type": "quantitative",
+      "scale": {
+        "zero": true
+      },
+      "axis": {
+        "title": "文档数（份）",
+        "tickMinStep": 1
+      }
+    }
+  },
+  "config": {
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
+    }
   }
 }
 ```

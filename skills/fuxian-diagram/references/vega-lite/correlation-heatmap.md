@@ -69,6 +69,16 @@
       "title": "文档类型",
       "legend": {
         "orient": "top"
+      },
+      "scale": {
+        "domain": [
+          "纯文本",
+          "含图表"
+        ],
+        "range": [
+          "#1677FF",
+          "#13C2C2"
+        ]
       }
     }
   },
@@ -88,6 +98,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }
@@ -166,8 +191,15 @@
       "type": "quantitative",
       "title": "任务数",
       "scale": {
-        "scheme": "blues",
-        "zero": true
+        "zero": true,
+        "range": [
+          "#E6F4FF",
+          "#91CAFF",
+          "#4096FF",
+          "#1677FF",
+          "#0958D9"
+        ],
+        "interpolate": "rgb"
       }
     }
   },
@@ -187,6 +219,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }

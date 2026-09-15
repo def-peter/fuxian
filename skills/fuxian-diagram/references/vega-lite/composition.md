@@ -66,8 +66,8 @@
           "失败"
         ],
         "range": [
-          "#426B87",
-          "#D18169"
+          "#52C41A",
+          "#F5222D"
         ]
       },
       "legend": {
@@ -91,6 +91,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }
@@ -137,6 +152,18 @@
       "title": "渠道",
       "legend": {
         "orient": "bottom"
+      },
+      "scale": {
+        "domain": [
+          "在线咨询",
+          "邮件",
+          "电话"
+        ],
+        "range": [
+          "#1677FF",
+          "#13C2C2",
+          "#722ED1"
+        ]
       }
     },
     "order": {
@@ -161,6 +188,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }

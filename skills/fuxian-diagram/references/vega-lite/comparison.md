@@ -30,7 +30,7 @@
   },
   "mark": {
     "type": "bar",
-    "color": "#426B87"
+    "color": "#1677FF"
   },
   "encoding": {
     "y": {
@@ -64,6 +64,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }
@@ -153,8 +168,8 @@
           "实际"
         ],
         "range": [
-          "#A5BAC8",
-          "#426B87"
+          "#91CAFF",
+          "#1677FF"
         ]
       },
       "legend": {
@@ -178,6 +193,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }

@@ -54,7 +54,7 @@
   },
   "mark": {
     "type": "bar",
-    "color": "#426B87"
+    "color": "#1677FF"
   },
   "encoding": {
     "x": {
@@ -90,6 +90,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }
@@ -189,7 +204,17 @@
     "color": {
       "field": "queue",
       "type": "nominal",
-      "legend": null
+      "legend": null,
+      "scale": {
+        "domain": [
+          "快速队列",
+          "普通队列"
+        ],
+        "range": [
+          "#1677FF",
+          "#13C2C2"
+        ]
+      }
     }
   },
   "config": {
@@ -208,6 +233,21 @@
     "header": {
       "labelFontSize": 12,
       "titleFontSize": 13
+    },
+    "mark": {
+      "color": "#1677FF"
+    },
+    "text": {
+      "color": "#262626"
+    },
+    "range": {
+      "category": [
+        "#1677FF",
+        "#13C2C2",
+        "#722ED1",
+        "#52C41A",
+        "#EB2F96"
+      ]
     }
   }
 }
