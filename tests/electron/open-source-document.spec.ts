@@ -62,7 +62,7 @@ test.afterAll(async () => {
       rm(path, { force: true }),
     ),
     ...[...disposableSessionFiles].map((path) =>
-      rm(`${path}.user-data`, { force: true, recursive: true }),
+      rm(`${path}.user-data`, { force: true, recursive: true, maxRetries: 5, retryDelay: 200 }),
     ),
   ]);
 });
@@ -345,6 +345,8 @@ test('a reader can open a source document from the start view', async () => {
 });
 
 test('a reader can manage multiple open and recent documents without duplicates', async () => {
+  // Opening and rendering several documents must leave time for Electron to exit on Windows CI.
+  test.setTimeout(60_000);
   const equivalentSourceDocumentPath = `${resolve(repositoryRoot, 'fixtures')}/../fixtures/basic.md`;
   const electronApp = await launchDesktop([
     sourceDocumentPath,
