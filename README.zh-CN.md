@@ -21,6 +21,10 @@
   <a href="README.md">English</a> · 简体中文
 </p>
 
+<p align="center">
+  <a href="https://def-peter.github.io/fuxian/zh/">官网</a> · <a href="https://def-peter.github.io/fuxian/zh/features/">功能详解</a> · <a href="https://github.com/def-peter/fuxian/releases/latest">下载浮现</a> · <a href="https://github.com/def-peter/fuxian/issues">问题反馈</a>
+</p>
+
 ## ✨ 让 Markdown 更值得阅读
 
 ### 📊 一份文档，四种图形框架

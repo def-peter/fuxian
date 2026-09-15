@@ -21,6 +21,10 @@
   English · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
+<p align="center">
+  <a href="https://def-peter.github.io/fuxian/en/">Website</a> · <a href="https://def-peter.github.io/fuxian/en/features/">Features</a> · <a href="https://github.com/def-peter/fuxian/releases/latest">Download</a> · <a href="https://github.com/def-peter/fuxian/issues">Feedback</a>
+</p>
+
 ## ✨ Make more of your Markdown
 
 ### 📊 One document. Four visual frameworks.
