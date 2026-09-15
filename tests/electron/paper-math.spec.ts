@@ -32,6 +32,10 @@ test('short display formulas do not force premature page breaks', async () => {
         '$$',
         String.raw`\text{因子得分} = q \times z`,
         '$$',
+        '$$',
+        String.raw`达到满分所需的支付订单数 \ge 曝光次数\times y+3`,
+        '$$',
+        String.raw`行内公式：$曝光次数\times y+3$。`,
         ...Array.from({ length: 25 }, () => 'A paragraph after the formulas.'),
       ].join('\n\n');
   await writeFile(sourcePath, source);
@@ -52,6 +56,14 @@ test('short display formulas do not force premature page breaks', async () => {
     await window.getByRole('button', { name: '打开 Markdown' }).click();
     const reading = window.frameLocator('iframe[data-finished-document="active"]');
     await expect(reading.locator('math[display="block"]').first()).toBeAttached();
+    if (!process.env.FUXIAN_E2E_MATH_DOCUMENT) {
+      await expect(
+        reading.locator('math[display="block"]').filter({ hasText: '达到满分' }),
+      ).toBeVisible();
+      await expect(
+        reading.locator('math:not([display])').filter({ hasText: '曝光次数' }),
+      ).toBeVisible();
+    }
     const targetFormulaId = await reading
       .locator('.math-render-task')
       .filter({ hasText: 'HISTORY' })

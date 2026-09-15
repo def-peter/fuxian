@@ -101,6 +101,16 @@ Visit [GitHub Releases](https://github.com/def-peter/fuxian/releases/latest) for
 > [!IMPORTANT]
 > Current builds are unsigned. Windows may show an unknown publisher or SmartScreen warning. On macOS, you may need to allow the app manually under **System Settings > Privacy & Security**.
 
+## 🎨 Diagram authoring skill
+
+Let your AI choose an appropriate diagram for the content, then generate Markdown using PlantUML, Mermaid, Vega-Lite, or AntV Infographic. Install the companion **fuxian-diagram** skill:
+
+```bash
+npx skills add def-peter/fuxian --skill fuxian-diagram
+```
+
+See the [skill guide](skills/fuxian-diagram/README.md) for examples, defaults, and rendering requirements.
+
 ## 🛠️ Development
 
 You will need Node.js 22.12 or later and pnpm 11.18 managed through Corepack.
@@ -116,7 +126,7 @@ Before submitting a change, run:
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-See [`docs/release.md`](docs/release.md) for the release process and [`skill/fuxian-diagram-authoring`](skill/fuxian-diagram-authoring/SKILL.md) for the companion visual-authoring skill.
+See [`docs/release.md`](docs/release.md) for the release process and [`fuxian-diagram`](skills/fuxian-diagram/README.md) for the companion visual-authoring skill.
 
 ## 💬 Feedback
 

@@ -5,6 +5,8 @@ description: 为 Fuxian Markdown 创建或改进图示。用户要求画图、�
 
 # Fuxian Diagram
 
+项目来源：[浮现 Fuxian](https://github.com/def-peter/fuxian)，支持图示阅读与 PDF 导出的 Markdown 桌面应用。
+
 把读者需要理解的关键内容转成可阅读、可交付的图示，默认输出 Fuxian 可渲染的 Markdown 代码块。沿用用户的语言与术语。
 
 ## 1. 锚定内容
