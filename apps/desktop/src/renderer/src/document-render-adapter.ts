@@ -82,7 +82,9 @@ export const createDocumentRenderAdapter = (
           html: katex.renderToString(task.source, {
             displayMode: task.kind === 'math-display',
             output: 'mathml',
-            strict: 'error',
+            // KaTeX can render Unicode prose in math mode; accept it without
+            // rewriting authored formulas or relaxing other compatibility checks.
+            strict: (code) => (code === 'unicodeTextInMathMode' ? 'ignore' : 'error'),
             throwOnError: true,
             trust: false,
           }),

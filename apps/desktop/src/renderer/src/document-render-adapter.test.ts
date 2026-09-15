@@ -6,6 +6,53 @@ import {
 } from './document-render-adapter';
 
 describe('document render adapter', () => {
+  it.each(['math-inline', 'math-display'] as const)(
+    'renders Chinese text in %s without requiring text commands',
+    async (kind) => {
+      const adapter = createDocumentRenderAdapter('https://server.test', vi.fn());
+      const source = String.raw`达到满分所需的支付订单数 \ge 曝光次数\times y+3`;
+      const result = await adapter.render(
+        { id: 'chinese-math', kind, source },
+        new AbortController().signal,
+      );
+
+      expect(result.kind).toBe('math');
+      if (result.kind !== 'math') throw new Error('Expected a math result');
+      expect(result.html).toContain('<math');
+      expect(result.html).toContain('<mtext>');
+      expect(result.html).toContain(source);
+      expect(result.html).not.toContain('katex-error');
+    },
+  );
+
+  it.each([String.raw`中文 + \frac{1}{`, String.raw`中文 + \unknowncommand`])(
+    'still rejects invalid formulas containing Chinese: %s',
+    async (source) => {
+      const adapter = createDocumentRenderAdapter('https://server.test', vi.fn());
+      await expect(
+        adapter.render(
+          { id: 'invalid-math', kind: 'math-display', source },
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow(/expected|Undefined control sequence/i);
+    },
+  );
+
+  it('keeps untrusted math commands disabled when rendering Chinese', async () => {
+    const adapter = createDocumentRenderAdapter('https://server.test', vi.fn());
+    const result = await adapter.render(
+      {
+        id: 'untrusted-math',
+        kind: 'math-inline',
+        source: String.raw`中文 + \href{https://example.com}{链接}`,
+      },
+      new AbortController().signal,
+    );
+    expect(result.kind).toBe('math');
+    if (result.kind !== 'math') throw new Error('Expected a math result');
+    expect(result.html).not.toContain('href=');
+  });
+
   it('uses the current PlantUML server without changing the source', async () => {
     const renderPlantUml = vi.fn(async () => '<svg><text>diagram</text></svg>');
     const adapter = createDocumentRenderAdapter('https://first.test/plantuml', renderPlantUml);
