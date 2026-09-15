@@ -1,15 +1,6 @@
 name: Deploy website
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/website/**'
-      - '.github/workflows/deploy-website.yml'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - 'tsconfig.base.json'
   workflow_dispatch:
 
 permissions:

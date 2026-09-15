@@ -28,7 +28,15 @@ Canonical URLs use `https://def-peter.github.io/fuxian/`. Update this origin and
 
 ## GitHub Pages
 
-The existing workflow builds and uploads `dist`. In GitHub Actions, Vite uses `/fuxian/` for all internal routes and assets. To verify that path locally:
+Website publication is manual and independent of desktop releases. Pushing code, including website changes, does not deploy the site. When ready to publish:
+
+1. Push the website changes to `main`.
+2. Open **Actions → Deploy website → Run workflow**, select `main`, and run it.
+3. Wait for both `build` and `deploy` to succeed, then check the live site.
+
+The equivalent CLI command is `gh workflow run deploy-website.yml --ref main`.
+
+The workflow builds and uploads `dist`. In GitHub Actions, Vite uses `/fuxian/` for all internal routes and assets. To verify that path locally:
 
 ```sh
 WEBSITE_BASE=/fuxian/ corepack pnpm --filter @fuxian/website build
