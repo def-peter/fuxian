@@ -40,6 +40,34 @@ afterEach(async () => {
 });
 
 describe('session persistence', () => {
+  it('loads the newest accepted session while its disk write is still pending', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fuxian-session-reload-'));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'document-session.json');
+    const persistence = new JsonFileSessionPersistence(path);
+    const previous = sessionFixture();
+    await persistence.save(previous);
+    const latest = {
+      ...previous,
+      openDocuments: Array.from({ length: 10 }, (_, index) => ({
+        ...previous.openDocuments[0]!,
+        path: `/docs/${index}.md`,
+      })),
+      activeDocumentPath: '/docs/0.md',
+    };
+    const saving = persistence.save(latest);
+    try {
+      expect(await persistence.load()).toEqual(latest);
+    } finally {
+      await saving;
+    }
+    expect(await new JsonFileSessionPersistence(path).load()).toEqual(latest);
+    const loaded = await persistence.load();
+    loaded.openDocuments.length = 0;
+    latest.openDocuments.length = 0;
+    expect((await persistence.load()).openDocuments).toHaveLength(10);
+  });
+
   it('keeps memory snapshots isolated from callers', async () => {
     const original = sessionFixture();
     const persistence = new MemorySessionPersistence(original);

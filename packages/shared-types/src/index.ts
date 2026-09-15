@@ -1,9 +1,13 @@
 export { classifyDocumentLink, type DocumentLink } from './document-links';
 
 export const desktopIpcChannels = {
+  reportDiagnostic: 'fuxian:diagnostics:report',
+  exportDiagnostics: 'fuxian:diagnostics:export',
+  clearDiagnostics: 'fuxian:diagnostics:clear',
   appCloseConfirmed: 'fuxian:app:close-confirmed',
   appCloseGuardReady: 'fuxian:app:close-guard-ready',
   appCloseRequested: 'fuxian:app:close-requested',
+  activeDocumentCloseRequested: 'fuxian:document-session:close-active',
   appUpdateAcknowledgeReminder: 'fuxian:app-update:acknowledge-reminder',
   appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
   appUpdateCheck: 'fuxian:app-update:check',
@@ -556,7 +560,32 @@ export type PdfExportReadySignal =
   | { exportId: string; pageCount: number; status: 'ready' }
   | { exportId: string; message: string; status: 'failed' };
 
+export const rendererDiagnosticEvents = [
+  'document.close-requested',
+  'document.closed',
+  'document.forgotten-missing',
+  'document.removed-unavailable',
+  'history.removed',
+  'document.open-requested',
+  'session.restore-started',
+  'session.restore-failed',
+  'render.failed',
+  'renderer.error',
+  'renderer.rejection',
+] as const;
+export interface RendererDiagnosticEvent {
+  event: (typeof rendererDiagnosticEvents)[number];
+  path?: string;
+  origin?: 'command' | 'sidebar' | 'dialog' | 'drop' | 'system';
+  renderKind?: 'mermaid' | 'plantuml' | 'vega-lite' | 'infographic' | 'math';
+  error?: { name?: string; code?: string; stack?: string };
+}
+export type DiagnosticActionResult = { status: 'completed' | 'cancelled' | 'failed' };
+
 export interface FuxianDesktopBridge {
+  reportDiagnostic(event: RendererDiagnosticEvent): void;
+  exportDiagnostics(): Promise<DiagnosticActionResult>;
+  clearDiagnostics(): Promise<DiagnosticActionResult>;
   readonly platform: string;
   acknowledgeAppUpdateReminder(version: string): Promise<AppUpdateStatus>;
   cancelAppUpdateDownload(): Promise<AppUpdateStatus>;
@@ -581,6 +610,7 @@ export interface FuxianDesktopBridge {
   onReaderPreferencesChanged(listener: (preferences: ReaderPreferences) => void): () => void;
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   onAppCloseRequested(listener: (request: AppCloseRequest) => void): () => void;
+  onActiveDocumentCloseRequested(listener: () => void): () => void;
   onAppUpdateStatusChanged(listener: (status: AppUpdateStatus) => void): () => void;
   onPdfExportProgress(listener: (progress: PdfExportProgress) => void): () => void;
   onSourceDocumentOpenRequested(listener: (result: OpenSourceDocumentsResult) => void): () => void;

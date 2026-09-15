@@ -88,6 +88,7 @@ interface BindFinishedDocumentOptions {
   onInspectRenderedVisual?(visual: RenderedVisualSnapshot): void;
   onReadingPositionChange(position: ReadingPosition): void;
   onRenderSnapshot?(snapshot: RenderRevisionSnapshot): void;
+  onRenderFailure?(kind: RenderTask['kind']): void;
   renderAdapter?: RenderTaskAdapter<DocumentRenderResult>;
   renderInfographic?: InfographicRenderer;
   renderPlantUml?: PlantUmlRenderer;
@@ -789,6 +790,7 @@ export function bindFinishedDocument(
     status: 'failed' | 'timed-out',
     error: string,
   ): void => {
+    options.onRenderFailure?.(task.kind);
     const element = getRenderTaskElement(task);
     if (!element) return;
     element.dataset.renderState = status;

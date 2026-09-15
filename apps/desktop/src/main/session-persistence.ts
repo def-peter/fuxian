@@ -112,22 +112,38 @@ export class MemorySessionPersistence implements SessionPersistence {
 
 export class JsonFileSessionPersistence implements SessionPersistence {
   private pendingSave: Promise<void> = Promise.resolve();
+  private latestSession: PersistedDocumentSession | undefined;
 
-  constructor(private readonly path: string) {}
+  constructor(
+    private readonly path: string,
+    private readonly reportLoadFailure?: (
+      reason: 'invalid' | 'read-failed',
+      error?: unknown,
+    ) => void,
+  ) {}
 
   async load(): Promise<PersistedDocumentSession> {
+    if (this.latestSession) return cloneSession(this.latestSession);
     try {
       const value: unknown = JSON.parse(await readFile(this.path, 'utf8'));
-      return isPersistedDocumentSession(value)
-        ? cloneSession(value)
-        : createEmptyPersistedDocumentSession();
-    } catch {
+      // A renderer reload can read while an accepted save is still writing.
+      if (this.latestSession) return cloneSession(this.latestSession);
+      if (isPersistedDocumentSession(value)) return cloneSession(value);
+      this.reportLoadFailure?.('invalid');
       return createEmptyPersistedDocumentSession();
+    } catch (error) {
+      if (!this.latestSession && (error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.reportLoadFailure?.('read-failed', error);
+      }
+      return this.latestSession
+        ? cloneSession(this.latestSession)
+        : createEmptyPersistedDocumentSession();
     }
   }
 
   async save(session: PersistedDocumentSession): Promise<void> {
     const snapshot = cloneSession(session);
+    this.latestSession = snapshot;
     const save = async (): Promise<void> => {
       await mkdir(dirname(this.path), { recursive: true });
       const temporaryPath = `${this.path}.${process.pid}.tmp`;

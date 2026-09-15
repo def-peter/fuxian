@@ -55,6 +55,7 @@ import { applyDocumentTheme, createFinishedDocumentSource } from '@/finished-doc
 import { FuxianAppIcon } from '@/fuxian-mark';
 import { useLocalization } from '@/localization-context';
 import { UpdateReleaseNotes } from '@/components/update-release-notes';
+import { DiagnosticControls } from '@/components/diagnostic-controls';
 import { toDocumentThemePreferences } from '@/reader-preferences-theme';
 import { useReaderPreferences } from '@/use-reader-preferences';
 import { useAppUpdateStatus } from '@/use-app-update-status';
@@ -703,6 +704,8 @@ export function SettingsApp(): React.JSX.Element {
                   />
                 ) : null}
               </div>
+              <Separator className="my-5" />
+              <DiagnosticControls />
             </section>
           ) : null}
 

@@ -1,6 +1,18 @@
 import type { UiLocale } from '@fuxian/shared-types';
 
 const englishMessages = {
+  诊断日志: 'Diagnostics',
+  导出诊断日志: 'Export logs',
+  清理日志: 'Clear logs',
+  '本机保留最近 7 天、最多 10 MB。不记录正文和文件名，路径匿名化，不会自动上传。':
+    'Local logs: up to 7 days and 10 MB. No document text or filenames; paths are anonymized. Never uploaded automatically.',
+  无法处理诊断日志: 'Could not export or clear logs',
+  '请检查保存位置和磁盘空间，然后重试。':
+    'Check the save location and available disk space, then try again.',
+  '日志已导出，你可以在反馈问题时附上此文件。':
+    'Logs exported. You can attach this file when reporting a problem.',
+  '历史日志已清理，文档和查看记录不受影响。':
+    'Logs cleared. Your documents and viewing history are unchanged.',
   A4: 'A4',
   '暂时无法重启安装，请稍后重试。': 'Could not restart the installer. Try again later.',
   '当前环境不支持软件更新。': 'Software updates are unavailable in this environment.',

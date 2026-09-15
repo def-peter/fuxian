@@ -3,6 +3,27 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LocalizationProvider } from '@/localization-context';
 
+const reportRendererError = (
+  event: 'renderer.error' | 'renderer.rejection',
+  error: unknown,
+): void => {
+  window.fuxian?.reportDiagnostic({
+    event,
+    ...(error instanceof Error
+      ? {
+          error: {
+            name: error.name,
+            ...(error.stack ? { stack: error.stack.slice(0, 16_384) } : {}),
+          },
+        }
+      : {}),
+  });
+};
+window.addEventListener('error', (event) => reportRendererError('renderer.error', event.error));
+window.addEventListener('unhandledrejection', (event) =>
+  reportRendererError('renderer.rejection', event.reason),
+);
+
 const tooltipTokens = document.createElement('style');
 tooltipTokens.textContent = tooltipTokensCss;
 document.head.append(tooltipTokens);

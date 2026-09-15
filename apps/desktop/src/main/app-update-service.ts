@@ -43,6 +43,7 @@ interface AppUpdateServiceOptions {
   persistNotifiedVersion?(version: string): Promise<void>;
   supported: boolean;
   translate?: Translator;
+  reportError?(operation: string, error: unknown): void;
 }
 
 const releaseText = (value: unknown, maximumLength: number): string | undefined => {
@@ -130,7 +131,7 @@ export class AppUpdateService {
         this.finishCancellation();
         return;
       }
-      console.error('[app-update] updater failure', error);
+      this.options.reportError?.('updater', error);
       this.fail(this.status.phase === 'downloading' ? 'download' : 'check');
     });
   }
@@ -150,7 +151,7 @@ export class AppUpdateService {
     try {
       await this.options.persistNotifiedVersion?.(normalizedVersion);
     } catch (error) {
-      console.error('[app-update] could not persist reminder state', error);
+      this.options.reportError?.('reminder-save', error);
     }
     return this.getStatus();
   }
@@ -170,7 +171,7 @@ export class AppUpdateService {
     const operation = this.options.adapter
       .checkForUpdates()
       .catch((error: unknown) => {
-        console.error('[app-update] check failed', error);
+        this.options.reportError?.('check', error);
         this.fail('check');
       })
       .then(() => this.getStatus())
@@ -217,7 +218,7 @@ export class AppUpdateService {
           this.finishCancellation();
           return;
         }
-        console.error('[app-update] download failed', error);
+        this.options.reportError?.('download', error);
         this.fail('download');
       })
       .then(() => this.getStatus())
@@ -254,7 +255,7 @@ export class AppUpdateService {
         await this.options.manualDownload.open();
         this.update({ message: undefined });
       } catch (error) {
-        console.error('[app-update] opening installer failed', error);
+        this.options.reportError?.('open-installer', error);
         this.update({
           message: this.t('无法打开安装包，请重新下载或前往 GitHub 下载。'),
           phase: 'error',
@@ -265,7 +266,7 @@ export class AppUpdateService {
     try {
       await this.options.beforeInstall();
     } catch (error) {
-      console.error('[app-update] install preparation failed', error);
+      this.options.reportError?.('prepare-install', error);
       this.update({ message: updateFailureMessage(this.t, 'install'), phase: 'downloaded' });
       return this.getStatus();
     }
@@ -273,7 +274,7 @@ export class AppUpdateService {
     try {
       this.options.adapter.quitAndInstall(false, true);
     } catch (error) {
-      console.error('[app-update] install failed', error);
+      this.options.reportError?.('install', error);
       this.update({ message: updateFailureMessage(this.t, 'install'), phase: 'downloaded' });
     }
     return this.getStatus();
@@ -287,7 +288,7 @@ export class AppUpdateService {
     try {
       await this.options.openReleasePage(version);
     } catch (error) {
-      console.error('[app-update] opening release page failed', error);
+      this.options.reportError?.('open-release', error);
       this.update({ message: this.t('无法打开 GitHub Release，请稍后重试。') });
     }
     return this.getStatus();

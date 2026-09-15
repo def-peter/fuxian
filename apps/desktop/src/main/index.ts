@@ -4,6 +4,9 @@ import {
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
   resolveUiLocale,
+  rendererDiagnosticEvents,
+  type DiagnosticActionResult,
+  type RendererDiagnosticEvent,
   type AppCloseRequest,
   type AppUpdateDelivery,
   type AppUpdateInstallPreparationResult,
@@ -55,6 +58,7 @@ import { DmgUpdateDownload } from './dmg-update-download';
 import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { release as osRelease } from 'node:os';
 import { documentResourceScheme, DocumentResourceTrustStore } from './document-resource-protocol';
 import { isPaperPreviewFrameUrl } from './frame-navigation-policy';
 import {
@@ -90,6 +94,7 @@ import { configureWindowMenu } from './window-menu-policy';
 import { revealSourceDocument } from './reveal-source-document';
 import { describeDocumentLink, openDocumentLink } from './document-links';
 import { hasDefaultFileApplication } from './file-association';
+import { Diagnostics, diagnosticError } from './diagnostics';
 
 const { autoUpdater } = electronUpdater;
 
@@ -106,6 +111,7 @@ let mainWindowCloseGuardReady = false;
 let pendingMainWindowCloseKind: AppCloseRequest['kind'] | undefined;
 let appUpdateService: AppUpdateService | undefined;
 let appUpdateScheduler: AppUpdateScheduler | undefined;
+let diagnostics: Diagnostics | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
 const pendingSourceDocumentOpenRequests: string[][] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
@@ -208,6 +214,13 @@ const errorMessage = (error: unknown): string =>
   error instanceof Error && error.message ? error.message : mainText('PlantUML Server 验证失败。');
 
 const sendPdfExportProgress = (job: PdfExportJob, progress: PdfExportProgress): void => {
+  if (
+    progress.status === 'failed' ||
+    progress.status === 'completed' ||
+    progress.status === 'cancelled'
+  ) {
+    diagnostics?.record(`pdf.${progress.status}`);
+  }
   if (!job.originWindow.isDestroyed()) {
     job.originWindow.webContents.send(desktopIpcChannels.pdfExportProgress, progress);
   }
@@ -291,6 +304,10 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
   try {
     canonicalPath = await realpath(selectedPath);
   } catch (error) {
+    diagnostics?.record('document.read-failed', {
+      document: diagnostics.documentId(selectedPath),
+      error: diagnosticError(error),
+    });
     return {
       status: 'unavailable',
       message: mainText('无法读取“{name}”。请确认文件仍然存在并可访问。', {
@@ -324,6 +341,10 @@ const readSourceDocument = async (selectedPath: string): Promise<ReadSourceDocum
       },
     };
   } catch (error) {
+    diagnostics?.record('document.read-failed', {
+      document: diagnostics.documentId(canonicalPath),
+      error: diagnosticError(error),
+    });
     return {
       status: 'unavailable',
       message: mainText('无法读取“{name}”。请确认文件仍然存在并可访问。', {
@@ -522,6 +543,71 @@ const registerDesktopHandlers = (
   markdownDefaultAppService: MarkdownDefaultAppService,
 ): void => {
   let preferencesSaveQueue = Promise.resolve();
+  const isShellSender = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
+    event.senderFrame === event.sender.mainFrame &&
+    [mainWindow?.webContents, settingsWindow?.webContents].includes(event.sender);
+  let reportsThisSecond = 0;
+  let reportSecond = 0;
+  ipcMain.on(desktopIpcChannels.reportDiagnostic, (event, value: unknown) => {
+    if (!isShellSender(event) || !value || typeof value !== 'object') return;
+    const report = value as Partial<RendererDiagnosticEvent>;
+    if (!rendererDiagnosticEvents.includes(report.event as RendererDiagnosticEvent['event']))
+      return;
+    const second = Math.floor(Date.now() / 1000);
+    if (second !== reportSecond) {
+      reportSecond = second;
+      reportsThisSecond = 0;
+    }
+    if (++reportsThisSecond > 30) return;
+    const origin = ['command', 'sidebar', 'dialog', 'drop', 'system'].find(
+      (value) => value === report.origin,
+    );
+    const renderKind = ['mermaid', 'plantuml', 'vega-lite', 'infographic', 'math'].find(
+      (value) => value === report.renderKind,
+    );
+    diagnostics?.record(report.event!, {
+      windowId: event.sender.id,
+      ...(origin ? { origin } : {}),
+      ...(renderKind ? { renderKind } : {}),
+      ...(typeof report.path === 'string' && knownDocumentPaths.has(report.path)
+        ? { document: diagnostics.documentId(report.path) }
+        : {}),
+      ...(report.error ? { error: diagnosticError(report.error) } : {}),
+    });
+  });
+  ipcMain.handle(
+    desktopIpcChannels.exportDiagnostics,
+    async (event): Promise<DiagnosticActionResult> => {
+      if (!isShellSender(event) || !diagnostics) return { status: 'failed' };
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      if (!owner) return { status: 'failed' };
+      try {
+        const selection = await dialog.showSaveDialog(owner, {
+          title: mainText('导出诊断日志'),
+          defaultPath: `fuxian-diagnostics-${new Date().toISOString().slice(0, 10)}.jsonl`,
+          filters: [{ name: mainText('诊断日志'), extensions: ['jsonl'] }],
+        });
+        if (selection.canceled || !selection.filePath) return { status: 'cancelled' };
+        await writeFile(selection.filePath, diagnostics.exportText(), {
+          encoding: 'utf8',
+          mode: 0o600,
+        });
+        return { status: 'completed' };
+      } catch (error) {
+        diagnostics.failure('diagnostics.export-failed', error);
+        return { status: 'failed' };
+      }
+    },
+  );
+  ipcMain.handle(desktopIpcChannels.clearDiagnostics, (event): DiagnosticActionResult => {
+    if (!isShellSender(event) || !diagnostics) return { status: 'failed' };
+    try {
+      diagnostics.clear();
+      return { status: 'completed' };
+    } catch {
+      return { status: 'failed' };
+    }
+  });
   ipcMain.handle(desktopIpcChannels.appUpdateAcknowledgeReminder, (_event, version: unknown) =>
     typeof version === 'string'
       ? updateService.acknowledgeReminder(version)
@@ -1006,6 +1092,7 @@ const registerDesktopHandlers = (
     desktopIpcChannels.loadDocumentSession,
     async (): Promise<LoadDocumentSessionResult> => {
       const session = await sessionPersistence.load();
+      diagnostics?.session('session.loaded', session);
       for (const reference of [...session.openDocuments, ...session.recentDocuments]) {
         knownDocumentPaths.add(reference.path);
       }
@@ -1043,6 +1130,12 @@ const registerDesktopHandlers = (
         ),
         ...missingRecentDocumentPaths,
       ];
+      diagnostics?.record('session.restore-result', {
+        openCount: openDocuments.length,
+        unavailableCount: openDocuments.filter((document) => document.status === 'unavailable')
+          .length,
+        missing: missingDocumentPaths.map((path) => diagnostics!.documentId(path)),
+      });
       return { missingDocumentPaths, openDocuments, session };
     },
   );
@@ -1054,7 +1147,17 @@ const registerDesktopHandlers = (
     if (references.some((reference) => !knownDocumentPaths.has(reference.path))) {
       throw new TypeError('The document session contains an unauthorized path.');
     }
-    await sessionPersistence.save(value);
+    const accepted = diagnostics?.session('session.accepted', value);
+    try {
+      await sessionPersistence.save(value);
+      if (accepted?.changed) diagnostics?.record('session.saved', { revision: accepted.revision });
+    } catch (error) {
+      diagnostics?.record('session.save-failed', {
+        revision: accepted?.revision,
+        error: diagnosticError(error),
+      });
+      throw error;
+    }
   });
   ipcMain.handle(
     desktopIpcChannels.loadSourceRecoveryDrafts,
@@ -1451,10 +1554,23 @@ const createApplicationMenu = (): Menu => {
         click: openSourceDocumentsFromMenu,
         label: mainText('打开 Markdown…'),
       },
-      { type: 'separator' },
+      {
+        id: 'close-active-document',
+        accelerator: 'CmdOrCtrl+W',
+        label: mainText('关闭当前文档'),
+        click: (_item, window) => {
+          if (!window || window.isDestroyed()) return;
+          if (window === mainWindow) {
+            mainWindow.webContents.send(desktopIpcChannels.activeDocumentCloseRequested);
+          } else {
+            window.close();
+          }
+        },
+      },
       ...(process.platform === 'darwin'
-        ? [{ label: mainText('关闭窗口'), role: 'close' as const }]
+        ? []
         : [
+            { type: 'separator' as const },
             { click: () => createSettingsWindow(), label: mainText('设置…') },
             { type: 'separator' as const },
             { label: mainText('退出浮现'), role: 'quit' as const },
@@ -1480,10 +1596,10 @@ const createApplicationMenu = (): Menu => {
     {
       label: mainText('视图'),
       submenu: [
-        { label: mainText('重新加载'), role: 'reload' },
-        { label: mainText('强制重新加载'), role: 'forceReload' },
         ...(!app.isPackaged
           ? [
+              { label: mainText('重新加载'), role: 'reload' as const },
+              { label: mainText('强制重新加载'), role: 'forceReload' as const },
               { type: 'separator' as const },
               {
                 accelerator: 'CmdOrCtrl+Shift+I',
@@ -1510,7 +1626,8 @@ const createApplicationMenu = (): Menu => {
               { type: 'separator' as const },
               { label: mainText('前置全部窗口'), role: 'front' as const },
             ]
-          : [{ label: mainText('关闭窗口'), role: 'close' as const }]),
+          : []),
+        { label: mainText('关闭窗口'), role: 'close', accelerator: 'CmdOrCtrl+Shift+W' },
       ],
     },
     {
@@ -1594,6 +1711,49 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  diagnostics = new Diagnostics(
+    join(app.getPath('userData'), app.isPackaged ? 'diagnostics' : 'diagnostics-development'),
+    {
+      version: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      electron: process.versions.electron,
+      osVersion: osRelease(),
+    },
+  );
+  process.on('uncaughtExceptionMonitor', (error) =>
+    diagnostics?.failure('main.uncaught-exception', error),
+  );
+  app.on('web-contents-created', (_event, contents) => {
+    const windowId = contents.id;
+    contents.on('destroyed', () => diagnostics?.record('renderer.destroyed', { windowId }));
+    contents.on('render-process-gone', (_event, details) => {
+      diagnostics?.record('renderer.process-gone', {
+        reason: details.reason,
+        exitCode: details.exitCode,
+        windowId: contents.id,
+      });
+    });
+    contents.on('unresponsive', () =>
+      diagnostics?.record('renderer.unresponsive', { windowId: contents.id }),
+    );
+    contents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => {
+      if (isMainFrame) diagnostics?.record('renderer.navigation', { windowId: contents.id });
+    });
+  });
+  app.on('child-process-gone', (_event, details) => {
+    diagnostics?.record('child.process-gone', {
+      type: details.type,
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
+  });
+  const diagnosticMaintenance = setInterval(() => diagnostics?.prune(), 60 * 60 * 1000);
+  diagnosticMaintenance.unref();
+  app.on('quit', () => {
+    clearInterval(diagnosticMaintenance);
+    diagnostics?.close();
+  });
   enqueueSourceDocumentOpenRequest(extractSourceDocumentPaths(process.argv, process.cwd()));
   app.on('second-instance', (_event, argv, workingDirectory) => {
     enqueueSourceDocumentOpenRequest(extractSourceDocumentPaths(argv, workingDirectory));
@@ -1650,6 +1810,7 @@ if (!hasSingleInstanceLock) {
         ? 'manual-install'
         : 'automatic-install';
     appUpdateService = new AppUpdateService({
+      reportError: (operation, error) => diagnostics?.failure(`update.${operation}-failed`, error),
       adapter: e2eUpdateAdapter ?? autoUpdater,
       beforeInstall: requestDocumentSessionFlush,
       broadcast: broadcastAppUpdateStatus,
@@ -1726,7 +1887,9 @@ if (!hasSingleInstanceLock) {
       ...(isE2ERuntime && testDefaultAppState ? { testState: testDefaultAppState } : {}),
     });
     registerDesktopHandlers(
-      new JsonFileSessionPersistence(sessionPath),
+      new JsonFileSessionPersistence(sessionPath, (reason, error) => {
+        diagnostics?.record('session.load-failed', { reason, error: diagnosticError(error) });
+      }),
       preferencesPersistence,
       new JsonFileSourceRecoveryPersistence(sourceRecoveryPath),
       appUpdateService,
@@ -1736,6 +1899,7 @@ if (!hasSingleInstanceLock) {
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
     appUpdateScheduler = scheduleAppUpdateChecks({
+      reportError: (error) => diagnostics?.failure('update.scheduled-check-failed', error),
       check: () => appUpdateService?.checkForUpdates(),
       ...(e2eUpdateAdapter ? { initialDelay: 50 } : {}),
     });

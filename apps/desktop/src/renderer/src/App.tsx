@@ -122,7 +122,7 @@ let externalFrameRevision = 0;
 type GuardedSourceAction =
   | { kind: 'accept-open'; result: OpenSourceDocumentsResult }
   | { kind: 'activate'; path: string }
-  | { kind: 'close'; path: string }
+  | { kind: 'close'; path: string; origin?: 'command' | 'sidebar' }
   | { kind: 'close-window' }
   | { kind: 'install-update' }
   | { kind: 'quit' }
@@ -372,6 +372,7 @@ export function App(): React.JSX.Element {
   }, []);
 
   const forgetMissingDocument = useCallback((path: string): void => {
+    window.fuxian.reportDiagnostic({ event: 'document.forgotten-missing', path });
     const wasActive = sessionRef.current.activeDocumentPath === path;
     pendingRevisionRefs.current.delete(path);
     setPendingRevisions((current) => {
@@ -734,6 +735,7 @@ export function App(): React.JSX.Element {
     let cancelled = false;
     void (async () => {
       try {
+        window.fuxian.reportDiagnostic({ event: 'session.restore-started' });
         const result = await window.fuxian.loadDocumentSession();
         const drafts = await window.fuxian.loadSourceRecoveryDrafts();
         if (cancelled) return;
@@ -787,6 +789,7 @@ export function App(): React.JSX.Element {
         setSession(nextSession);
       } catch {
         if (!cancelled) {
+          window.fuxian.reportDiagnostic({ event: 'session.restore-failed' });
           setBlockingError(t('无法恢复上次文档会话。你仍可以重新打开文档。'));
         }
       } finally {
@@ -821,6 +824,9 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     const saveBeforeUnload = (): void => {
+      // A reload during restoration must not replace the saved session with the
+      // initial empty renderer state.
+      if (restorationStatusRef.current !== 'ready') return;
       void window.fuxian.saveDocumentSession(createPersistedDocumentSession(sessionRef.current));
     };
     window.addEventListener('beforeunload', saveBeforeUnload);
@@ -1042,6 +1048,16 @@ export function App(): React.JSX.Element {
     const frameDocument = element.contentDocument;
     if (!frameDocument) return;
     const controller = bindFinishedDocument(frameDocument, {
+      onRenderFailure: (kind) => {
+        const renderKind = (
+          ['mermaid', 'plantuml', 'vega-lite', 'infographic', 'math'] as const
+        ).find((value) => value === kind);
+        window.fuxian.reportDiagnostic({
+          event: 'render.failed',
+          path: frame.sessionPath,
+          ...(renderKind ? { renderKind } : {}),
+        });
+      },
       copyText: window.fuxian.copyText,
       onOpenLink: (href) => {
         if (visibleFrameIdRef.current === frame.id)
@@ -1162,6 +1178,7 @@ export function App(): React.JSX.Element {
       })
       .catch((error: unknown) => {
         const path = frame.sessionPath;
+        window.fuxian.reportDiagnostic({ event: 'render.failed', path });
         if (pendingRevisionRefs.current.get(path)?.id !== frame.id) return;
         pendingRevisionRefs.current.delete(path);
         setPendingRevisions((current) => {
@@ -1282,6 +1299,7 @@ export function App(): React.JSX.Element {
   useEffect(
     () =>
       window.fuxian.onSourceDocumentOpenRequested((result) => {
+        window.fuxian.reportDiagnostic({ event: 'document.open-requested', origin: 'system' });
         if (restorationStatusRef.current !== 'ready') {
           pendingSystemOpenResults.current.push(result);
           return;
@@ -1299,6 +1317,7 @@ export function App(): React.JSX.Element {
   }, [restorationStatus]);
 
   const openSourceDocuments = async (): Promise<void> => {
+    window.fuxian.reportDiagnostic({ event: 'document.open-requested', origin: 'dialog' });
     setOpening(true);
     try {
       acceptOpenResult(await window.fuxian.openSourceDocuments());
@@ -1311,6 +1330,7 @@ export function App(): React.JSX.Element {
   };
 
   const openDroppedSourceDocuments = async (files: File[]): Promise<void> => {
+    window.fuxian.reportDiagnostic({ event: 'document.open-requested', origin: 'drop' });
     setOpening(true);
     try {
       acceptOpenResult(await window.fuxian.openDroppedSourceDocuments(files));
@@ -1385,6 +1405,11 @@ export function App(): React.JSX.Element {
       return;
     }
     if (action.kind === 'close') {
+      window.fuxian.reportDiagnostic({
+        event: 'document.closed',
+        path: action.path,
+        origin: action.origin ?? 'sidebar',
+      });
       if (sourceEditRef.current?.path === action.path) commitSourceEdit(undefined);
       performCloseOpenDocument(action.path);
       return;
@@ -1432,6 +1457,22 @@ export function App(): React.JSX.Element {
 
   useEffect(
     () =>
+      window.fuxian.onActiveDocumentCloseRequested(() => {
+        const path = sessionRef.current.activeDocumentPath;
+        if (path) {
+          window.fuxian.reportDiagnostic({
+            event: 'document.close-requested',
+            path,
+            origin: 'command',
+          });
+          requestSourceActionRef.current({ kind: 'close', path, origin: 'command' });
+        }
+      }),
+    [],
+  );
+
+  useEffect(
+    () =>
       window.fuxian.onAppCloseRequested((request) => {
         requestSourceActionRef.current({ kind: request.kind });
       }),
@@ -1456,10 +1497,12 @@ export function App(): React.JSX.Element {
   };
 
   const closeOpenDocument = (path: string): void => {
-    requestSourceAction({ kind: 'close', path });
+    window.fuxian.reportDiagnostic({ event: 'document.close-requested', path, origin: 'sidebar' });
+    requestSourceAction({ kind: 'close', path, origin: 'sidebar' });
   };
 
   const removeRecentHistoryEntry = (path: string): void => {
+    window.fuxian.reportDiagnostic({ event: 'history.removed', path, origin: 'sidebar' });
     setSession((current) => {
       const next = removeRecentDocument(current, path);
       sessionRef.current = next;
@@ -1946,9 +1989,14 @@ export function App(): React.JSX.Element {
         )
       }
       onRemoveRecent={removeRecentHistoryEntry}
-      onRemoveUnavailable={(path) =>
-        setSession((current) => removeUnavailableDocument(current, path))
-      }
+      onRemoveUnavailable={(path) => {
+        window.fuxian.reportDiagnostic({
+          event: 'document.removed-unavailable',
+          path,
+          origin: 'sidebar',
+        });
+        setSession((current) => removeUnavailableDocument(current, path));
+      }}
       onReopen={(path) => {
         setDocumentSessionSheetOpen(false);
         void reopenDocument(path);

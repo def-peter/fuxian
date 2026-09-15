@@ -34,6 +34,8 @@ import {
   type StartPdfExportRequest,
   type StartPdfExportResult,
   type SettingsSectionId,
+  type RendererDiagnosticEvent,
+  type DiagnosticActionResult,
 } from '@fuxian/shared-types';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
@@ -52,6 +54,17 @@ ipcRenderer.on(
 );
 
 const bridge: FuxianDesktopBridge = Object.freeze({
+  reportDiagnostic: (event: RendererDiagnosticEvent): void => {
+    try {
+      ipcRenderer.send(desktopIpcChannels.reportDiagnostic, event);
+    } catch {
+      /* Diagnostics must not interrupt rendering while a window is closing. */
+    }
+  },
+  exportDiagnostics: async (): Promise<DiagnosticActionResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.exportDiagnostics),
+  clearDiagnostics: async (): Promise<DiagnosticActionResult> =>
+    ipcRenderer.invoke(desktopIpcChannels.clearDiagnostics),
   platform: process.platform,
   acknowledgeAppUpdateReminder: async (version: string): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateAcknowledgeReminder, version),
@@ -118,6 +131,12 @@ const bridge: FuxianDesktopBridge = Object.freeze({
         desktopIpcChannels.externalRevisionChanged,
         handleExternalRevision,
       );
+  },
+  onActiveDocumentCloseRequested: (listener: () => void): (() => void) => {
+    const handleClose = (): void => listener();
+    ipcRenderer.on(desktopIpcChannels.activeDocumentCloseRequested, handleClose);
+    return () =>
+      ipcRenderer.removeListener(desktopIpcChannels.activeDocumentCloseRequested, handleClose);
   },
   onAppCloseRequested: (listener: (request: AppCloseRequest) => void): (() => void) => {
     const handleCloseRequested = (
