@@ -8,7 +8,7 @@
 
 | 当前任务                               | 指南                                                              | 内容                               |
 | -------------------------------------- | ----------------------------------------------------------------- | ---------------------------------- |
-| 条件流程、循环、并行、跨角色责任交接   | [activity-swimlanes.md](plantuml/activity-swimlanes.md)           | 活动图与泳道；两个完整流程示例     |
+| 条件流程、循环、并行、跨角色责任交接   | [activity-swimlanes.md](plantuml/activity-swimlanes.md)           | 活动图与泳道、连线简洁性及完整示例 |
 | 调用返回、异步消息、超时、重试或补偿   | [sequence.md](plantuml/sequence.md)                               | 时序图；同步分支与幂等消费示例     |
 | 对象生命周期、复合状态                 | [state.md](plantuml/state.md)                                     | 状态图；嵌套状态与事件条件         |
 | 类职责、接口关系、数据库实体和基数     | [class-er.md](plantuml/class-er.md)                               | 类图与 ER；继承、组合、主外键      |
