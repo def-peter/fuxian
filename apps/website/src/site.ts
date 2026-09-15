@@ -28,7 +28,7 @@ export const siteCopy = {
     title: '浮现 Fuxian — Markdown 阅读器与 PDF 导出',
     featureTitle: '功能详解 — Markdown 阅读、图形与 PDF | 浮现 Fuxian',
     featureDescription:
-      '了解浮现的 Markdown 阅读与大纲、四种图形代码块、A4 纸张预览、PDF 导出和轻量编辑，附真实截图、Mermaid 示例与联网要求。',
+      '了解浮现的 Markdown 阅读与大纲、四种图形代码块、fuxian-diagram 图形创作 Skill、A4 纸张预览、PDF 导出和轻量编辑。',
     description:
       '浮现是一款免费的开源 Markdown 桌面阅读器，支持 Windows、macOS、Mermaid、PlantUML、Vega-Lite、AntV Infographic、A4 纸张预览与 PDF 导出。',
     faqTitle: '开始之前，你可能想了解。',
@@ -62,7 +62,7 @@ export const siteCopy = {
     title: 'Fuxian — Markdown Reader & PDF Export',
     featureTitle: 'Features — Markdown, Diagrams & PDF | Fuxian',
     featureDescription:
-      'Explore Markdown reading, outlines, four diagram languages, A4 preview, PDF export, and lightweight editing in Fuxian, with screenshots, an example, and network requirements.',
+      'Explore Markdown reading, four diagram languages, the fuxian-diagram authoring skill, A4 preview, PDF export, and lightweight editing in Fuxian.',
     description:
       'Fuxian is a free, open-source Markdown desktop reader for Windows and macOS, with Mermaid, PlantUML, Vega-Lite, AntV Infographic, A4 paper preview, and PDF export.',
     faqTitle: 'A few things before you start.',

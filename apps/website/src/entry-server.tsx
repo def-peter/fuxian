@@ -37,6 +37,7 @@ export function render(language: Language, page: Page) {
       'PlantUML',
       'Vega-Lite',
       'AntV Infographic',
+      'AI-assisted diagram authoring with fuxian-diagram',
       'A4 paper preview',
       'PDF export',
     ],

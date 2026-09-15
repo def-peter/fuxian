@@ -418,6 +418,7 @@ img {
 
 .reading-section,
 .visual-section,
+.skill-section,
 .download-section,
 footer {
   padding-left: max(40px, calc((100vw - var(--layout-reading)) / 2));
@@ -699,6 +700,126 @@ footer {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
+.skill-section {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(480px, 1.2fr);
+  align-items: start;
+  gap: 88px;
+  padding-top: var(--section-space);
+  padding-bottom: var(--section-space);
+  background: var(--surface);
+}
+.skill-copy h2 {
+  max-width: 540px;
+  margin: 0;
+  white-space: pre-line;
+  font-size: clamp(36px, 3.2vw, 42px);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.skill-copy > p:not(.eyebrow) {
+  max-width: 500px;
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.8;
+}
+.skill-panel {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+.skill-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.skill-steps li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.skill-steps li > span {
+  padding-top: 2px;
+  color: var(--blue);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.skill-steps strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+.skill-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.skill-install {
+  margin-top: 28px;
+}
+.skill-install > p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.skill-command {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 58px;
+  padding: 8px 8px 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgba(29, 42, 55, 0.05);
+}
+.skill-command code {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.skill-command button {
+  min-height: 40px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+}
+.skill-command button:hover {
+  border-color: #a9b7c4;
+  background: var(--canvas);
+}
+.skill-install > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--blue);
+  font-size: 13px;
+}
+.skill-install > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.skill-optional {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .download-section {
   min-height: 390px;
   display: grid;
@@ -834,6 +955,10 @@ footer a:hover {
     grid-template-columns: repeat(2, 1fr);
   }
   .visual-section {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .skill-section {
     grid-template-columns: 1fr;
     gap: 48px;
   }
@@ -977,13 +1102,15 @@ footer a:hover {
   }
   .reading-section,
   .visual-section,
+  .skill-section,
   .download-section,
   footer {
     padding-left: 22px;
     padding-right: 22px;
   }
   .reading-section,
-  .visual-section {
+  .visual-section,
+  .skill-section {
     padding-top: 72px;
     padding-bottom: 72px;
   }
@@ -992,6 +1119,7 @@ footer a:hover {
   }
   .reading-heading h2,
   .visual-copy h2,
+  .skill-copy h2,
   .download-copy h2 {
     font-size: clamp(28px, 8vw, 34px);
   }
@@ -1048,6 +1176,15 @@ footer a:hover {
   }
   .framework-site-link {
     min-height: 44px;
+  }
+  .skill-command {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px;
+  }
+  .skill-command button {
+    justify-content: center;
+    width: 100%;
   }
   .download-section {
     min-height: 520px;

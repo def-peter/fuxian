@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, ExternalLink } from 'lucide-react';
+import { SkillInstall } from './SkillInstall';
 import { assetUrl, type Language } from './site';
 
 const content = {
@@ -34,6 +35,19 @@ const content = {
           '保留作者在图形源码中定义的颜色与样式。',
         ],
         note: 'Vega-Lite 展示图表初始状态，支持已渲染标记的提示信息；不提供实时刷选或输入控件，也不加载外部数据与图片标记。',
+      },
+      {
+        id: 'skill',
+        name: '图形创作 Skill',
+        title: '不知道画什么，也可以先交给 AI。',
+        answer:
+          'fuxian-diagram 是浮现的配套 AI Skill。它先理解文档中真正需要解释的内容，再选择 Mermaid、PlantUML、Vega-Lite 或 AntV Infographic，生成可编辑的 Markdown 图形源码。',
+        points: [
+          '适合给整篇文档配图，也可以针对某段流程、架构、数据或观点单独作图。',
+          '它会保留来源事实与原有术语；具备渲染环境时，还会检查语法、渲染结果与阅读版面。',
+          '安装后，在支持 Skills 的 AI 工具中直接提出“给这篇文档配图”即可使用。',
+        ],
+        note: '这是可选的创作辅助能力，不是浮现的运行依赖。不安装 Skill，也能正常阅读已有 Markdown 和图形。',
       },
       {
         id: 'paper',
@@ -144,6 +158,19 @@ const content = {
           'Colors and styles defined in the diagram source are preserved.',
         ],
         note: 'Vega-Lite shows the initial chart state and tooltips on rendered marks. Live brushing and input widgets are not provided; external data and image marks are not loaded.',
+      },
+      {
+        id: 'skill',
+        name: 'Diagram authoring skill',
+        title: 'Let AI decide what is worth drawing.',
+        answer:
+          'fuxian-diagram is an optional AI skill for Fuxian. It identifies what a document needs to explain, chooses Mermaid, PlantUML, Vega-Lite, or AntV Infographic, and produces editable Markdown diagram source.',
+        points: [
+          'Use it to illustrate a whole document or a specific process, architecture, dataset, or idea.',
+          'It preserves source facts and terminology, then checks syntax, rendering, and reading layout when those tools are available.',
+          'After installation, ask a skills-compatible AI tool to “add diagrams to this document.”',
+        ],
+        note: 'The skill is an optional authoring aid, not a Fuxian runtime dependency. Existing Markdown and diagrams work without it.',
       },
       {
         id: 'paper',
@@ -270,6 +297,7 @@ export function Features({ language }: { language: Language }) {
                 <FeatureFigure image={section.image} alt={section.alt} caption={section.caption} />
               )}
               {section.id === 'visuals' && <VisualGallery language={language} />}
+              {section.id === 'skill' && <SkillInstall language={language} />}
               {'points' in section && (
                 <ul>
                   {section.points.map((point) => (

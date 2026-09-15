@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { Features } from './Features';
+import { SkillInstall } from './SkillInstall';
 import { assetUrl, pageUrl, siteCopy, type Language, type Page } from './site';
 type SceneId = 'read' | 'structure' | 'visualize';
 
@@ -115,6 +116,17 @@ const copy = {
         alt: '浮现渲染 AntV Infographic',
       },
     ],
+    skillEyebrow: '图形创作 Skill',
+    skillTitle: '让 AI 先读懂，\n再把重点画出来。',
+    skillBody:
+      'fuxian-diagram 会从内容中找出值得图示的部分，选择合适的图形语言，生成可编辑的 Markdown 源码，并在条件允许时检查语法与版面。',
+    skillSteps: [
+      ['识别重点', '找出流程、关系、结构与数据中最需要解释的部分。'],
+      ['选择图形', '在 Mermaid、PlantUML、Vega-Lite 与 Infographic 中做选择。'],
+      ['检查结果', '保留事实与术语，并检查源码、渲染结果和阅读版面。'],
+    ],
+    skillOptional: 'Skill 是可选的配套能力；不安装也能正常使用浮现阅读 Markdown。',
+    skillMore: '了解 Skill 的用途与安装',
     finalTitle: '让下一次阅读，\n从浮现开始。',
     finalBody: '免费下载，支持 Windows 与 macOS。',
     unsigned: '当前安装包尚未签名，首次打开时系统可能要求手动允许。',
@@ -217,6 +229,23 @@ const copy = {
         alt: 'AntV Infographic rendered in Fuxian',
       },
     ],
+    skillEyebrow: 'Diagram authoring skill',
+    skillTitle: 'Let AI understand the content,\nthen draw what matters.',
+    skillBody:
+      'fuxian-diagram finds content worth visualizing, chooses an appropriate visual language, produces editable Markdown source, and checks syntax and layout when the environment allows.',
+    skillSteps: [
+      [
+        'Find the focus',
+        'Identify the flows, relationships, structures, and data that need explanation.',
+      ],
+      ['Choose a visual', 'Select Mermaid, PlantUML, Vega-Lite, or Infographic for the content.'],
+      [
+        'Check the result',
+        'Preserve facts and terminology, then inspect source, rendering, and layout.',
+      ],
+    ],
+    skillOptional: 'The skill is optional. Fuxian reads Markdown normally without it.',
+    skillMore: 'Explore the skill and installation',
     finalTitle: 'Your next read\nstarts with Fuxian.',
     finalBody: 'Free to download. Available for Windows and macOS.',
     unsigned:
@@ -689,6 +718,35 @@ export function App({ language, page }: { language: Language; page: Page }) {
               </div>
             </section>
 
+            <section className="skill-section" id="skill">
+              <div className="skill-copy">
+                <p className="eyebrow">03 / {t.skillEyebrow}</p>
+                <h2>{t.skillTitle}</h2>
+                <p>{t.skillBody}</p>
+                <a
+                  className="text-link section-more"
+                  href={`${pageUrl(language, 'features')}#skill`}
+                >
+                  {t.skillMore} <ArrowRight size={15} />
+                </a>
+              </div>
+              <div className="skill-panel">
+                <ol className="skill-steps">
+                  {t.skillSteps.map(([title, body], index) => (
+                    <li key={title}>
+                      <span>0{index + 1}</span>
+                      <div>
+                        <strong>{title}</strong>
+                        <p>{body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <SkillInstall language={language} />
+                <p className="skill-optional">{t.skillOptional}</p>
+              </div>
+            </section>
+
             <section className="faq-section" aria-labelledby="faq-title">
               <div className="faq-heading">
                 <p className="eyebrow">{extra.faqLabel}</p>
@@ -721,7 +779,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
           </div>
           <div className="download-copy">
             <p className="eyebrow">
-              {page === 'home' ? '03 / ' : ''}
+              {page === 'home' ? '04 / ' : ''}
               {t.download}
             </p>
             <h2>{t.finalTitle}</h2>
