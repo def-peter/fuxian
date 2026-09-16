@@ -16,6 +16,7 @@ import {
 
 import { Features } from './Features';
 import { SkillInstall } from './SkillInstall';
+import { observeWebsiteSections, trackWebsiteEvent, websiteEvents } from './analytics';
 import { assetUrl, pageUrl, siteCopy, type Language, type Page } from './site';
 type SceneId = 'read' | 'structure' | 'visualize';
 
@@ -325,6 +326,30 @@ export function App({ language, page }: { language: Language; page: Page }) {
   }, []);
 
   useEffect(() => {
+    if (page !== 'home') return;
+    return observeWebsiteSections([
+      {
+        element: document.querySelector('.transformation-hero'),
+        event: websiteEvents.sectionViewHero,
+      },
+      {
+        element: document.querySelector('.reading-section'),
+        event: websiteEvents.sectionViewReading,
+      },
+      {
+        element: document.querySelector('.visual-section'),
+        event: websiteEvents.sectionViewVisuals,
+      },
+      { element: document.querySelector('.skill-section'), event: websiteEvents.sectionViewSkill },
+      { element: document.querySelector('.faq-section'), event: websiteEvents.sectionViewFaq },
+      {
+        element: document.querySelector('.download-section'),
+        event: websiteEvents.sectionViewDownload,
+      },
+    ]);
+  }, [page]);
+
+  useEffect(() => {
     const section = readingSection.current;
     if (!section) return;
     const observer = new IntersectionObserver(
@@ -444,6 +469,10 @@ export function App({ language, page }: { language: Language; page: Page }) {
           <a
             href={pageUrl(language, 'features')}
             aria-current={page === 'features' ? 'page' : undefined}
+            onClick={() => {
+              if (page === 'home') trackWebsiteEvent(websiteEvents.featureDetailClick);
+              setMenuOpen(false);
+            }}
           >
             {extra.features}
           </a>
@@ -458,7 +487,10 @@ export function App({ language, page }: { language: Language; page: Page }) {
             href={repoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => {
+              trackWebsiteEvent(websiteEvents.githubClick);
+              setMenuOpen(false);
+            }}
           >
             GitHub <ExternalLink size={14} aria-hidden="true" />
           </a>
@@ -477,6 +509,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t.github}
+            onClick={() => trackWebsiteEvent(websiteEvents.githubClick)}
           >
             <span className="github-mark" aria-hidden="true" />
             <span className="github-tooltip" aria-hidden="true">
@@ -490,7 +523,13 @@ export function App({ language, page }: { language: Language; page: Page }) {
           >
             <Languages size={16} /> {t.language}
           </a>
-          <a className="nav-download" href={releaseUrl} target="_blank" rel="noreferrer">
+          <a
+            className="nav-download"
+            href={releaseUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => trackWebsiteEvent(websiteEvents.downloadClick)}
+          >
             <Download size={17} />
             <span>
               {t.download}
@@ -609,6 +648,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
                   <a
                     className="text-link section-more"
                     href={`${pageUrl(language, 'features')}#reading`}
+                    onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                   >
                     {extra.moreReading} <ArrowRight size={15} />
                   </a>
@@ -682,6 +722,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
                 <a
                   className="text-link section-more"
                   href={`${pageUrl(language, 'features')}#visuals`}
+                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                 >
                   {extra.moreVisuals} <ArrowRight size={15} />
                 </a>
@@ -786,6 +827,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
                 <a
                   className="text-link section-more"
                   href={`${pageUrl(language, 'features')}#skill`}
+                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                 >
                   {t.skillMore} <ArrowRight size={15} />
                 </a>
@@ -811,7 +853,11 @@ export function App({ language, page }: { language: Language; page: Page }) {
               <div className="faq-heading">
                 <p className="eyebrow">{extra.faqLabel}</p>
                 <h2 id="faq-title">{extra.faqTitle}</h2>
-                <a className="text-link section-more" href={pageUrl(language, 'features')}>
+                <a
+                  className="text-link section-more"
+                  href={pageUrl(language, 'features')}
+                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
+                >
                   {extra.more} <ArrowRight size={15} />
                 </a>
               </div>
@@ -846,7 +892,12 @@ export function App({ language, page }: { language: Language; page: Page }) {
             <p>{t.finalBody}</p>
           </div>
           <div className="download-action">
-            <a href={releaseUrl} target="_blank" rel="noreferrer">
+            <a
+              href={releaseUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackWebsiteEvent(websiteEvents.downloadClick)}
+            >
               <Download size={20} />
               <span>
                 {downloadLabel}
@@ -860,8 +911,17 @@ export function App({ language, page }: { language: Language; page: Page }) {
       <footer>
         <span>{t.footer}</span>
         <div>
-          <a href={pageUrl(language, 'features')}>{extra.features}</a>
-          <a href={repoUrl}>GitHub</a>
+          <a
+            href={pageUrl(language, 'features')}
+            onClick={() => {
+              if (page === 'home') trackWebsiteEvent(websiteEvents.featureDetailClick);
+            }}
+          >
+            {extra.features}
+          </a>
+          <a href={repoUrl} onClick={() => trackWebsiteEvent(websiteEvents.githubClick)}>
+            GitHub
+          </a>
           <span>MIT License</span>
         </div>
       </footer>
