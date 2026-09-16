@@ -70,15 +70,15 @@ const copy = {
     readingIntro:
       '标题、表格、代码、公式、图片与脚注自然排开。长文有清楚的大纲，也能展开文章结构图。',
     scenes: {
-      read: { label: '文档阅读', image: 'images/reading.png', alt: '浮现的 Markdown 阅读界面' },
+      read: { label: '文档阅读', image: 'images/reading.webp', alt: '浮现的 Markdown 阅读界面' },
       structure: {
         label: '文章结构',
-        image: 'images/outline-map.png',
+        image: 'images/outline-map.webp',
         alt: '浮现的文章大纲图',
       },
       visualize: {
         label: '数据图形',
-        image: 'images/visualization.png',
+        image: 'images/visualization.webp',
         alt: '浮现中的 Vega-Lite 数据图形',
       },
     },
@@ -92,28 +92,28 @@ const copy = {
         name: 'Mermaid',
         description: '流程与关系',
         website: 'https://mermaid.js.org/',
-        image: 'images/mermaid.png',
+        image: 'images/mermaid.webp',
         alt: '浮现渲染 Mermaid 思维导图',
       },
       {
         name: 'PlantUML',
         description: '专业软件图',
         website: 'https://plantuml.com/',
-        image: 'images/plantuml.png',
+        image: 'images/plantuml.webp',
         alt: '浮现渲染 PlantUML 顺序图',
       },
       {
         name: 'Vega-Lite',
         description: '数据可视化',
         website: 'https://vega.github.io/vega-lite/',
-        image: 'images/visualization.png',
+        image: 'images/visualization.webp',
         alt: '浮现渲染 Vega-Lite 数据看板',
       },
       {
         name: 'AntV Infographic',
         description: '叙事信息图',
         website: 'https://infographic.antv.vision/',
-        image: 'images/infographic.png',
+        image: 'images/infographic.webp',
         alt: '浮现渲染 AntV Infographic',
       },
     ],
@@ -181,17 +181,17 @@ const copy = {
     scenes: {
       read: {
         label: 'Document reading',
-        image: 'images/reading-en.png',
+        image: 'images/reading-en.webp',
         alt: 'Markdown reading in Fuxian',
       },
       structure: {
         label: 'Article structure',
-        image: 'images/outline-map-en.png',
+        image: 'images/outline-map-en.webp',
         alt: 'Article structure map in Fuxian',
       },
       visualize: {
         label: 'Data visuals',
-        image: 'images/visualization-en.png',
+        image: 'images/visualization-en.webp',
         alt: 'Vega-Lite data visuals in Fuxian',
       },
     },
@@ -205,28 +205,28 @@ const copy = {
         name: 'Mermaid',
         description: 'Flows and relationships',
         website: 'https://mermaid.js.org/',
-        image: 'images/mermaid-en.png',
+        image: 'images/mermaid-en.webp',
         alt: 'Mermaid mind map rendered in Fuxian',
       },
       {
         name: 'PlantUML',
         description: 'Software diagrams',
         website: 'https://plantuml.com/',
-        image: 'images/plantuml-en.png',
+        image: 'images/plantuml-en.webp',
         alt: 'PlantUML sequence diagram rendered in Fuxian',
       },
       {
         name: 'Vega-Lite',
         description: 'Data visualization',
         website: 'https://vega.github.io/vega-lite/',
-        image: 'images/visualization-en.png',
+        image: 'images/visualization-en.webp',
         alt: 'Vega-Lite dashboard rendered in Fuxian',
       },
       {
         name: 'AntV Infographic',
         description: 'Visual storytelling',
         website: 'https://infographic.antv.vision/',
-        image: 'images/infographic-en.png',
+        image: 'images/infographic-en.webp',
         alt: 'AntV Infographic rendered in Fuxian',
       },
     ],
@@ -428,7 +428,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
           href={homeAnchor('#top')}
           aria-label={language === 'zh' ? '浮现首页' : 'Fuxian home'}
         >
-          <img src={assetUrl('images/fuxian-mark.png')} alt="" />
+          <img src={assetUrl('images/fuxian-mark.webp')} alt="" />
           <span>{language === 'zh' ? '浮现' : 'Fuxian'}</span>
         </a>
         <nav
@@ -574,8 +574,8 @@ export function App({ language, page }: { language: Language; page: Page }) {
                       className="paper-sheet paper-sheet-diagram"
                       src={assetUrl(
                         language === 'zh'
-                          ? 'images/paper-diagram.png'
-                          : 'images/paper-diagram-en.png',
+                          ? 'images/paper-diagram.webp'
+                          : 'images/paper-diagram-en.webp',
                       )}
                       alt=""
                       aria-hidden="true"
@@ -584,8 +584,8 @@ export function App({ language, page }: { language: Language; page: Page }) {
                       className="paper-sheet paper-sheet-visualization"
                       src={assetUrl(
                         language === 'zh'
-                          ? 'images/paper-visualization.png'
-                          : 'images/paper-visualization-en.png',
+                          ? 'images/paper-visualization.webp'
+                          : 'images/paper-visualization-en.webp',
                       )}
                       alt={t.paperVisualAlt}
                     />
@@ -679,6 +679,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
                         alt={active ? item.alt : ''}
                         aria-hidden={!active}
                         decoding="async"
+                        loading="lazy"
                       />
                     );
                   })}
@@ -784,6 +785,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
                       alt={index === visualIndex ? framework.alt : ''}
                       aria-hidden={index !== visualIndex}
                       decoding="async"
+                      loading="lazy"
                     />
                   ))}
                 </div>
@@ -846,7 +848,13 @@ export function App({ language, page }: { language: Language; page: Page }) {
 
         <section className="download-section" id="download" data-reveal>
           <div className="download-brand">
-            <img src={assetUrl('images/fuxian-app-icon.png')} alt="" width="96" height="96" />
+            <img
+              src={assetUrl('images/fuxian-app-icon.webp')}
+              alt=""
+              width="96"
+              height="96"
+              loading="lazy"
+            />
             <span>{language === 'zh' ? '浮现' : 'Fuxian'}</span>
           </div>
           <div className="download-copy">

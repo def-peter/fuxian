@@ -18,6 +18,7 @@ declare global {
 const defaultScriptUrl = 'https://cloud.umami.is/script.js';
 const pendingEvents: WebsiteEvent[] = [];
 let enabled = false;
+let scriptScheduled = false;
 
 const validWebsiteId = (value: string): boolean =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -48,18 +49,24 @@ export const initializeWebsiteAnalytics = ({
   if (!validWebsiteId(id) || !source) return;
 
   enabled = true;
-  if (document.querySelector('script[data-fuxian-analytics]')) return;
+  if (scriptScheduled || document.querySelector('script[data-fuxian-analytics]')) return;
+  scriptScheduled = true;
 
-  const script = document.createElement('script');
-  script.defer = true;
-  script.src = source;
-  script.dataset.fuxianAnalytics = '';
-  script.dataset.websiteId = id;
-  script.dataset.doNotTrack = 'true';
-  script.dataset.excludeHash = 'true';
-  script.dataset.excludeSearch = 'true';
-  script.addEventListener('load', flushPendingEvents, { once: true });
-  document.head.append(script);
+  const appendScript = () => {
+    if (document.querySelector('script[data-fuxian-analytics]')) return;
+    const script = document.createElement('script');
+    script.defer = true;
+    script.src = source;
+    script.dataset.fuxianAnalytics = '';
+    script.dataset.websiteId = id;
+    script.dataset.doNotTrack = 'true';
+    script.dataset.excludeHash = 'true';
+    script.dataset.excludeSearch = 'true';
+    script.addEventListener('load', flushPendingEvents, { once: true });
+    document.head.append(script);
+  };
+
+  window.setTimeout(appendScript, 800);
 };
 
 export const trackWebsiteEvent = (event: WebsiteEvent): void => {

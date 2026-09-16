@@ -20,7 +20,7 @@ const content = {
           '调整文档字体、字号、行距与宽度，让版面适合当前屏幕。',
           '同时打开多份文档；退出后再次启动，可恢复打开的文档和各自的阅读位置。',
         ],
-        image: 'feature-reading-zh.png',
+        image: 'feature-reading-zh.webp',
         alt: '浮现的 Markdown 阅读界面，正文与左右导航区域',
         caption: '正文保持在视线中央，大纲帮助你找到方向。',
       },
@@ -59,7 +59,7 @@ const content = {
           '打开文档，切换到“纸张”，检查分页，然后选择导出 PDF。',
           '导出等待所需内容与图形渲染完成。图形沿用渲染结果，错误会明确提示。',
         ],
-        image: 'feature-paper-zh.png',
+        image: 'feature-paper-zh.webp',
         alt: '浮现的 A4 纸张预览界面，展示页数、页面间隔与分页后的内容',
         caption: '页数、纸张间隔与分页位置，在导出前清楚可见。',
         note: '纸张预览显示实际分页；连续阅读中的 A4 宽度选项，仅限制阅读宽度。',
@@ -74,7 +74,7 @@ const content = {
           '使用 Ctrl / Cmd + S 显式保存，浮现不会静默覆盖你的源文件。',
           '有未保存修改时，切换或关闭文档会提示处理。',
         ],
-        image: 'feature-editing-zh.png',
+        image: 'feature-editing-zh.webp',
         alt: '浮现的 Markdown 源码编辑界面，显示行号、标题样式和保存状态',
         caption: '在原文里调整内容，保存后回到阅读。',
         note: '编辑与阅读是两个独立模式。回到阅读时，显示最近一次保存的内容。',
@@ -143,7 +143,7 @@ const content = {
           'Adjust document font, size, line height, and width to suit your screen.',
           'Keep multiple documents open. Restarting the app restores documents and their individual reading positions.',
         ],
-        image: 'feature-reading-en.png',
+        image: 'feature-reading-en.webp',
         alt: 'Markdown reading in Fuxian with document navigation and heading outline',
         caption: 'The document stays central, with an outline to help you navigate.',
       },
@@ -182,7 +182,7 @@ const content = {
           'Open a document, switch to Paper, inspect pagination, and select Export PDF.',
           'Export waits for required content and diagrams to render, reuses their rendered results, and reports failures explicitly.',
         ],
-        image: 'feature-paper-en.png',
+        image: 'feature-paper-en.webp',
         alt: 'A4 paper preview in Fuxian showing the page count, gaps, and paginated content',
         caption: 'Inspect the page count, spacing, and page breaks before exporting.',
         note: 'Paper preview shows actual pages. The A4 width setting in continuous reading only constrains reading width.',
@@ -197,7 +197,7 @@ const content = {
           'Save explicitly with Ctrl / Cmd + S. Fuxian does not silently overwrite source files.',
           'Switching or closing a document with unsaved changes prompts you to resolve them.',
         ],
-        image: 'feature-editing-en.png',
+        image: 'feature-editing-en.webp',
         alt: 'Markdown source editing in Fuxian with line numbers, heading styles, and save status',
         caption: 'Update the source, save, and return to reading.',
         note: 'Editing and reading are separate modes. Returning to reading shows the most recently saved content.',
@@ -310,7 +310,7 @@ export function Features({ language }: { language: Language }) {
                   <h3>{t.outlineTitle}</h3>
                   <p>{t.outlineBody}</p>
                   <FeatureFigure
-                    image={`feature-outline-${language}.png`}
+                    image={`feature-outline-${language}.webp`}
                     alt={t.outlineCaption}
                     caption={t.outlineCaption}
                   />
@@ -378,7 +378,7 @@ export function Features({ language }: { language: Language }) {
                     <div className="example-result">
                       <p className="example-label">{t.resultLabel}</p>
                       <img
-                        src={assetUrl(`images/example-flow-${language}.png`)}
+                        src={assetUrl(`images/example-flow-${language}.webp`)}
                         alt={t.resultAlt}
                         width={language === 'zh' ? 550 : 640}
                         height={71}
@@ -482,7 +482,7 @@ function VisualGallery({ language }: { language: Language }) {
             }
           >
             <img
-              src={assetUrl(`images/${galleryImages[index]}${language === 'en' ? '-en' : ''}.png`)}
+              src={assetUrl(`images/${galleryImages[index]}${language === 'en' ? '-en' : ''}.webp`)}
               alt={t.galleryCaptions[index]}
               width={1868}
               height={1050}
