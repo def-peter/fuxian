@@ -270,7 +270,7 @@ export function Features({ language }: { language: Language }) {
   const t = content[language];
   return (
     <div className="features-page">
-      <header className="features-heading">
+      <header className="features-heading" data-reveal>
         <p className="eyebrow">{t.label}</p>
         <h1>{t.title}</h1>
         <p className="features-intro">{t.intro}</p>
@@ -287,7 +287,7 @@ export function Features({ language }: { language: Language }) {
         </nav>
         <div className="features-articles">
           {t.sections.map((section, i) => (
-            <section id={section.id} className="feature-detail" key={section.id}>
+            <section id={section.id} className="feature-detail" key={section.id} data-reveal>
               <p className="eyebrow">
                 0{i + 1} / {section.name}
               </p>

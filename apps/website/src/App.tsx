@@ -273,6 +273,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
   const [sceneDelay, setSceneDelay] = useState(4_000);
   const [readingInView, setReadingInView] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [topbarScrolled, setTopbarScrolled] = useState(false);
   const [visualIndex, setVisualIndex] = useState(0);
   const [visualCycle, setVisualCycle] = useState(0);
   const [visualDelay, setVisualDelay] = useState(3_000);
@@ -295,11 +296,32 @@ export function App({ language, page }: { language: Language; page: Page }) {
   }, [language, page, extra]);
 
   useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      const previousBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      target.scrollIntoView({ block: 'start' });
+      document.documentElement.style.scrollBehavior = previousBehavior;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [page]);
+
+  useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const updatePreference = () => setReduceMotion(media.matches);
     updatePreference();
     media.addEventListener('change', updatePreference);
     return () => media.removeEventListener('change', updatePreference);
+  }, []);
+
+  useEffect(() => {
+    const updateTopbar = () => setTopbarScrolled(window.scrollY > 12);
+    updateTopbar();
+    window.addEventListener('scroll', updateTopbar, { passive: true });
+    return () => window.removeEventListener('scroll', updateTopbar);
   }, []);
 
   useEffect(() => {
@@ -312,6 +334,42 @@ export function App({ language, page }: { language: Language; page: Page }) {
     observer.observe(section);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (
+      reduceMotion ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      !('IntersectionObserver' in window)
+    ) {
+      document.documentElement.classList.remove('reveal-ready');
+      return;
+    }
+
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('reveal-visible');
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+    );
+
+    elements.forEach((element) => {
+      if (element.getBoundingClientRect().top < window.innerHeight * 0.92) {
+        element.classList.add('reveal-visible');
+      }
+      observer.observe(element);
+    });
+    document.documentElement.classList.add('reveal-ready');
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.classList.remove('reveal-ready');
+    };
+  }, [page, reduceMotion]);
 
   useEffect(() => {
     if (!readingInView || reduceMotion) return;
@@ -361,7 +419,9 @@ export function App({ language, page }: { language: Language; page: Page }) {
 
   return (
     <div className="site-shell">
-      <header className="topbar">
+      <header
+        className={`topbar${topbarScrolled ? ' topbar-scrolled' : ''}${menuOpen ? ' topbar-menu-open' : ''}`}
+      >
         <a
           className="brand"
           href={homeAnchor('#top')}
@@ -538,7 +598,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
               </div>
             </section>
 
-            <section className="reading-section" id="product" ref={readingSection}>
+            <section className="reading-section" id="product" ref={readingSection} data-reveal>
               <div className="reading-heading">
                 <div className="reading-heading-title">
                   <p className="eyebrow">01 / {t.readingEyebrow}</p>
@@ -614,7 +674,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
               </div>
             </section>
 
-            <section className="visual-section" id="visuals">
+            <section className="visual-section" id="visuals" data-reveal>
               <div className="visual-copy">
                 <p className="eyebrow">02 / {t.visualEyebrow}</p>
                 <h2>{t.visualTitle}</h2>
@@ -718,7 +778,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
               </div>
             </section>
 
-            <section className="skill-section" id="skill">
+            <section className="skill-section" id="skill" data-reveal>
               <div className="skill-copy">
                 <p className="eyebrow">03 / {t.skillEyebrow}</p>
                 <h2>{t.skillTitle}</h2>
@@ -747,7 +807,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
               </div>
             </section>
 
-            <section className="faq-section" aria-labelledby="faq-title">
+            <section className="faq-section" aria-labelledby="faq-title" data-reveal>
               <div className="faq-heading">
                 <p className="eyebrow">{extra.faqLabel}</p>
                 <h2 id="faq-title">{extra.faqTitle}</h2>
@@ -772,7 +832,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
           <Features language={language} />
         )}
 
-        <section className="download-section" id="download">
+        <section className="download-section" id="download" data-reveal>
           <div className="download-brand">
             <img src={assetUrl('images/fuxian-app-icon.png')} alt="" width="96" height="96" />
             <span>{language === 'zh' ? '浮现' : 'Fuxian'}</span>
