@@ -48,6 +48,8 @@ Read [capabilities.md](references/capabilities.md) for Fuxian's boundaries, then
 
 The detailed guides provide complete adaptable examples, relationship or data semantics, layout techniques, and troubleshooting. See [fence-syntax.md](references/fence-syntax.md) for minimal complete fences. Place diagrams near the corresponding content with a brief caption and any necessary metric definitions or relationship notes. Retain editable source for standalone diagrams; generate image or PDF files when requested.
 
+Use theme defaults as the starting point. Add custom colors for a stated reading purpose; when colors distinguish categories, states, stages, or emphasis, make their meaning visible in a legend, direct labels, or adjacent explanation. Preserve explicit palettes and existing mappings. Before delivery, check both [label-to-edge association and color meaning](references/validation.md#visual-inspection), not only whether text is present.
+
 ## 4. Validate and deliver
 
 Follow [validation.md](references/validation.md): source checks → actual rendering → inspection at normal and narrower widths. Parsing or compilation completes only the first step. Compare the result against each content anchor: **decision conditions, edge labels, cardinalities, key values, option names, and dates** must remain fully readable. Text present in source is not proof that it appears in the diagram. Check actual pagination separately when PDF is required.

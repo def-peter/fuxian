@@ -42,4 +42,4 @@ C4-style modeling can use the server's available standard library; verify librar
 - Use paired `@startuml` / `@enduml` for ordinary UML. Preserve dedicated markers for specialized types such as mindmaps while keeping the `plantuml` fence.
 - Use standard PlantUML syntax and stable aliases. `mxgraph.*` is a product-specific extension, not standard Fuxian syntax.
 - Source is sent to the configured service. Fonts and include libraries must be available on that server; do not infer availability from the local machine.
-- Select correct relationship semantics and abstraction levels before adjusting local styles on top of mars.
+- Select correct relationship semantics and abstraction levels before adjusting local styles on top of mars. For labeled structural edges or custom color groups, read [layout-troubleshooting.md](plantuml/layout-troubleshooting.md) before authoring; verify label proximity and provide visible color meaning.
