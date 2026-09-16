@@ -191,7 +191,7 @@ export function DiagramFocusDialog({
   return (
     <Dialog open={Boolean(diagram)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="inset-0 top-0 left-0 h-screen max-h-none w-screen max-w-none translate-x-0 translate-y-0 grid-rows-[52px_minmax(0,1fr)] gap-0 rounded-none border-0 p-0 sm:max-w-none"
+        presentation="fullscreen"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           const closedDiagram = lastDiagram.current;
@@ -199,9 +199,9 @@ export function DiagramFocusDialog({
         }}
         showCloseButton={false}
       >
-        <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
+        <DialogHeader variant="toolbar">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">{t('全屏图表')}</DialogTitle>
+            <DialogTitle variant="toolbar">{t('全屏图表')}</DialogTitle>
             <DialogDescription className="sr-only" id="diagram-focus-description">
               {t('全屏图表操作说明')}
             </DialogDescription>

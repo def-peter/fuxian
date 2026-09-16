@@ -14,6 +14,7 @@ const toggleVariants = cva(
           'border border-line-control bg-transparent shadow-xs hover:bg-interactive-hover hover:text-interactive-hover-foreground',
       },
       size: {
+        codeTheme: 'h-auto min-h-14 flex-col items-stretch gap-1.5 px-2.5 py-2',
         default: 'h-9 min-w-9 px-2',
         sm: 'h-8 min-w-8 px-1.5',
         lg: 'h-10 min-w-10 px-2.5',

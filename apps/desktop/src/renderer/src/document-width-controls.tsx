@@ -16,7 +16,6 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control';
-import { cn } from '@/lib/utils';
 import { useLocalization } from '@/localization-context';
 
 interface DocumentWidthControlsProps {
@@ -103,9 +102,9 @@ export function DocumentWidthPopover({
           <PopoverTrigger asChild>
             <Button
               aria-label={t('文档宽度')}
-              className={cn('h-7 gap-1 px-2 text-xs font-normal text-muted-foreground', className)}
-              size="sm"
-              variant="ghost"
+              className={className}
+              size="compact"
+              variant="ghostMuted"
             >
               <span>{triggerLabel}</span>
               <ChevronDown aria-hidden="true" className="size-3" />

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 
@@ -38,24 +39,41 @@ function DialogOverlay({
   );
 }
 
+const dialogContentVariants = cva(
+  'fixed z-50 grid bg-surface-shell shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+  {
+    variants: {
+      presentation: {
+        default:
+          'top-1/2 left-1/2 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-line-subtle p-6 sm:max-w-lg',
+        fullscreen:
+          'inset-0 h-screen max-h-none w-screen max-w-none grid-rows-[52px_minmax(0,1fr)] gap-0 rounded-none border-0 p-0 sm:max-w-none',
+        workspace:
+          'top-1/2 left-1/2 h-[min(82vh,800px)] w-full max-w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 grid-rows-[52px_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg border border-line-subtle p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]',
+      },
+    },
+    defaultVariants: {
+      presentation: 'default',
+    },
+  },
+);
+
 function DialogContent({
   className,
   children,
+  presentation,
   showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
-}) {
+} & VariantProps<typeof dialogContentVariants>) {
   const { t } = useLocalization();
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(
-          'fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-line-subtle bg-surface-shell p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg',
-          className,
-        )}
+        className={cn(dialogContentVariants({ presentation }), className)}
         {...props}
       >
         {children}
@@ -73,11 +91,26 @@ function DialogContent({
   );
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+const dialogHeaderVariants = cva('flex flex-col gap-2 text-center sm:text-left', {
+  variants: {
+    variant: {
+      default: '',
+      toolbar:
+        'flex-row items-center justify-between gap-4 border-b border-line-subtle px-4 text-left',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+});
+
+function DialogHeader({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<'div'> & VariantProps<typeof dialogHeaderVariants>) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn('flex flex-col gap-2 text-center sm:text-left', className)}
+      className={cn(dialogHeaderVariants({ variant }), className)}
       {...props}
     />
   );
@@ -108,24 +141,40 @@ function DialogFooter({
   );
 }
 
-function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+const dialogTitleVariants = cva('text-lg leading-none font-semibold', {
+  variants: { variant: { default: '', toolbar: 'truncate text-sm' } },
+  defaultVariants: { variant: 'default' },
+});
+
+function DialogTitle({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Title> & VariantProps<typeof dialogTitleVariants>) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-lg leading-none font-semibold', className)}
+      className={cn(dialogTitleVariants({ variant }), className)}
       {...props}
     />
   );
 }
 
+const dialogDescriptionVariants = cva('text-sm text-fg-secondary', {
+  variants: { variant: { default: '', toolbar: 'truncate text-xs' } },
+  defaultVariants: { variant: 'default' },
+});
+
 function DialogDescription({
   className,
+  variant,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
+}: React.ComponentProps<typeof DialogPrimitive.Description> &
+  VariantProps<typeof dialogDescriptionVariants>) {
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn('text-sm text-fg-secondary', className)}
+      className={cn(dialogDescriptionVariants({ variant }), className)}
       {...props}
     />
   );

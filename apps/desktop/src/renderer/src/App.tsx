@@ -2712,7 +2712,7 @@ export function App(): React.JSX.Element {
                 {!sourceEdit && shellLayout !== 'wide' && activeDocument ? (
                   <Sheet onOpenChange={setContentOutlineSheetOpen} open={contentOutlineSheetOpen}>
                     <SheetContent
-                      className="w-72 max-w-[88vw] p-0"
+                      className="w-72 max-w-[88vw]"
                       onCloseAutoFocus={(event) => {
                         event.preventDefault();
                         contentOutlineTrigger.current?.focus();
@@ -2749,7 +2749,7 @@ export function App(): React.JSX.Element {
                     onOpenChange={(open) => !open && closeDiagramSource()}
                     open={Boolean(sourceDiagram)}
                   >
-                    <SheetContent className="w-[30rem] max-w-[92vw] p-0" showCloseButton={false}>
+                    <SheetContent className="w-[30rem] max-w-[92vw]" showCloseButton={false}>
                       <SheetTitle className="sr-only">{t('图表源码')}</SheetTitle>
                       <SheetDescription className="sr-only">
                         {t('查看并复制当前 Mermaid 或 PlantUML 图表源码。')}
@@ -2892,7 +2892,7 @@ export function App(): React.JSX.Element {
         {shellLayout === 'narrow' ? (
           <Sheet onOpenChange={setDocumentSessionSheetOpen} open={documentSessionSheetOpen}>
             <SheetContent
-              className="w-80 max-w-[90vw] p-0"
+              className="w-80 max-w-[90vw]"
               onCloseAutoFocus={(event) => {
                 event.preventDefault();
                 documentSessionTrigger.current?.focus();

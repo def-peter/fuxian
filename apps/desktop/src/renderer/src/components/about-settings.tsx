@@ -134,7 +134,7 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
         <p className="text-sm leading-6 text-fg-secondary">
           {t(
             status.delivery === 'manual-install'
-              ? '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。'
+              ? '打开安装包后，将 Fuxian 拖到 Applications 文件夹；若旧版“浮现”仍在，可将其删除。'
               : '重启浮现即可安装 {version}。',
             { version: status.availableVersion ?? '' },
           )}

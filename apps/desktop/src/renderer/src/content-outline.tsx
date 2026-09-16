@@ -91,10 +91,10 @@ export function ContentOutline({
                     isExpanded ? '折叠“{heading}”下的深层标题' : '展开“{heading}”下的深层标题',
                     { heading: node.heading.text },
                   )}
-                  className="mr-0.5 text-muted-foreground"
+                  className="mr-0.5"
                   onClick={() => toggleHeading(node.heading.id)}
                   size="icon-xs"
-                  variant="ghost"
+                  variant="ghostMuted"
                 >
                   {isExpanded ? (
                     <ChevronDown aria-hidden="true" />

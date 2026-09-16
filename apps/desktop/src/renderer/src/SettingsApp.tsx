@@ -354,11 +354,11 @@ export function SettingsApp(): React.JSX.Element {
           {settingsSections.map(({ icon: Icon, id, label }) => (
             <Button
               aria-current={section === id ? 'page' : undefined}
-              className="mb-1 w-full justify-start aria-[current=page]:[&_svg]:text-focus"
+              className="mb-1 w-full justify-start"
               key={id}
               onClick={() => setSection(id)}
               size="sm"
-              variant={section === id ? 'secondary' : 'ghost'}
+              variant="navigation"
             >
               <Icon aria-hidden="true" />
               {label === 'PlantUML' ? label : t(label)}
@@ -595,19 +595,16 @@ export function SettingsApp(): React.JSX.Element {
                 <FieldDescription>{t('代码高亮主题说明')}</FieldDescription>
                 <ToggleGroup
                   aria-label={t('代码高亮主题')}
-                  className="grid w-full grid-cols-2 gap-2"
+                  className="grid w-full grid-cols-2"
                   onValueChange={selectCodeTheme}
                   spacing={2}
+                  size="codeTheme"
                   type="single"
                   value={preferences.codeHighlight.theme}
                   variant="outline"
                 >
                   {codeThemeOptions.map(({ background, label, tokens, value }) => (
-                    <ToggleGroupItem
-                      className="h-auto min-h-14 flex-col items-stretch gap-1.5 px-2.5 py-2"
-                      key={value}
-                      value={value}
-                    >
+                    <ToggleGroupItem key={value} value={value}>
                       <span className="truncate text-left">{t(label)}</span>
                       <span
                         aria-hidden="true"

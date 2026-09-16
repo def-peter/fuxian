@@ -269,7 +269,7 @@ function SessionSection({ children, count, title }: SessionSectionProps): React.
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
       <CollapsibleTrigger asChild>
-        <Button className="group w-full justify-start px-3" size="sm" variant="ghost">
+        <Button className="group w-full justify-start" size="sm" variant="ghost">
           <ChevronRight
             aria-hidden="true"
             className="transition-transform group-data-[state=open]:rotate-90"
@@ -434,9 +434,9 @@ export function DocumentSessionSidebar({
       </ScrollArea>
       <Button
         aria-label={updateAttention ? t('设置，有可用更新') : t('设置')}
-        className="h-10 justify-start rounded-none border-t px-3 text-xs font-normal text-muted-foreground"
         onClick={onOpenSettings}
-        variant="ghost"
+        size="sidebar"
+        variant="sidebarFooter"
       >
         <Settings aria-hidden="true" />
         <span>{t('设置')}</span>

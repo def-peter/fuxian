@@ -17,7 +17,10 @@ export function AppUpdateReminder({
   const { t } = useLocalization();
 
   return (
-    <Alert className="fixed right-4 bottom-4 z-50 w-[min(22rem,calc(100vw-2rem))] border-line-subtle shadow-lg">
+    <Alert
+      className="fixed right-4 bottom-4 z-50 w-[min(22rem,calc(100vw-2rem))]"
+      variant="floating"
+    >
       <ArrowUpCircle aria-hidden="true" className="text-status-update" />
       <AlertTitle>{t('新版本 {version} 可用', { version })}</AlertTitle>
       <AlertDescription>

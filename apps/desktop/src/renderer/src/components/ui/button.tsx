@@ -12,19 +12,27 @@ const buttonVariants = cva(
         default: 'bg-command text-on-command hover:bg-command/90',
         destructive:
           'bg-status-danger text-on-danger hover:bg-status-danger/90 focus-visible:ring-status-danger/20 dark:bg-status-danger/60 dark:focus-visible:ring-status-danger/40',
+        ghostMuted:
+          'font-normal text-muted-foreground hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:hover:bg-interactive-hover/50',
         outline:
           'border border-line-subtle bg-surface-shell shadow-xs hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:border-line-control dark:bg-line-control/30 dark:hover:bg-line-control/50',
+        navigation:
+          'hover:bg-interactive-hover hover:text-interactive-hover-foreground aria-[current=page]:bg-interactive-secondary aria-[current=page]:text-interactive-secondary-foreground aria-[current=page]:hover:bg-interactive-secondary/80 aria-[current=page]:[&_svg]:text-focus dark:hover:bg-interactive-hover/50',
         secondary:
           'bg-interactive-secondary text-interactive-secondary-foreground hover:bg-interactive-secondary/80',
+        sidebarFooter:
+          'rounded-none border-t border-line-subtle font-normal text-muted-foreground hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:hover:bg-interactive-hover/50',
         ghost:
           'hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:hover:bg-interactive-hover/50',
         link: 'text-command underline-offset-4 hover:underline',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+        compact: "h-7 gap-1 px-2 text-xs has-[>svg]:px-2 [&_svg:not([class*='size-'])]:size-3",
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
+        sidebar: 'h-10 px-3 text-xs has-[>svg]:px-3',
         icon: 'size-9',
         'icon-xs': "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         'icon-sm': 'size-8',

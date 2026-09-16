@@ -11,6 +11,7 @@ const alertVariants = cva(
         default: 'bg-surface-panel text-fg-primary',
         destructive:
           'bg-surface-panel text-status-danger *:data-[slot=alert-description]:text-status-danger/90 [&>svg]:text-current',
+        floating: 'border-line-subtle bg-surface-panel text-fg-primary shadow-lg',
       },
     },
     defaultVariants: {

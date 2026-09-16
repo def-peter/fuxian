@@ -136,14 +136,11 @@ export function ArticleStructureMapDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className="h-[min(82vh,800px)] max-w-[min(1100px,calc(100vw-2rem))] grid-rows-[52px_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]"
-        showCloseButton={false}
-      >
-        <DialogHeader className="flex-row items-center justify-between gap-4 border-b px-4 text-left">
+      <DialogContent presentation="workspace" showCloseButton={false}>
+        <DialogHeader variant="toolbar">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-sm">{t('文章大纲图')}</DialogTitle>
-            <DialogDescription className="truncate text-xs">
+            <DialogTitle variant="toolbar">{t('文章大纲图')}</DialogTitle>
+            <DialogDescription variant="toolbar">
               {t('{name} · {count} 个标题', {
                 count: headings.length,
                 name: documentName,
