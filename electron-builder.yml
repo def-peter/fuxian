@@ -13,6 +13,9 @@ files:
 asarUnpack:
   - apps/desktop/resources/**
 win:
+  electronLanguages:
+    - en-US
+    - zh-CN
   executableName: Fuxian
   icon: build/icon.ico
   fileAssociations:
@@ -31,6 +34,9 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  electronLanguages:
+    - en
+    - zh_CN
   artifactName: fuxian-${version}-mac-${arch}.${ext}
   category: public.app-category.productivity
   icon: build/icon.icns
