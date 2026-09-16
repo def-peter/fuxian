@@ -1,5 +1,5 @@
 appId: com.defpeter.fuxian
-productName: 浮现
+productName: Fuxian
 electronVersion: 44.0.0
 directories:
   buildResources: build

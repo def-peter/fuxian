@@ -1885,7 +1885,7 @@ if (!hasSingleInstanceLock) {
         await dialog.showMessageBox({
           buttons: [mainText('知道了')],
           detail: mainText(
-            '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“浮现”，再点击“全部更改”。系统确认后返回浮现。',
+            '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“Fuxian”，再点击“全部更改”。系统确认后返回浮现。',
           ),
           message: mainText('将浮现设为 Markdown 默认应用'),
           title: mainText('Markdown 默认应用'),

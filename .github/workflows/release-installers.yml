@@ -164,7 +164,7 @@ jobs:
       - name: Smoke-test packaged Apple Silicon application
         run: pnpm exec playwright test tests/electron/packaged-app.spec.ts
         env:
-          FUXIAN_PACKAGED_EXECUTABLE: release/mac-arm64/浮现.app/Contents/MacOS/浮现
+          FUXIAN_PACKAGED_EXECUTABLE: release/mac-arm64/Fuxian.app/Contents/MacOS/Fuxian
 
       - name: Upload macOS update assets
         uses: actions/upload-artifact@v7

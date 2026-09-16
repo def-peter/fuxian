@@ -92,13 +92,13 @@ const englishMessages = {
   '该文档不属于当前文档会话。': 'This document is not part of the current session.',
   '该修订已被更新版本取代。': 'This revision was replaced by a newer version.',
   知道了: 'OK',
-  '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“浮现”，再点击“全部更改”。系统确认后返回浮现。':
+  '在访达中右键示例文档，选择“显示简介”，在“打开方式”中选择“Fuxian”，再点击“全部更改”。系统确认后返回浮现。':
     'In Finder, right-click the sample document and choose Get Info. Under Open with, choose Fuxian, then click Change All. Return to Fuxian after macOS confirms the change.',
   '开发模式不会检测或修改系统文件关联。请安装正式版本后查看。':
     'Development mode does not detect or change system file associations. Check again in an installed build.',
   '开发模式不会打开或修改系统文件关联。':
     'Development mode does not open or change system file associations.',
-  '已打开 Windows 默认应用设置。若系统未定位到浮现，请搜索 Fuxian，再确认 .md 与 .markdown 均选择浮现。':
+  '已打开 Windows 默认应用设置。若系统未定位到 Fuxian，请搜索 Fuxian，再确认 .md 与 .markdown 均选择 Fuxian。':
     'Windows Default Apps is open. If Fuxian is not selected, search for Fuxian and choose it for both .md and .markdown.',
   浮现默认应用设置: 'Fuxian Default App Setup',
   '只能保存 Markdown 文档。': 'Only Markdown documents can be saved.',
@@ -244,8 +244,8 @@ const englishMessages = {
   '在 GitHub 下载': 'Download on GitHub',
   查看完整更新日志: 'View full release notes',
   打开安装包: 'Open Installer',
-  '打开安装包后，将浮现拖到 Applications 文件夹以替换旧版本。':
-    'Open the installer, then drag Fuxian into Applications to replace the previous version.',
+  '打开安装包后，将 Fuxian 拖到 Applications 文件夹；若旧版“浮现”仍在，可将其删除。':
+    'Open the installer and drag Fuxian into Applications. If the previous 浮现 app remains, you can remove it.',
   '无法打开安装包，请重新下载或前往 GitHub 下载。':
     'Could not open the installer. Download it again or download on GitHub.',
   '已取消下载，可以重试。': 'Download canceled. You can retry when ready.',

@@ -294,7 +294,7 @@ export const createMarkdownDefaultAppService = (
           );
           return {
             message: t(
-              '已打开 Windows 默认应用设置。若系统未定位到浮现，请搜索 Fuxian，再确认 .md 与 .markdown 均选择浮现。',
+              '已打开 Windows 默认应用设置。若系统未定位到 Fuxian，请搜索 Fuxian，再确认 .md 与 .markdown 均选择 Fuxian。',
             ),
             status: 'opened',
           };
