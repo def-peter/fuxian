@@ -17,7 +17,7 @@ Preserve semantics before adjusting layout. `mars` is the default theme, not a l
 
 ## Available layout techniques
 
-Structural diagrams may use `left to right direction`; the default vertical direction often suits narrow columns better. `nodesep` and `ranksep` tune node and rank spacing in structural diagrams. Inspect actual rendering after changes rather than imposing fixed values on every diagram.
+Choose `left to right direction` or vertical flow according to the relationships and natural shape of the diagram; neither orientation is preferred merely to fit a document column. `nodesep` and `ranksep` tune node and rank spacing in structural diagrams. Inspect actual rendering after changes rather than imposing fixed values on every diagram.
 
 Sequence diagrams can use `hide footbox` to remove repeated bottom participants, `\n` for long messages, and `== Stage ==` for sections. For activity diagrams, prioritize branch organization and lanes rather than structural-diagram layout parameters.
 
@@ -27,13 +27,13 @@ Use hidden edges only for local alignment after semantics are established. Avoid
 
 Structural diagram labels are placed by the layout engine. A valid `source --> target : label` does not guarantee that the label stays close to its rendered edge. `mars` controls styling; it does not guarantee label placement.
 
-1. Trace each labeled edge from its source to its target in the rendered output. A label must be near its own line, distinguishable from neighboring edges, and readable at the delivery width. A long connector can have a valid midpoint label; proximity to the arrowhead is not the requirement.
+1. Trace each labeled edge from its source to its target in the rendered output. A label must be near its own line, distinguishable from neighboring edges, and readable in the chosen layout. A long connector can have a valid midpoint label; proximity to the arrowhead is not the requirement.
 2. Remove unnecessary hidden edges and directional constraints before adding more. For example, forcing three independent inputs into a vertical chain can create long curved connections to a shared result; allowing the inputs to sit beside one another can shorten those edges. Hidden edges still affect layout even though readers cannot see them.
 3. If needed, adjust the overall direction or group placement and shorten visible node/edge text. Preserve full technical identifiers in an adjacent mapping table when moving them out of the diagram. Keep every source, target, bypass path, and relationship meaning intact.
 4. Try `skinparam linetype polyline` only as a diagram-specific experiment, then inspect again. It is not a universal fix. Avoid applying `linetype ortho` as a blanket remedy: the official layout documentation notes edge-label positioning problems with it. Alternate layout engines also require target-runtime and visual checks.
 5. If a dense view still fails, split overview and detail views or use visibly attached notes. Do not invent intermediate business nodes, pad labels with spaces, or move text inside generated SVG as a substitute for correcting the editable source. Do not use endpoint/cardinality label controls as if they reposition every ordinary edge label.
 
-Rerender after each structural change and repeat the association check at normal and narrower document widths. An unresolved detached label is a layout failure to report, even when compilation succeeds.
+After a structural correction, rerender and repeat the association check in the chosen layout. Additional width or paper-format checks apply only to explicit user requirements. An unresolved detached label is a layout failure to report, even when compilation succeeds.
 
 ## Custom colors need visible meaning
 
@@ -47,6 +47,6 @@ Official references: [layout engines and options](https://plantuml.com/layout-en
 
 ## Correction loop
 
-Preserve the original error → Reproduce with the same service → Isolate the relevant declaration/fragment → Edit complete source → Rerender → Inspect at normal document width. Report network and syntax failures separately; do not silently switch a requested engine to avoid a network failure.
+Preserve the original error → Reproduce with the same service → Isolate the relevant declaration/fragment → Edit complete source → Rerender → Inspect the chosen layout. Report network and syntax failures separately; do not silently switch a requested engine to avoid a network failure.
 
 See [validation.md](../validation.md) for shared artifact checks.

@@ -48,7 +48,7 @@ gantt
   Deliver :milestone, shipped, after layout, 0d
 ```
 
-The example limits native Gantt width to 700 to avoid tiny text after an oversized rendering container is scaled down; font size and bar height are adjusted together. Recheck the actual document width after adaptation rather than copying a fixed width mechanically.
+The example uses a Gantt width of 700 with matching font size and bar height. These are example dimensions, not a Fuxian or paper-width target; choose dimensions for the task names, time range, and any explicit size requirement.
 
 Separate task IDs from display names. `after ID` establishes a dependency; milestones use zero duration. This example uses calendar days, including weekends. Establish holiday/weekend rules before setting exclusions for a working-day schedule.
 

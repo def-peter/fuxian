@@ -2,28 +2,28 @@
 
 This is a task-oriented candidate set for exact selection, not a mirror of every official template. Names were checked against Fuxian's `@antv/infographic` 0.2.20 registry; after upgrades, verify against the target runtime.
 
-| User content                 | Candidate template                                    | Selection condition                                                                                      |
-| ---------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| A few short points           | `list-row-simple-horizontal-arrow`                    | Short horizontal steps or linked points                                                                  |
-| Points with icons            | `list-row-horizontal-icon-arrow`                      | Icons help distinguish roles/categories                                                                  |
-| Several parallel priorities  | `list-grid-badge-card`                                | Grid cards avoid excessive row width                                                                     |
-| Simple checklist             | `list-column-done-list`                               | Vertical list for narrow columns                                                                         |
-| Several explained steps      | `list-column-simple-vertical-arrow`                   | Vertical arrows, short titles, and descriptions                                                          |
-| A few milestones             | `sequence-timeline-simple`                            | Dates/stages are central                                                                                 |
-| Longer roadmap               | `sequence-roadmap-vertical-plain-text`                | Vertical stages and descriptions                                                                         |
-| Cyclic relationship          | `sequence-circular-simple`                            | Content genuinely returns to its starting point                                                          |
-| Filtering and decrease       | `sequence-funnel-simple`                              | Explicit filtering across stages                                                                         |
-| Hierarchical progression     | `sequence-pyramid-simple`                             | Actual hierarchy or progression                                                                          |
-| Two options                  | `compare-hierarchy-left-right-circle-node-plain-text` | Displays both root names; children share comparison dimensions                                           |
-| SWOT                         | `compare-swot`                                        | Internal strengths/weaknesses and external opportunities/threats; consider four cells for narrow columns |
-| Four-quadrant classification | `compare-quadrant-quarter-simple-card`                | Category summary, not accurate data coordinates                                                          |
-| Ordinary hierarchy           | `hierarchy-tree-curved-line-rounded-rect-node`        | One root and children                                                                                    |
-| Rightward hierarchy          | `hierarchy-tree-lr-curved-line-rounded-rect-node`     | Adequate horizontal space                                                                                |
-| Concept map                  | `hierarchy-mindmap-branch-gradient-capsule-item`      | Concept hierarchy with consistent siblings                                                               |
-| Static relationships         | `relation-dagre-flow-tb-badge-card`                   | Nodes and labeled relations                                                                              |
-| Animated relationships       | `relation-dagre-flow-tb-animated-simple-circle-node`  | Screen presentation with complete static frames                                                          |
-| A few comparable values      | `chart-column-simple`                                 | Numeric summary using values                                                                             |
-| Keyword summary              | `chart-wordcloud`                                     | Supplied weights and template-specific fields                                                            |
+| User content                 | Candidate template                                    | Selection condition                                                                                                |
+| ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A few short points           | `list-row-simple-horizontal-arrow`                    | Short horizontal steps or linked points                                                                            |
+| Points with icons            | `list-row-horizontal-icon-arrow`                      | Icons help distinguish roles/categories                                                                            |
+| Several parallel priorities  | `list-grid-badge-card`                                | Grid cards avoid excessive row width                                                                               |
+| Simple checklist             | `list-column-done-list`                               | Natural top-to-bottom reading order                                                                                |
+| Several explained steps      | `list-column-simple-vertical-arrow`                   | Vertical arrows, short titles, and descriptions                                                                    |
+| A few milestones             | `sequence-timeline-simple`                            | Dates/stages are central                                                                                           |
+| Longer roadmap               | `sequence-roadmap-vertical-plain-text`                | Vertical stages and descriptions                                                                                   |
+| Cyclic relationship          | `sequence-circular-simple`                            | Content genuinely returns to its starting point                                                                    |
+| Filtering and decrease       | `sequence-funnel-simple`                              | Explicit filtering across stages                                                                                   |
+| Hierarchical progression     | `sequence-pyramid-simple`                             | Actual hierarchy or progression                                                                                    |
+| Two options                  | `compare-hierarchy-left-right-circle-node-plain-text` | Displays both root names; children share comparison dimensions                                                     |
+| SWOT                         | `compare-swot`                                        | Internal strengths/weaknesses and external opportunities/threats; choose columns or four cells by copy and balance |
+| Four-quadrant classification | `compare-quadrant-quarter-simple-card`                | Category summary, not accurate data coordinates                                                                    |
+| Ordinary hierarchy           | `hierarchy-tree-curved-line-rounded-rect-node`        | One root and children                                                                                              |
+| Rightward hierarchy          | `hierarchy-tree-lr-curved-line-rounded-rect-node`     | Adequate horizontal space                                                                                          |
+| Concept map                  | `hierarchy-mindmap-branch-gradient-capsule-item`      | Concept hierarchy with consistent siblings                                                                         |
+| Static relationships         | `relation-dagre-flow-tb-badge-card`                   | Nodes and labeled relations                                                                                        |
+| Animated relationships       | `relation-dagre-flow-tb-animated-simple-circle-node`  | Screen presentation with complete static frames                                                                    |
+| A few comparable values      | `chart-column-simple`                                 | Numeric summary using values                                                                                       |
+| Keyword summary              | `chart-wordcloud`                                     | Supplied weights and template-specific fields                                                                      |
 
 ## Verify templates and fields
 

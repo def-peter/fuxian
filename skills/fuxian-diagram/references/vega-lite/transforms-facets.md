@@ -142,7 +142,7 @@ The text layer shares coordinates with the bars. This example reserves room for 
 
 ## Inline named data, fold, and facets
 
-Use small multiples for side-by-side comparisons on the same scale. This example arranges teams in rows to fit document width, with a shared y-scale.
+Use small multiples for side-by-side comparisons on the same scale. This example arranges teams in rows with a shared y-scale; choose rows or columns according to the comparison and label lengths.
 
 ```vega-lite
 {

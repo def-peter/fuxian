@@ -46,4 +46,4 @@ This template does not display a title by default; put the caption in adjacent M
 
 ## Validation
 
-Data and units must be visible at normal reading width, with a clear source or “example data” label. Weights come from actual frequencies, user-specified scores, or explicitly illustrative data; do not invent them for appearance. Word positions do not carry meaning, and key conclusions remain in the prose.
+Data and units must be readable in the chosen layout, with a clear source or “example data” label. Weights come from actual frequencies, user-specified scores, or explicitly illustrative data; do not invent them for appearance. Word positions do not carry meaning, and key conclusions remain in the prose.

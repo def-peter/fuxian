@@ -33,7 +33,7 @@ data
           - label Method
 ```
 
-The example explicitly adds a title design and narrower nodes expanding rightward to prevent wide defaults from shrinking all text. There is one `root`; descendants recurse through `children`. Fix skipped levels or mixed sibling classification before styling. Special structures such as `hierarchy-structure` do not follow a universal root rule; check the template definition.
+The example explicitly adds a title design and compact nodes expanding rightward. Adjust node size to the copy and hierarchy instead of targeting a paper width. There is one `root`; descendants recurse through `children`. Fix skipped levels or mixed sibling classification before styling. Special structures such as `hierarchy-structure` do not follow a universal root rule; check the template definition.
 
 ## Relationships with edge labels (example)
 

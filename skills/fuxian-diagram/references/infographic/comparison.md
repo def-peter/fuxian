@@ -38,7 +38,7 @@ data
       desc More competition
 ```
 
-The four-cell layout directly displays the SWOT dimensions and points. Default `compare-swot` uses four columns, which may shrink children excessively in narrow documents. Choose by target layout rather than template name alone. Strengths/weaknesses are internal; opportunities/threats are external. Classify from supplied material rather than inventing market facts to fill four cells.
+The four-cell layout directly displays the SWOT dimensions and points. Default `compare-swot` uses four columns; either arrangement can work. Choose by the amount of copy and visual balance, checking text fit when a constrained width is explicitly required. Strengths/weaknesses are internal; opportunities/threats are external. Classify from supplied material rather than inventing market facts to fill four cells.
 
 ## Four quadrants (example)
 

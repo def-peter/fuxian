@@ -93,7 +93,7 @@ A compound condition gates finance review, reducing nested merges. `repeat :acti
 
 ## Connector clarity checks
 
-Trace success, rejection, and rework paths, then inspect the rendered result at normal and narrow widths:
+Trace success, rejection, and rework paths, then inspect the chosen rendered layout:
 
 - **Purposeful merges:** Distinguish mutually exclusive path merging from parallel synchronization. Check whether empty branches, successive unlabeled diamonds, or nesting merely add detours. Combine equivalent conditions or use an action as the loop entry; split out a subprocess when responsibilities or exceptions should not be compressed.
 - **Traceable direction:** Keep branch labels close to their exits and route rework to the step that must repeat. Intermediate arrowheads are a common result of segmented activity connectors. Check for misleading reversal, disconnection, or extra steps; reorganize ambiguous paths before rerendering.

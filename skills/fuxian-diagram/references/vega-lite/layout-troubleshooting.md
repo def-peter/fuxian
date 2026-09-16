@@ -71,6 +71,6 @@ Bars normally start at zero. Log scales cannot include nonpositive values and mu
 
 Remove unnecessary series or repeated labels first while retaining important dimensions. Legend position, axis-label angle, title, and labelLimit can help, but must not hide text needed to identify entities. Provide a text layer or nearby table for exact values; tooltips are supplementary.
 
-For fixed numeric widths, check font size after scaling into narrow columns. Single views/layers can try container width. Rerender after resizing and inspect marks at minimum/maximum values and axis titles.
+Choose width for the data, marks, and readable labels. Single views/layers can use container width when responsive sizing is appropriate. If a requested size or an observed clipping problem requires resizing, rerender and inspect font sizes, marks at minimum/maximum values, and axis titles.
 
 References: [Size](https://vega.github.io/vega-lite/docs/size.html), [Axis](https://vega.github.io/vega-lite/docs/axis.html), [Legend](https://vega.github.io/vega-lite/docs/legend.html).

@@ -6,7 +6,7 @@ Compare each diagram with its content anchor: the main question is answered; key
 
 ## Source and rendering
 
-Use the target renderer available in the current environment, preferably inspecting the final Markdown in Fuxian. Standalone renderers help diagnose syntax but do not replace verification of the finished Fuxian document.
+Use an available renderer compatible with the chosen engine. Inspect in a specific host such as Fuxian when the user requests host-specific verification or the reported problem depends on that host. Successful standalone rendering does not establish host integration, but ordinary diagram authoring does not require repeating the same check in additional applications.
 
 | Engine      | Meaningful checks                                                                                                                                                                                                    |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,17 +19,17 @@ Respect content and environment constraints when sending source to services; use
 
 ## Visual inspection
 
-Inspect screenshots or exported diagrams after rendering rather than inferring layout from source. Check the intended delivery context:
+Inspect the chosen layout after rendering rather than inferring it from source. Choose dimensions and orientation for the content, readable labels, and balanced spacing. By default, inspect one useful rendered view; do not add A4, narrow-column, or multiple-viewport passes merely because the Markdown can be opened in Fuxian.
 
-- **Normal reading width:** Titles, target-language text, and symbols are complete; text is neither overlapping nor clipped; arrows and legends are distinguishable; scaled diagrams remain readable at normal document text sizes.
-- **Narrower document width:** Check whether shrinking a wide diagram makes it unreadable or horizontal labels overflow. Prefer direction changes, another template, shorter labels, or splitting the diagram.
+- **Chosen layout:** Titles, target-language text, and symbols are complete; text is neither overlapping nor clipped; arrows and legends are distinguishable; spacing and font sizes make the diagram readable.
+- **Explicit size constraints:** When the user requires a fixed width, narrow column, or multiple sizes, inspect those requested dimensions. Adapt the diagram only as needed to preserve readability and facts.
 - **Process connectors:** Follow branches, merges, and loops to verify their destinations. For PlantUML activity diagrams, apply the [connector clarity checks](plantuml/activity-swimlanes.md#connector-clarity-checks) and assess whether intermediate arrowheads introduce ambiguity.
 - **Edge labels:** Each label is visibly adjacent to its own connector and can be associated with it without guessing. Inspect long curves, fan-in/fan-out, bypass links, and neighboring edges: readable text floating between two lines still fails this check. For structural PlantUML diagrams, use the [edge-label correction sequence](plantuml/layout-troubleshooting.md#edge-labels-detached-from-their-connectors).
 - **Color meaning:** Custom colors used for categories, states, stages, or emphasis have a visible explanation. Read that explanation against every colored node/edge; labels, shapes, or grouping preserve the meaning without color. Remove arbitrary extra colors when they add no information. Uniform theme styling does not require a legend for every decorative color; chart legends and direct labels may already supply the mapping.
-- **Prose integration:** Place the diagram near its explanation with appropriate whitespace and its caption attached. Understanding should not depend on opening a separate full-screen view.
-- **Paper preview/PDF:** When printing or PDF is requested, inspect actual pagination, page boundaries, caption placement, scaling of tall diagrams, and whether a static frame preserves meaning. An A4-width continuous view is not paper preview.
+- **Prose integration:** Place the diagram near its explanation with appropriate whitespace and its caption attached.
+- **Paper preview/PDF:** Only when the user requests printing, PDF, or a specific paper format, inspect the requested pagination, page boundaries, caption placement, and static-frame meaning. Do not assume A4 for an unspecified page format.
 
-A useful correction order is content organization → label wrapping/shortening → direction/grouping/template → separate overview and detail views. Rerender affected diagrams and inspect the actual delivery layout after changes.
+For an observed defect, correct content organization, labels, or direction/grouping/template as appropriate; split only when complexity or an explicit delivery constraint warrants it. Rerender the affected diagram after changes. Stop when content and readability checks pass. Do not repeat rendering or search for more layout variants solely to satisfy an unrequested paper mode or viewport.
 
 ## Verification inside the Fuxian repository
 
