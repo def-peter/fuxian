@@ -47,7 +47,7 @@ Sources: [Ant Design color system](https://ant.design/docs/spec/colors/), [offic
 
 ## From input to finished output
 
-JSON parsing → Official schema → Compilation → Dataflow execution → SVG → Finished Fuxian document. Fix errors at the failing layer; compilation does not prove fields contain values, labels are readable, or external resources are allowed.
+For new charts or structural changes: JSON parsing → Official schema → Compilation → Dataflow execution → SVG. Inspect the finished Fuxian document when host integration is requested or implicated in the failure. For localized edits, use the [validation scope](../validation.md#choose-validation-by-impact). Fix errors at the failing layer; compilation does not prove fields contain values, labels are readable, or external resources are allowed.
 
 | Symptom                                 | Diagnosis                                                                   | Correction                                                                              |
 | --------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -68,6 +68,8 @@ If a multi-chart document has correct mark colors but a gradient legend resembli
 Bars normally start at zero. Log scales cannot include nonpositive values and must be identified. Correlation is not causation; missing is not zero. Preserve units and time windows after aggregation. Use distinguishable categorical colors for categories and sequential colors for continuous values; diverging scales require a meaningful center.
 
 ## Layout adjustments
+
+For a title or label wording change, preserve the existing specification and inspect only the affected chart if text length or placement could cause a problem. Diagnose truncation before changing padding: `axis.labelLimit` can shorten axis text, while SVG bounds or host overflow can clip otherwise complete labels. Change the property responsible for the observed defect; do not add padding or rebuild the layout speculatively.
 
 Remove unnecessary series or repeated labels first while retaining important dimensions. Legend position, axis-label angle, title, and labelLimit can help, but must not hide text needed to identify entities. Provide a text layer or nearby table for exact values; tooltips are supplementary.
 

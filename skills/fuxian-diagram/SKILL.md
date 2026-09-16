@@ -11,6 +11,12 @@ Turn the reader's key questions into readable, deliverable diagrams. Default to 
 
 **Language:** These instructions and references are written in English; output is not restricted to English. Support Chinese and English requests. Follow an explicitly requested output language first, otherwise the target document's language when editing a document, or the user's request language for other tasks. Use that language for titles, labels, legends, and explanations; translate example copy as needed. Preserve syntax keywords, identifiers, data fields, and text the user asks to retain. Produce both language versions only when requested, then recheck text length, fonts, and layout.
 
+## First: scope the change
+
+For a localized edit to an existing diagram, preserve its engine, data, relationships, scales, colors, and layout except where the request requires a change. Update directly related prose if needed. Skip content planning, engine selection, and tool discovery when those decisions are already established; read only references needed for the changed feature or an observed failure. Use the [validation scope](references/validation.md#choose-validation-by-impact), then deliver the edit without restarting the authoring workflow below.
+
+For a new diagram or a substantial redesign, follow sections 1–4.
+
 ## 1. Anchor the content
 
 Distinguish explicit choices of **content, diagram type, engine, style, and delivery location**. For example, “sequence diagram” specifies a type, not Mermaid; “use Mermaid” specifies an engine, not the subject.
@@ -54,7 +60,7 @@ Use theme defaults as the starting point. Add custom colors for a stated reading
 
 Let the content determine a natural, clear, visually balanced layout: horizontal, vertical, wide, or tall as appropriate. A4 paper mode, narrow columns, and multiple viewport sizes are not default design targets. Adapt to page size, printing, PDF, or fixed dimensions only when the user explicitly requests that delivery constraint.
 
-Follow [validation.md](references/validation.md): source checks → actual rendering → visual inspection of the chosen layout. Parsing or compilation completes only the first step. Compare the result against each content anchor: **decision conditions, edge labels, cardinalities, key values, option names, and dates** must remain fully readable. Text present in source is not proof that it appears in the diagram. Check actual pagination separately when PDF is required.
+For new or substantially redesigned diagrams, follow [validation.md](references/validation.md): source checks → actual rendering → visual inspection of the chosen layout. Parsing or compilation completes only the first step. Compare the result against each content anchor: **decision conditions, edge labels, cardinalities, key values, option names, and dates** must remain fully readable. Text present in source is not proof that it appears in the diagram. Check actual pagination separately when PDF is required.
 
 | Trigger                                                  | Correction                                                                                                                                                                                                                    | If unresolved                                                                                           |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |

@@ -1,5 +1,20 @@
 # Content and layout validation
 
+## Choose validation by impact
+
+Validate what the change can affect. Reuse known tools and previous successful checks of unchanged content; a small edit does not restart engine selection or full-document QA.
+
+| Change | Appropriate scope |
+| --- | --- |
+| Caption or adjacent prose only | Check wording and consistency with the diagram. No diagram rendering is needed when its source is unchanged. |
+| Title or display label in an existing diagram | Check the source diff and syntax, preserving data and mappings. Render and inspect the affected chart at its chosen size when the text change could affect wrapping, clipping, or association. |
+| Values, transforms, scales, relationships, or category identifiers | Check affected semantics and dependent references, then render and inspect affected diagrams. Renaming a data key is not merely a display-label edit. |
+| New diagram or substantial redesign | Apply the content, source, rendering, and visual checks below. |
+
+Run checks explicitly required by the user or repository. Otherwise, do not expand a local edit into whole-report validation, new assertion scripts, additional viewport sizes, or unrelated layout cleanup. Update an existing assertion if the requested change invalidates its intended expectation; do not rewrite unrelated assertions merely to make a broad script pass. Identify unrelated failures separately.
+
+If inspection reveals a concrete readability defect in the affected chart, fix that defect and recheck it. Stop once the requested change and affected readability pass. Report which checks ran; do not describe skipped checks as passed or imply a whole-document audit.
+
 ## Content checks
 
 Compare each diagram with its content anchor: the main question is answered; key entities, conditions, and exceptions are present; edge directions and cardinalities are correct; values, units, and time windows match the source; and assumptions and examples are identified. The caption and adjacent prose explain the same subject.
