@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 
-import { trackWebsiteEvent, websiteEvents } from './analytics';
 import type { Language } from './site';
 
 const installCommand = 'npx skills add def-peter/fuxian --skill fuxian-diagram';
@@ -30,7 +29,6 @@ export function SkillInstall({ language }: { language: Language }) {
   const copyCommand = async () => {
     if (!navigator.clipboard) return;
     await navigator.clipboard.writeText(installCommand);
-    trackWebsiteEvent(websiteEvents.skillInstallCopy);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1_800);
   };

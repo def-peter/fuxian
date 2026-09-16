@@ -1,14 +1,6 @@
 export const websiteEvents = {
   downloadClick: 'download_click',
-  featureDetailClick: 'feature_detail_click',
   githubClick: 'github_click',
-  sectionViewDownload: 'section_view_download',
-  sectionViewFaq: 'section_view_faq',
-  sectionViewHero: 'section_view_hero',
-  sectionViewReading: 'section_view_reading',
-  sectionViewSkill: 'section_view_skill',
-  sectionViewVisuals: 'section_view_visuals',
-  skillInstallCopy: 'skill_install_copy',
 } as const;
 
 export type WebsiteEvent = (typeof websiteEvents)[keyof typeof websiteEvents];
@@ -25,7 +17,6 @@ declare global {
 
 const defaultScriptUrl = 'https://cloud.umami.is/script.js';
 const pendingEvents: WebsiteEvent[] = [];
-const viewedSections = new Set<WebsiteEvent>();
 let enabled = false;
 
 const validWebsiteId = (value: string): boolean =>
@@ -78,34 +69,4 @@ export const trackWebsiteEvent = (event: WebsiteEvent): void => {
     return;
   }
   if (pendingEvents.length < 50) pendingEvents.push(event);
-};
-
-export const observeWebsiteSections = (
-  sections: ReadonlyArray<{ element: Element | null; event: WebsiteEvent }>,
-): (() => void) => {
-  if (!enabled || !('IntersectionObserver' in window)) return () => undefined;
-
-  const eventsByElement = new Map<Element, WebsiteEvent>();
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const event = eventsByElement.get(entry.target);
-        if (event && !viewedSections.has(event)) {
-          viewedSections.add(event);
-          trackWebsiteEvent(event);
-        }
-        observer.unobserve(entry.target);
-      }
-    },
-    { rootMargin: '0px 0px -12% 0px', threshold: 0.1 },
-  );
-
-  for (const { element, event } of sections) {
-    if (!element || viewedSections.has(event)) continue;
-    eventsByElement.set(element, event);
-    observer.observe(element);
-  }
-
-  return () => observer.disconnect();
 };

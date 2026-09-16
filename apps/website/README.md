@@ -47,6 +47,6 @@ WEBSITE_BASE=/fuxian/ corepack pnpm --filter @fuxian/website preview
 
 Production analytics uses Umami and remains disabled unless `VITE_UMAMI_WEBSITE_ID` is present at build time. Set the public Website ID as the `UMAMI_WEBSITE_ID` GitHub Actions repository variable. `UMAMI_SCRIPT_URL` is optional and defaults to Umami Cloud; set it only when moving to a self-hosted instance.
 
-The site records pageviews plus download, GitHub, feature-guide, skill-command-copy, and one-time homepage section-view events. It does not record clicks to the diagram-language websites. Search parameters and URL hashes are excluded, browser Do Not Track is respected, and local development never loads the analytics script.
+The site uses Umami's built-in pageview analytics and records `download_click` and `github_click` as custom events. Search parameters and URL hashes are excluded, browser Do Not Track is respected, and local development never loads the analytics script.
 
 `dist/sitemap.xml` contains the four localized page URLs. Submit the deployed sitemap through the relevant search console if desired. A robots.txt inside a GitHub project subpath cannot control the origin's crawler policy, so this site does not generate one.

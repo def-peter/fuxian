@@ -16,7 +16,7 @@ import {
 
 import { Features } from './Features';
 import { SkillInstall } from './SkillInstall';
-import { observeWebsiteSections, trackWebsiteEvent, websiteEvents } from './analytics';
+import { trackWebsiteEvent, websiteEvents } from './analytics';
 import { assetUrl, pageUrl, siteCopy, type Language, type Page } from './site';
 type SceneId = 'read' | 'structure' | 'visualize';
 
@@ -326,30 +326,6 @@ export function App({ language, page }: { language: Language; page: Page }) {
   }, []);
 
   useEffect(() => {
-    if (page !== 'home') return;
-    return observeWebsiteSections([
-      {
-        element: document.querySelector('.transformation-hero'),
-        event: websiteEvents.sectionViewHero,
-      },
-      {
-        element: document.querySelector('.reading-section'),
-        event: websiteEvents.sectionViewReading,
-      },
-      {
-        element: document.querySelector('.visual-section'),
-        event: websiteEvents.sectionViewVisuals,
-      },
-      { element: document.querySelector('.skill-section'), event: websiteEvents.sectionViewSkill },
-      { element: document.querySelector('.faq-section'), event: websiteEvents.sectionViewFaq },
-      {
-        element: document.querySelector('.download-section'),
-        event: websiteEvents.sectionViewDownload,
-      },
-    ]);
-  }, [page]);
-
-  useEffect(() => {
     const section = readingSection.current;
     if (!section) return;
     const observer = new IntersectionObserver(
@@ -469,10 +445,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
           <a
             href={pageUrl(language, 'features')}
             aria-current={page === 'features' ? 'page' : undefined}
-            onClick={() => {
-              if (page === 'home') trackWebsiteEvent(websiteEvents.featureDetailClick);
-              setMenuOpen(false);
-            }}
+            onClick={() => setMenuOpen(false)}
           >
             {extra.features}
           </a>
@@ -648,7 +621,6 @@ export function App({ language, page }: { language: Language; page: Page }) {
                   <a
                     className="text-link section-more"
                     href={`${pageUrl(language, 'features')}#reading`}
-                    onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                   >
                     {extra.moreReading} <ArrowRight size={15} />
                   </a>
@@ -722,7 +694,6 @@ export function App({ language, page }: { language: Language; page: Page }) {
                 <a
                   className="text-link section-more"
                   href={`${pageUrl(language, 'features')}#visuals`}
-                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                 >
                   {extra.moreVisuals} <ArrowRight size={15} />
                 </a>
@@ -827,7 +798,6 @@ export function App({ language, page }: { language: Language; page: Page }) {
                 <a
                   className="text-link section-more"
                   href={`${pageUrl(language, 'features')}#skill`}
-                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
                 >
                   {t.skillMore} <ArrowRight size={15} />
                 </a>
@@ -853,11 +823,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
               <div className="faq-heading">
                 <p className="eyebrow">{extra.faqLabel}</p>
                 <h2 id="faq-title">{extra.faqTitle}</h2>
-                <a
-                  className="text-link section-more"
-                  href={pageUrl(language, 'features')}
-                  onClick={() => trackWebsiteEvent(websiteEvents.featureDetailClick)}
-                >
+                <a className="text-link section-more" href={pageUrl(language, 'features')}>
                   {extra.more} <ArrowRight size={15} />
                 </a>
               </div>
@@ -911,14 +877,7 @@ export function App({ language, page }: { language: Language; page: Page }) {
       <footer>
         <span>{t.footer}</span>
         <div>
-          <a
-            href={pageUrl(language, 'features')}
-            onClick={() => {
-              if (page === 'home') trackWebsiteEvent(websiteEvents.featureDetailClick);
-            }}
-          >
-            {extra.features}
-          </a>
+          <a href={pageUrl(language, 'features')}>{extra.features}</a>
           <a href={repoUrl} onClick={() => trackWebsiteEvent(websiteEvents.githubClick)}>
             GitHub
           </a>
