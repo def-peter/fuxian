@@ -19,7 +19,7 @@ const updateInfo = (version = '0.2.0'): UpdateInfo => ({
   files: [],
   path: `fuxian-${version}.zip`,
   releaseDate: '2026-08-28T00:00:00.000Z',
-  releaseName: `浮现 ${version}`,
+  releaseName: `Fuxian ${version}`,
   releaseNotes:
     '<h2>主要更新</h2><ul><li>新增安全可靠的软件更新 &amp; 发布流程。</li><li><strong>修复</strong>设置页显示。</li></ul><script>不可信脚本</script>',
   sha512: 'sha512',

@@ -220,7 +220,7 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
-          echo "title=浮现 ${version}" >> "${GITHUB_OUTPUT}"
+          echo "title=Fuxian ${version}" >> "${GITHUB_OUTPUT}"
 
       - name: Create draft GitHub Release
         shell: bash
