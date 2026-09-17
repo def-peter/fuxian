@@ -229,6 +229,25 @@ export const activateDocument = (session: DocumentSession, path: string): Docume
     ? { ...session, activeDocumentPath: path }
     : session;
 
+export const reorderOpenDocument = (
+  session: DocumentSession,
+  sourcePath: string,
+  targetPath: string,
+  placement: 'before' | 'after',
+): DocumentSession => {
+  const sourceIndex = session.openDocuments.findIndex((item) => itemPath(item) === sourcePath);
+  if (sourceIndex < 0 || sourcePath === targetPath) return session;
+
+  const openDocuments = [...session.openDocuments];
+  const [source] = openDocuments.splice(sourceIndex, 1);
+  const targetIndex = openDocuments.findIndex((item) => itemPath(item) === targetPath);
+  if (!source || targetIndex < 0) return session;
+  openDocuments.splice(targetIndex + (placement === 'after' ? 1 : 0), 0, source);
+  return openDocuments.every((item, index) => item === session.openDocuments[index])
+    ? session
+    : { ...session, openDocuments };
+};
+
 export const updateReadingPosition = (
   session: DocumentSession,
   path: string,

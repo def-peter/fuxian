@@ -47,6 +47,7 @@ interface DocumentSessionSidebarProps {
   onRemoveRecent(path: string): void;
   onRemoveUnavailable(path: string): void;
   onReopen(path: string): void;
+  onReorder(sourcePath: string, targetPath: string, placement: 'before' | 'after'): void;
   onRetry(path: string): void;
   onReveal(path: string): void;
   openDocuments: OpenDocumentItem[];
@@ -55,8 +56,10 @@ interface DocumentSessionSidebarProps {
 }
 
 interface UnavailableDocumentItemProps {
+  drag: DocumentRowDragProps;
   document: UnavailableSessionDocument;
   disabled: boolean;
+  dropPosition?: 'before' | 'after' | undefined;
   onLocate(): void;
   onRemove(): void;
   onRetry(): void;
@@ -67,12 +70,31 @@ interface DocumentItemProps {
   actionLabel?: string;
   active?: boolean;
   document: { name: string; path: string };
+  drag?: DocumentRowDragProps;
+  dropPosition?: 'before' | 'after' | undefined;
   loading?: boolean;
   onActivate(): void;
   onAction?: () => void;
   onCopyPath(): void;
   onReveal(): void;
 }
+
+interface DocumentRowDragProps {
+  onEnd(): void;
+  onStart(event: React.DragEvent<HTMLDivElement>): void;
+}
+
+const canDragRow = (event: React.PointerEvent<HTMLDivElement>): boolean =>
+  event.button === 0 &&
+  !(event.target instanceof Element && event.target.closest('[data-document-row-action]'));
+
+const dropIndicatorClass = (position?: 'before' | 'after'): string | undefined =>
+  position
+    ? cn(
+        'after:pointer-events-none after:absolute after:inset-x-2 after:z-10 after:h-0.5 after:bg-ring',
+        position === 'before' ? 'after:top-0' : 'after:bottom-0',
+      )
+    : undefined;
 
 interface SidebarActionTooltipProps {
   children: React.ReactElement;
@@ -91,17 +113,37 @@ function SidebarActionTooltip({ children, label }: SidebarActionTooltipProps): R
 }
 
 function UnavailableDocumentItem({
+  drag,
   document,
   disabled,
+  dropPosition,
   onLocate,
   onRemove,
   onRetry,
 }: UnavailableDocumentItemProps): React.JSX.Element {
   const { t } = useLocalization();
+  const canStartDrag = useRef(false);
   return (
     <div
       aria-label={`${document.name}. ${t('文档不可用')}. ${document.message}`}
-      className="flex min-h-10 items-center border-l-2 border-warning/60 px-1 pl-3"
+      className={cn(
+        'relative flex min-h-10 cursor-grab select-none items-center border-l-2 border-warning/60 px-1 pl-3 active:cursor-grabbing',
+        dropIndicatorClass(dropPosition),
+      )}
+      data-drop-position={dropPosition}
+      data-open-document-row={document.path}
+      draggable
+      onDragEnd={drag.onEnd}
+      onDragStart={(event) => {
+        if (!canStartDrag.current) {
+          event.preventDefault();
+          return;
+        }
+        drag.onStart(event);
+      }}
+      onPointerDownCapture={(event) => {
+        canStartDrag.current = canDragRow(event);
+      }}
       role="group"
     >
       <Tooltip>
@@ -124,6 +166,7 @@ function UnavailableDocumentItem({
       <SidebarActionTooltip label={t('重试“{name}”', { name: document.name })}>
         <Button
           aria-label={t('重试“{name}”', { name: document.name })}
+          data-document-row-action=""
           disabled={disabled}
           onClick={onRetry}
           size="icon-xs"
@@ -135,6 +178,7 @@ function UnavailableDocumentItem({
       <SidebarActionTooltip label={t('定位“{name}”', { name: document.name })}>
         <Button
           aria-label={t('定位“{name}”', { name: document.name })}
+          data-document-row-action=""
           disabled={disabled}
           onClick={onLocate}
           size="icon-xs"
@@ -146,6 +190,7 @@ function UnavailableDocumentItem({
       <SidebarActionTooltip label={t('移除“{name}”', { name: document.name })}>
         <Button
           aria-label={t('移除“{name}”', { name: document.name })}
+          data-document-row-action=""
           disabled={disabled}
           onClick={onRemove}
           size="icon-xs"
@@ -163,6 +208,8 @@ function DocumentItem({
   actionLabel,
   active,
   document,
+  drag,
+  dropPosition,
   loading,
   onActivate,
   onAction,
@@ -171,6 +218,8 @@ function DocumentItem({
 }: DocumentItemProps): React.JSX.Element {
   const { t } = useLocalization();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const canStartDrag = useRef(false);
+  const dragged = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const revealLabel = t(
@@ -190,9 +239,28 @@ function DocumentItem({
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
+            'group relative flex min-h-9 w-full min-w-0 max-w-full items-center overflow-hidden border-l-2 border-transparent pr-1',
+            drag && 'cursor-grab select-none active:cursor-grabbing',
             active && 'border-primary bg-selected text-selected-foreground',
+            dropIndicatorClass(dropPosition),
           )}
+          data-drop-position={dropPosition}
+          data-open-document-row={drag ? document.path : undefined}
+          draggable={Boolean(drag)}
+          onDragEnd={drag?.onEnd}
+          onDragStart={(event) => {
+            if (!canStartDrag.current || !drag) {
+              event.preventDefault();
+              return;
+            }
+            dragged.current = true;
+            setTooltipOpen(false);
+            drag.onStart(event);
+          }}
+          onPointerDownCapture={(event) => {
+            canStartDrag.current = Boolean(drag) && canDragRow(event);
+            dragged.current = false;
+          }}
         >
           <Tooltip open={!menuOpen && tooltipOpen} onOpenChange={setTooltipOpen}>
             <TooltipTrigger asChild>
@@ -202,7 +270,14 @@ function DocumentItem({
                 aria-label={`${document.name}${loading ? `, ${t('正在更新')}` : ''}`}
                 aria-current={active ? 'page' : undefined}
                 className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={onActivate}
+                onClick={(event) => {
+                  if (dragged.current) {
+                    event.preventDefault();
+                    dragged.current = false;
+                    return;
+                  }
+                  onActivate();
+                }}
                 type="button"
               >
                 {loading ? (
@@ -224,7 +299,8 @@ function DocumentItem({
             <SidebarActionTooltip label={actionLabel}>
               <Button
                 aria-label={actionAccessibleLabel}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                data-document-row-action=""
                 onClick={onAction}
                 size="icon-xs"
                 variant="ghost"
@@ -297,6 +373,7 @@ export function DocumentSessionSidebar({
   onRemoveRecent,
   onRemoveUnavailable,
   onReopen,
+  onReorder,
   onRetry,
   onReveal,
   openDocuments,
@@ -304,6 +381,48 @@ export function DocumentSessionSidebar({
   updateAttention,
 }: DocumentSessionSidebarProps): React.JSX.Element {
   const { t } = useLocalization();
+  const [draggingPath, setDraggingPath] = useState<string>();
+  const [dropTarget, setDropTarget] = useState<{
+    path: string;
+    placement: 'before' | 'after';
+  }>();
+  const openListRef = useRef<HTMLDivElement>(null);
+
+  const clearDrag = (): void => {
+    setDraggingPath(undefined);
+    setDropTarget(undefined);
+  };
+
+  const dragFor = (path: string): DocumentRowDragProps => ({
+    onEnd: clearDrag,
+    onStart: (event) => {
+      if (event.button !== 0) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-fuxian-open-document', 'move');
+      setDraggingPath(path);
+    },
+  });
+
+  const targetAt = (
+    event: React.DragEvent<HTMLDivElement>,
+  ): { path: string; placement: 'before' | 'after' } | undefined => {
+    const row =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-open-document-row]')
+        : null;
+    if (!row || !openListRef.current?.contains(row)) return undefined;
+    const path = row.dataset.openDocumentRow;
+    if (!path) return undefined;
+    const bounds = row.getBoundingClientRect();
+    return {
+      path,
+      placement: event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after',
+    };
+  };
+
   return (
     <aside
       aria-label={t('文档会话')}
@@ -350,70 +469,116 @@ export function DocumentSessionSidebar({
       <ScrollArea className="min-h-0 min-w-0 overflow-hidden">
         <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden py-2">
           <SessionSection count={openDocuments.length} title={t('正在查看')}>
-            {openDocuments.map((document) =>
-              document.status !== 'unavailable' ? (
-                <DocumentItem
-                  actionAccessibleLabel={t('关闭“{name}”', {
-                    name:
-                      document.status === 'available'
-                        ? document.latestSourceDocument.name
-                        : document.name,
-                  })}
-                  actionLabel={t('关闭当前文档')}
-                  active={
-                    (document.status === 'available'
-                      ? document.latestSourceDocument.path
-                      : document.path) === activeDocumentPath
-                  }
-                  document={
-                    document.status === 'available' ? document.latestSourceDocument : document
-                  }
-                  key={
-                    document.status === 'available'
-                      ? document.latestSourceDocument.path
-                      : document.path
-                  }
-                  loading={document.status === 'loading'}
-                  onActivate={() =>
-                    onActivate(
+            <div
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setDropTarget(undefined);
+                }
+              }}
+              onDragOver={(event) => {
+                if (!draggingPath) return;
+                const target = targetAt(event);
+                if (!target) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                setDropTarget((current) =>
+                  current?.path === target.path && current.placement === target.placement
+                    ? current
+                    : target,
+                );
+              }}
+              onDrop={(event) => {
+                if (!draggingPath) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const target = targetAt(event);
+                if (target) onReorder(draggingPath, target.path, target.placement);
+                clearDrag();
+              }}
+              ref={openListRef}
+            >
+              {openDocuments.map((document) =>
+                document.status !== 'unavailable' ? (
+                  <DocumentItem
+                    actionAccessibleLabel={t('关闭“{name}”', {
+                      name:
+                        document.status === 'available'
+                          ? document.latestSourceDocument.name
+                          : document.name,
+                    })}
+                    actionLabel={t('关闭当前文档')}
+                    active={
+                      (document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path) === activeDocumentPath
+                    }
+                    document={
+                      document.status === 'available' ? document.latestSourceDocument : document
+                    }
+                    drag={dragFor(
                       document.status === 'available'
                         ? document.latestSourceDocument.path
                         : document.path,
-                    )
-                  }
-                  onAction={() =>
-                    onClose(
+                    )}
+                    dropPosition={
+                      dropTarget?.path ===
+                      (document.status === 'available'
+                        ? document.latestSourceDocument.path
+                        : document.path)
+                        ? dropTarget.placement
+                        : undefined
+                    }
+                    key={
                       document.status === 'available'
                         ? document.latestSourceDocument.path
-                        : document.path,
-                    )
-                  }
-                  onCopyPath={() =>
-                    onCopyPath(
-                      document.status === 'available'
-                        ? document.latestSourceDocument.path
-                        : document.path,
-                    )
-                  }
-                  onReveal={() =>
-                    onReveal(
-                      document.status === 'available'
-                        ? document.latestSourceDocument.path
-                        : document.path,
-                    )
-                  }
-                />
-              ) : (
-                <UnavailableDocumentItem
-                  disabled={isOpening}
-                  document={document}
-                  key={document.path}
-                  onLocate={() => onLocate(document.path)}
-                  onRemove={() => onRemoveUnavailable(document.path)}
-                  onRetry={() => onRetry(document.path)}
-                />
-              ),
-            )}
+                        : document.path
+                    }
+                    loading={document.status === 'loading'}
+                    onActivate={() =>
+                      onActivate(
+                        document.status === 'available'
+                          ? document.latestSourceDocument.path
+                          : document.path,
+                      )
+                    }
+                    onAction={() =>
+                      onClose(
+                        document.status === 'available'
+                          ? document.latestSourceDocument.path
+                          : document.path,
+                      )
+                    }
+                    onCopyPath={() =>
+                      onCopyPath(
+                        document.status === 'available'
+                          ? document.latestSourceDocument.path
+                          : document.path,
+                      )
+                    }
+                    onReveal={() =>
+                      onReveal(
+                        document.status === 'available'
+                          ? document.latestSourceDocument.path
+                          : document.path,
+                      )
+                    }
+                  />
+                ) : (
+                  <UnavailableDocumentItem
+                    drag={dragFor(document.path)}
+                    disabled={isOpening}
+                    document={document}
+                    dropPosition={
+                      dropTarget?.path === document.path ? dropTarget.placement : undefined
+                    }
+                    key={document.path}
+                    onLocate={() => onLocate(document.path)}
+                    onRemove={() => onRemoveUnavailable(document.path)}
+                    onRetry={() => onRetry(document.path)}
+                  />
+                ),
+              )}
+            </div>
           </SessionSection>
 
           <SessionSection count={recentDocuments.length} title={t('最近查看')}>

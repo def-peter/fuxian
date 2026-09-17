@@ -17,6 +17,7 @@ import {
   forgetDocument,
   pruneRecentDocuments,
   recentDocumentMaxAgeMs,
+  reorderOpenDocument,
   removeRecentDocument,
   reopenRecentDocument,
   updateReadingPosition,
@@ -180,6 +181,33 @@ describe('document session', () => {
     expect(added.activeDocumentPath).toBe('/docs/first.md');
     expect(reopened.openDocuments).toHaveLength(2);
     expect(reopened.activeDocumentPath).toBe('/docs/second.md');
+  });
+
+  it('reorders only open documents, preserving the active document and all per-document state', () => {
+    const paths = ['/docs/first.md', '/docs/second.md', '/docs/third.md'];
+    const session = updateReadingPosition(
+      addDocumentsToSession(createDocumentSession(), paths.map(finishedDocument), 42),
+      paths[1]!,
+      { headingId: 'details', headingOffset: 34, relativeProgress: 0.6 },
+    );
+    const withRecent = { ...session, recentDocuments: [recentReference('/docs/old.md', 41)] };
+
+    const reordered = reorderOpenDocument(withRecent, paths[0]!, paths[2]!, 'after');
+    expect(openPaths(reordered)).toEqual([paths[1], paths[2], paths[0]]);
+    expect(reordered.activeDocumentPath).toBe(withRecent.activeDocumentPath);
+    expect(reordered.recentDocuments).toBe(withRecent.recentDocuments);
+    expect(reordered.openDocuments).toEqual([
+      withRecent.openDocuments[1],
+      withRecent.openDocuments[2],
+      withRecent.openDocuments[0],
+    ]);
+    expect(reordered.openDocuments[0]).toBe(withRecent.openDocuments[1]);
+    expect(createPersistedDocumentSession(reordered).openDocuments.map(({ path }) => path)).toEqual(
+      [paths[1], paths[2], paths[0]],
+    );
+    expect(reorderOpenDocument(reordered, paths[0]!, paths[2]!, 'after')).toBe(reordered);
+    expect(reorderOpenDocument(reordered, '/docs/absent.md', paths[1]!, 'before')).toBe(reordered);
+    expect(reorderOpenDocument(reordered, paths[0]!, '/docs/absent.md', 'before')).toBe(reordered);
   });
 
   it('discards document-session state when a document is closed and reopened', () => {

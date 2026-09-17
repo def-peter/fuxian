@@ -67,6 +67,162 @@ test.afterAll(async () => {
   ]);
 });
 
+test('reorders open documents from the row without activating them or changing session state', async () => {
+  test.setTimeout(60_000);
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-reorder-'));
+  const files = ['first.md', 'second.md', 'third.md'].map((name) => join(directory, name));
+  const sessionFilePath = join(directory, 'document-session.json');
+  await Promise.all(files.map((path) => writeFile(path, `# ${basename(path)}\n\nContent`)));
+  const paths = await Promise.all(files.map((path) => realpath(path)));
+  let electronApp = await launchDesktop(paths, { sessionFilePath });
+
+  try {
+    let window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const sidebar = window.getByRole('complementary', { name: '文档会话' });
+    const rows = sidebar.locator('[data-open-document-row]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[0]!);
+    await expect
+      .poll(async () => {
+        try {
+          return JSON.parse(await readFile(sessionFilePath, 'utf8'));
+        } catch {
+          return undefined;
+        }
+      })
+      .toMatchObject({
+        activeDocumentPath: paths[0],
+        openDocuments: paths.map((path) => ({ path })),
+      });
+    const original = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+      activeDocumentPath: string;
+      openDocuments: Array<{ path: string; readingPosition: unknown }>;
+      recentDocuments: unknown[];
+    };
+
+    const source = await sidebar
+      .getByRole('button', { exact: true, name: 'first.md' })
+      .boundingBox();
+    const last = await rows.nth(2).boundingBox();
+    if (!source || !last) throw new Error('Document drag geometry is unavailable.');
+    await window.mouse.move(source.x + 65, source.y + source.height / 2);
+    await window.mouse.down();
+    await window.mouse.move(last.x + 18, last.y + last.height * 0.75, { steps: 10 });
+    await expect(sidebar.getByRole('button', { exact: true, name: 'first.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await window.mouse.up();
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[1]!);
+    await expect(rows.nth(1)).toHaveAttribute('data-open-document-row', paths[2]!);
+    await expect(rows.nth(2)).toHaveAttribute('data-open-document-row', paths[0]!);
+    await expect(sidebar.getByRole('button', { exact: true, name: 'first.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await window.mouse.move(900, 400);
+    const secondName = sidebar.getByRole('button', { exact: true, name: 'second.md' });
+    await secondName.focus();
+    expect(await rows.nth(0).evaluate((row) => row.matches(':hover'))).toBe(false);
+    expect(await secondName.evaluate((button) => button === document.activeElement)).toBe(true);
+    const secondClose = sidebar.getByRole('button', { name: '关闭“second.md”' });
+    await expect
+      .poll(() => secondClose.evaluate((button) => getComputedStyle(button).opacity))
+      .toBe('0');
+    await window.keyboard.press('Tab');
+    await expect(secondClose).toBeFocused();
+    await expect
+      .poll(() => secondClose.evaluate((button) => getComputedStyle(button).opacity))
+      .toBe('1');
+    await secondName.focus();
+    await secondName.hover();
+    await expect
+      .poll(() => secondClose.evaluate((button) => getComputedStyle(button).opacity))
+      .toBe('1');
+    await window.mouse.move(900, 400);
+    await expect
+      .poll(() => secondClose.evaluate((button) => getComputedStyle(button).opacity))
+      .toBe('0');
+    await expect
+      .poll(async () => {
+        const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as typeof original;
+        return persisted.openDocuments.map(({ path }) => path);
+      })
+      .toEqual([paths[1], paths[2], paths[0]]);
+    const reordered = JSON.parse(await readFile(sessionFilePath, 'utf8')) as typeof original;
+    expect(reordered.activeDocumentPath).toBe(original.activeDocumentPath);
+    expect(reordered.recentDocuments).toEqual(original.recentDocuments);
+    for (const document of original.openDocuments) {
+      expect(
+        reordered.openDocuments.find(({ path }) => path === document.path)?.readingPosition,
+      ).toEqual(document.readingPosition);
+    }
+
+    const blankSpace = await rows.nth(0).boundingBox();
+    if (!blankSpace) throw new Error('Document row geometry is unavailable.');
+    await rows.nth(0).dragTo(rows.nth(1), {
+      sourcePosition: { x: blankSpace.width - 36, y: blankSpace.height / 2 },
+      targetPosition: { x: 18, y: 30 },
+    });
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[2]!);
+    await rows.nth(0).dragTo(rows.nth(1), { targetPosition: { x: 18, y: 30 } });
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[1]!);
+
+    await rows.nth(0).dragTo(sidebar.getByRole('button', { name: /最近查看/ }), {
+      sourcePosition: { x: 12, y: 18 },
+    });
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[1]!);
+    await expect(rows.nth(1)).toHaveAttribute('data-open-document-row', paths[2]!);
+
+    await sidebar.getByRole('button', { name: '关闭“second.md”' }).dragTo(rows.nth(2));
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[1]!);
+
+    const handle = await rows
+      .nth(0)
+      .getByRole('button', { exact: true, name: 'second.md' })
+      .boundingBox();
+    const destination = await rows.nth(2).boundingBox();
+    if (!handle || !destination) throw new Error('Document drag geometry is unavailable.');
+    await window.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await window.mouse.down({ button: 'right' });
+    await window.mouse.move(destination.x + 18, destination.y + destination.height / 2, {
+      steps: 8,
+    });
+    await window.mouse.up({ button: 'right' });
+    await window.keyboard.press('Escape');
+    await expect(rows.nth(0)).toHaveAttribute('data-open-document-row', paths[1]!);
+
+    await sidebar.getByRole('button', { exact: true, name: 'second.md' }).click();
+    await expect(sidebar.getByRole('button', { exact: true, name: 'second.md' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await sidebar.getByRole('button', { exact: true, name: 'first.md' }).click();
+
+    await electronApp.close();
+    electronApp = await launchDesktop(paths, { sessionFilePath });
+    window = await electronApp.firstWindow();
+    await expect(
+      window
+        .getByRole('complementary', { name: '文档会话' })
+        .locator('[data-open-document-row]')
+        .nth(0),
+    ).toHaveAttribute('data-open-document-row', paths[1]!);
+    await window.getByRole('button', { name: '关闭“third.md”' }).click();
+    await expect(
+      window
+        .getByRole('complementary', { name: '文档会话' })
+        .getByRole('button', { exact: true, name: 'third.md' })
+        .locator('..'),
+    ).not.toHaveAttribute('draggable', 'true');
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true, maxRetries: 5, retryDelay: 200 });
+  }
+});
+
 test('restores open-document order, active document, and reading position after restart', async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-restart-'));
   const sessionFilePath = join(temporaryDirectory, 'document-session.json');

@@ -59,6 +59,7 @@ import {
   failLoadingDocument,
   forgetDocument,
   recoverUnavailableDocument,
+  reorderOpenDocument,
   removeRecentDocument,
   removeUnavailableDocument,
   setUnavailableDocumentMessage,
@@ -2001,6 +2002,9 @@ export function App(): React.JSX.Element {
         setDocumentSessionSheetOpen(false);
         void reopenDocument(path);
       }}
+      onReorder={(sourcePath, targetPath, placement) =>
+        setSession((current) => reorderOpenDocument(current, sourcePath, targetPath, placement))
+      }
       onRetry={(path) => void retryUnavailableDocument(path)}
       onReveal={(path) => void revealDocument(path)}
       openDocuments={session.openDocuments}
