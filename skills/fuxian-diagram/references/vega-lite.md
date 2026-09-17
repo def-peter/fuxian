@@ -6,7 +6,7 @@ For statistical charts, establish the observation unit, metrics, and measurement
 
 Unless the user explicitly requests otherwise, include all three when creating or completing a chart:
 
-1. **Concise title:** Use `title` to say what the chart compares or explains. Keep scope, dates, units, and denominator definitions in a subtitle or adjacent explanation as needed. A surrounding section heading does not replace the chart's own name.
+1. **Concise title:** Use `title` to say what the chart compares or explains. Center titles for single and layered charts by default (`title.anchor: "middle"`); do not introduce `"start"` unless the user requests left alignment or an established document style requires it. Composite views have different title-placement rules; do not force a single-view setting onto their overall title. Keep scope, dates, units, and denominator definitions in a subtitle or adjacent explanation as needed. A surrounding section heading does not replace the chart's own name.
 2. **Visible values:** Label bars and other sparse marks directly with formatted values. Readers should not estimate exact values from axis ticks. For dense lines, scatterplots, or cells, label key points or summaries and provide a nearby exact-value table for the relevant comparisons instead of overlapping every label. Keep key values available in the static view, including PDF.
 3. **Tooltips:** Author `encoding.tooltip` with the category/date, series, metric, units, and suitable precision. Prefer explicit fields and readable titles over exposing every raw field. Keep tooltips on the data marks and on overlaid value labels so labels do not block hover, including zero-value bars. Tooltips supplement visible values; they do not replace them.
 
