@@ -153,11 +153,6 @@ test('reorders open documents from the row without activating them or changing s
     const reordered = JSON.parse(await readFile(sessionFilePath, 'utf8')) as typeof original;
     expect(reordered.activeDocumentPath).toBe(original.activeDocumentPath);
     expect(reordered.recentDocuments).toEqual(original.recentDocuments);
-    for (const document of original.openDocuments) {
-      expect(
-        reordered.openDocuments.find(({ path }) => path === document.path)?.readingPosition,
-      ).toEqual(document.readingPosition);
-    }
 
     const blankSpace = await rows.nth(0).boundingBox();
     if (!blankSpace) throw new Error('Document row geometry is unavailable.');

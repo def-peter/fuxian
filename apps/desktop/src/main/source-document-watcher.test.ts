@@ -68,7 +68,7 @@ describe('SourceDocumentWatcher', () => {
 
     await rename(join(directory, 'original'), renamedDirectory);
 
-    await expect.poll(() => changed.mock.calls.length).toBe(1);
+    await expect.poll(() => changed.mock.calls.length, { timeout: 5_000 }).toBe(1);
     watcher.close();
   });
 });

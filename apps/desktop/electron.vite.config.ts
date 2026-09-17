@@ -76,6 +76,7 @@ export default defineConfig({
           'electron-log',
           'electron-updater',
           'parse5',
+          'pdf-lib',
           'plantuml-encoder',
         ],
       }),
