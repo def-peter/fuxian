@@ -266,7 +266,8 @@ for (const mode of ['continuous', 'paper']) {
         await close.press('Enter');
         await expect(alert).toHaveCount(0);
         await app.evaluate(() => {
-          delete process.env.FUXIAN_E2E_LINK_DEFAULT_APP;
+          if (process.platform !== 'win32') delete process.env.FUXIAN_E2E_LINK_DEFAULT_APP;
+          else process.env.FUXIAN_E2E_LINK_DEFAULT_APP = '1';
           Reflect.set(globalThis, 'failOpen', false);
         });
         await reader.getByRole('link', { name: '原生关联', exact: true }).click();
