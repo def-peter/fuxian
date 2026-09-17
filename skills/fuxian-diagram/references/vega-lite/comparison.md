@@ -292,6 +292,6 @@ Grouped bars suit planned/actual or this-year/last-year comparisons. Group with 
 - State the comparison base for year-over-year or period-over-period metrics. Percentage change differs from percentage-point difference.
 - For many categories, aggregate or select a task-appropriate top N and explain how remaining categories are handled. Do not silently remove important categories.
 - Preserve zero and sign direction in difference charts. Truncated bar axes exaggerate differences.
-- For clipped labels, use horizontal bars, more left padding, or shorter copy without hiding text needed to distinguish categories.
+- For clipped labels or excessive blank margins, follow the [layout diagnosis](layout-troubleshooting.md#layout-adjustments). Distinguish truncation from clipping before changing spacing; preserve text needed to distinguish categories.
 
 Official references: [Bar](https://vega.github.io/vega-lite/docs/bar.html), [Offset](https://vega.github.io/vega-lite/docs/encoding.html).

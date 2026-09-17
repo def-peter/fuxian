@@ -71,6 +71,8 @@ Bars normally start at zero. Log scales cannot include nonpositive values and mu
 
 For a title or label wording change, preserve the existing specification and inspect only the affected chart if text length or placement could cause a problem. Diagnose truncation before changing padding: `axis.labelLimit` can shorten axis text, while SVG bounds or host overflow can clip otherwise complete labels. Change the property responsible for the observed defect; do not add padding or rebuild the layout speculatively.
 
+Start with engine-managed bounds and default padding. Explicit padding adds outer space beyond the space already allocated for axes and labels; do not reserve a second full label-width margin. If rendered text still clips, add only the small allowance needed in that rendering environment. If excessive blank space is observed, reduce redundant padding while retaining complete labels. Check both clipping and excessive margins in the same affected-chart preview, with no additional viewport passes or pixel-by-pixel tuning. A working padding value for one chart is not a default to copy into other charts.
+
 Remove unnecessary series or repeated labels first while retaining important dimensions. Legend position, axis-label angle, title, and labelLimit can help, but must not hide text needed to identify entities. Provide a text layer or nearby table for exact values; tooltips are supplementary.
 
 Choose width for the data, marks, and readable labels. Single views/layers can use container width when responsive sizing is appropriate. If a requested size or an observed clipping problem requires resizing, rerender and inspect font sizes, marks at minimum/maximum values, and axis titles.
