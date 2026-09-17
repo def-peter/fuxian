@@ -95,6 +95,7 @@ import { revealSourceDocument } from './reveal-source-document';
 import { describeDocumentLink, openDocumentLink } from './document-links';
 import { hasDefaultFileApplication } from './file-association';
 import { Diagnostics, diagnosticError } from './diagnostics';
+import { removePdfTitle } from './pdf-export-metadata';
 
 const { autoUpdater } = electronUpdater;
 
@@ -972,7 +973,7 @@ const registerDesktopHandlers = (
           printBackground: true,
         });
         if (job.cancelled || pdfExportJobs.get(job.id) !== job) return;
-        await writeFile(job.temporaryPath, pdf);
+        await writeFile(job.temporaryPath, await removePdfTitle(pdf));
         if (job.cancelled || pdfExportJobs.get(job.id) !== job) {
           await rm(job.temporaryPath, { force: true });
           return;

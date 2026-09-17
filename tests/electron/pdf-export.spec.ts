@@ -211,6 +211,42 @@ test.afterEach(async () => {
   );
 });
 
+test('exports PDFs without a fixed title so renamed files can use their filename', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-pdf-title-'));
+  const sourcePath = join(directory, 'example.md');
+  const preferencesPath = join(directory, 'preferences.json');
+  const sessionPath = join(directory, 'session.json');
+  const outputPath = join(directory, 'example.pdf');
+  await writeFile(sourcePath, '# Example\n\n[OpenAI](https://openai.com/)');
+  await writeFile(preferencesPath, JSON.stringify(preferences('http://127.0.0.1:1/plantuml')));
+  const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, outputPath);
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 15_000 });
+    const loading = getDocument({ data: new Uint8Array(await readFile(outputPath)) });
+    const pdf = await loading.promise;
+    const { info } = await pdf.getMetadata();
+    expect(info).not.toHaveProperty('Title');
+    const outline = await pdf.getOutline();
+    expect(outline?.[0]?.title).toBe('Example');
+    const page = await pdf.getPage(1);
+    expect(
+      (await page.getTextContent()).items.some((item) => 'str' in item && item.str === 'Example'),
+    ).toBe(true);
+    expect(
+      (await page.getAnnotations()).some((annotation) => annotation.url === 'https://openai.com/'),
+    ).toBe(true);
+    expect(await page.getStructTree()).not.toBeNull();
+    await loading.destroy();
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('preserves PlantUML colors in PDF', async () => {
   test.setTimeout(90_000);
   const server = await startDeferredPlantUmlServer();
