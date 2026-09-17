@@ -2,6 +2,22 @@
 
 For statistical charts, establish the observation unit, metrics, and measurement definitions before selecting marks, encodings, and transforms. All example data is illustrative.
 
+## Chart reading defaults
+
+Unless the user explicitly requests otherwise, include all three when creating or completing a chart:
+
+1. **Concise title:** Use `title` to say what the chart compares or explains. Keep scope, dates, units, and denominator definitions in a subtitle or adjacent explanation as needed. A surrounding section heading does not replace the chart's own name.
+2. **Visible values:** Label bars and other sparse marks directly with formatted values. Readers should not estimate exact values from axis ticks. For dense lines, scatterplots, or cells, label key points or summaries and provide a nearby exact-value table for the relevant comparisons instead of overlapping every label. Keep key values available in the static view, including PDF.
+3. **Tooltips:** Author `encoding.tooltip` with the category/date, series, metric, units, and suitable precision. Prefer explicit fields and readable titles over exposing every raw field. Keep tooltips on the data marks and on overlaid value labels so labels do not block hover, including zero-value bars. Tooltips supplement visible values; they do not replace them.
+
+For grouped bars, share positional encodings, including `xOffset`/`yOffset`, between bar and text layers. Override the text layer's color to a readable neutral when a shared category color would make numbers faint. The [comparison examples](vega-lite/comparison.md) demonstrate titles, labels, and tooltips together. Apply these defaults when adapting other examples too.
+
+Match tooltip and label formats to the data: `.2%` expects a 0–1 ratio; for values already in 0–100, calculate a formatted string with a `%` suffix. Preserve raw numeric fields for positions and calculations. For aggregated charts, tooltip fields must match the plotted aggregation grain; adding a raw field can unintentionally split groups. Pre-aggregate when needed, and never alter analytical meaning merely to add hover details.
+
+Fuxian's current runtime displays authored text tooltips; PDF and static images cannot provide hover. Respect explicit requests to hide titles, labels, or tooltips, and an established `tooltip: null` when the user has asked to disable it. A localized edit does not require retrofitting unrelated charts.
+
+Official references: [Tooltip](https://vega.github.io/vega-lite/docs/tooltip.html), [Text labels](https://vega.github.io/vega-lite/docs/text.html).
+
 ## Diagram types with local guides
 
 Before authoring any Vega-Lite chart, read the [color rules](vega-lite/layout-troubleshooting.md#default-colors). Use the table to identify a suitable diagram type, then read its guide and adapt a complete example. Read troubleshooting guidance when rendering or layout problems arise. Load only the relevant branches.

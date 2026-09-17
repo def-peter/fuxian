@@ -28,15 +28,11 @@ Use a zero baseline for counts and sort by value. State the title and units clea
       }
     ]
   },
-  "mark": {
-    "type": "bar",
-    "color": "#1677FF"
-  },
   "encoding": {
     "y": {
       "field": "channel",
       "type": "nominal",
-      "sort": "-x",
+      "sort": { "field": "orders", "op": "sum", "order": "descending" },
       "title": null
     },
     "x": {
@@ -46,7 +42,20 @@ Use a zero baseline for counts and sort by value. State the title and units clea
       "scale": {
         "zero": true
       }
-    }
+    },
+    "tooltip": [
+      {
+        "field": "channel",
+        "type": "nominal",
+        "title": "Channel"
+      },
+      {
+        "field": "orders",
+        "type": "quantitative",
+        "title": "Orders (count)",
+        "format": ",.0f"
+      }
+    ]
   },
   "config": {
     "axis": {
@@ -80,7 +89,32 @@ Use a zero baseline for counts and sort by value. State the title and units clea
         "#EB2F96"
       ]
     }
-  }
+  },
+  "layer": [
+    {
+      "mark": {
+        "type": "bar",
+        "color": "#1677FF"
+      }
+    },
+    {
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "dx": 5
+      },
+      "encoding": {
+        "text": {
+          "field": "orders",
+          "type": "quantitative",
+          "format": ",.0f"
+        },
+        "color": {
+          "value": "#262626"
+        }
+      }
+    }
+  ]
 }
 ```
 
@@ -128,7 +162,6 @@ Grouped bars suit planned/actual or this-year/last-year comparisons. Group with 
       }
     ]
   },
-  "mark": "bar",
   "encoding": {
     "x": {
       "field": "quarter",
@@ -175,7 +208,25 @@ Grouped bars suit planned/actual or this-year/last-year comparisons. Group with 
       "legend": {
         "orient": "top"
       }
-    }
+    },
+    "tooltip": [
+      {
+        "field": "quarter",
+        "type": "ordinal",
+        "title": "Quarter"
+      },
+      {
+        "field": "series",
+        "type": "nominal",
+        "title": "Series"
+      },
+      {
+        "field": "value",
+        "type": "quantitative",
+        "title": "Deliveries (documents)",
+        "format": ",.0f"
+      }
+    ]
   },
   "config": {
     "axis": {
@@ -209,7 +260,29 @@ Grouped bars suit planned/actual or this-year/last-year comparisons. Group with 
         "#EB2F96"
       ]
     }
-  }
+  },
+  "layer": [
+    {
+      "mark": "bar"
+    },
+    {
+      "mark": {
+        "type": "text",
+        "baseline": "bottom",
+        "dy": -4
+      },
+      "encoding": {
+        "text": {
+          "field": "value",
+          "type": "quantitative",
+          "format": ",.0f"
+        },
+        "color": {
+          "value": "#262626"
+        }
+      }
+    }
+  ]
 }
 ```
 

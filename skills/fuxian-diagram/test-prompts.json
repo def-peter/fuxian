@@ -13,5 +13,10 @@
     "id": 3,
     "prompt": "Use AntV Infographic to add two concise visuals to a team proposal in Fuxian Markdown. Option A is local deployment: it works offline but requires self-maintenance. Option B is a hosted service: it needs less operational work but depends on the network. Milestones are: complete the pilot on October 1, complete training on October 15, and launch fully on November 1. Both option names and every date must be visible. Choose a natural, visually balanced layout for the content.",
     "expected": "Choose comparison and timeline templates that exist in the current runtime, with correct compares/sequences fields. Verify that option names and dates are actually visible rather than merely present in fields the template ignores. Preserve all facts, inspect the chosen layout, and report verification stages truthfully. Do not introduce paper-format or multiple-width requirements."
+  },
+  {
+    "id": 4,
+    "prompt": "Create a Vega-Lite grouped bar chart for Fuxian Markdown comparing the share of high-priority tickets by team. Shares are already percentages from 0 to 100: Support old 12.50, new 4.25; Operations old 8.00, new 0.00. Use gray for old and blue for new.",
+    "expected": "Provide a concise chart title, a directly readable percentage label on every bar including zero, and explicit tooltips with team, rule, and formatted percentage. Preserve the input values and scale: 12.50 means 12.50%, not 1250%. Align labels with their grouped bars, keep them readable, and allow hover on the value labels as well as the bars. Apply one natural layout and inspect only this chart; do not introduce A4 or multi-width checks."
   }
 ]
