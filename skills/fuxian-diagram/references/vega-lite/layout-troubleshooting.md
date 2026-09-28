@@ -2,32 +2,20 @@
 
 ## Default colors
 
-Explicit themes, colors, and existing color mappings take priority. For unspecified new charts, prefer an **Ant Design palette**. Avoid brown and earth tones by default; use them when the subject requires them, such as soil categories, or the user explicitly requests them. Do not color categories merely to decorate a single metric; color should support comparison, grouping, or status.
+Explicit themes, colors, and existing color mappings take priority. For unspecified new charts on a light background, choose clear, distinct colors from the **Ant Design palette** according to the data and chart context. No hue has a fixed first-series or heatmap role. Avoid dark, grayish, or low-saturation fills by default; use them when they carry a requested or established meaning. Color should support comparison, grouping, or status.
 
-The following Fuxian defaults are selected from Ant Design's base palette. They are not a built-in Vega scheme named `antd`. Use the hexadecimal values directly; no Ant Design installation or extra theme package is needed.
+The following choices come from Ant Design's palette. They are examples, not a required color order or a built-in Vega scheme named `antd`. Use the hexadecimal values directly; no Ant Design installation or extra theme package is needed.
 
-| Purpose                               | Default colors and usage                                                                                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Single-series bars, lines, points     | Blue `#1677FF`, explicitly in mark.color; area opacity may be reduced while outlines remain distinguishable                                                  |
-| Unordered categories                  | Blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, green `#52C41A`, magenta `#EB2F96` as needed; keep domain → range mapping consistent across the document   |
-| Continuous magnitude                  | Light-to-dark blue: `#E6F4FF`, `#91CAFF`, `#4096FF`, `#1677FF`, `#0958D9`; retain a continuous legend and add boundaries or values to distinguish pale cells |
-| Deviations around a meaningful center | Blue `#1677FF` → neutral gray `#F5F5F5` → purple `#722ED1`; map the established neutral value to the center and explain sign and units                       |
-| Explicit status                       | Success green `#52C41A`, failure red `#F5222D`, warning orange `#FA8C16`; also express status through text/symbols; warm colors are not random decoration    |
-| Text and grid                         | Text `#262626`, secondary text `#595959`, grid `#F0F0F0`; pale low-contrast colors must not carry primary labels                                             |
+| Purpose                               | Ant Design choices and usage                                                                                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-series bars, lines, points     | Choose one fitting base color, such as blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, or green `#52C41A`; set `mark.color` explicitly                                   |
+| Unordered categories                  | Choose distinguishable colors from blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, green `#52C41A`, magenta `#EB2F96`, and other suitable Ant Design hues; keep mappings stable |
+| Continuous magnitude                  | Choose a light-to-strong sequential ramp within a suitable Ant Design hue, such as green `#F6FFED` → `#95DE64` → `#52C41A`; retain a legend and distinguish pale cells      |
+| Deviations around a meaningful center | Choose two distinct Ant Design hues around a neutral center, such as blue `#1677FF` → gray `#F5F5F5` → purple `#722ED1`; explain the center, sign, and units                  |
+| Explicit status                       | Success green `#52C41A`, failure red `#F5222D`, warning orange `#FA8C16`; also express status through text/symbols                                                            |
+| Text and grid                         | Text `#262626`, secondary text `#595959`, grid `#F0F0F0`; pale low-contrast colors must not carry primary labels                                                              |
 
-Fix category mappings with `encoding.color.scale.domain/range`. If categories exceed distinguishable colors, use semantic facets/groups or additional shapes and line styles. Merge the following configuration fragment at the top level. Existing field scales or mark colors override defaults; inspect them when editing.
-
-```json
-{
-  "config": {
-    "mark": { "color": "#1677FF" },
-    "text": { "color": "#262626" },
-    "range": {
-      "category": ["#1677FF", "#13C2C2", "#722ED1", "#52C41A", "#EB2F96"]
-    }
-  }
-}
-```
+Fix category mappings with `encoding.color.scale.domain/range`. If categories exceed distinguishable colors, use semantic facets/groups or additional shapes and line styles. For a single series, set `mark.color` to the selected hue. A global `config.range.category` can provide a fallback, but a chart's established field scale or mark color takes priority.
 
 Put continuous colors in the numeric field's `scale.range`; category settings do not change continuous scales. `interpolate: "rgb"` makes the gradient follow the specified colors directly. For an established deviation range of −10 to 10 centered on zero, a scale fragment is:
 
@@ -41,7 +29,7 @@ Put continuous colors in the numeric field's `scale.range`; category settings do
 }
 ```
 
-This range is illustrative; derive real ranges from data and analytical definitions. For an explicitly requested dark theme, preserve the background and choose compatible scales, text, and grid colors. Application-shell dark mode does not automatically restyle authored charts. Inspect the actual SVG's legends, marks, gradients, and text contrast rather than only checking JSON for the desired colors.
+This range is illustrative; derive real ranges from data and analytical definitions. For a new heatmap without a requested scale, choose an Ant Design sequential ramp that fits the subject and distinguishes values clearly. Set the numeric field's `scale.range` explicitly so an inherited or Vega default gradient does not determine the result. For an explicitly requested dark theme, preserve the background and choose compatible scales, text, and grid colors. Application-shell dark mode does not automatically restyle authored charts. Inspect the actual SVG's legends, marks, gradients, and text contrast rather than only checking JSON for the desired colors; on light backgrounds, check that large color areas do not read as dull or heavy.
 
 Sources: [Ant Design color system](https://ant.design/docs/spec/colors/), [official base values](https://github.com/ant-design/ant-design-colors/blob/main/generate-presets.ts), [Vega-Lite Scale](https://vega.github.io/vega-lite/docs/scale.html).
 

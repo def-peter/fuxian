@@ -39,7 +39,7 @@ The skill supplies instructions and references. Install Fuxian separately to rea
 | Comparisons, trends, distributions, correlations            | Vega-Lite, with an Ant Design palette by default |
 | Key points, stages, milestones, visual summaries            | AntV Infographic                                 |
 
-Your explicit diagram type, engine, theme, or colors take priority. PlantUML is preferred where it overlaps with Mermaid. Default Vega-Lite colors favor blue, cyan, purple, green, and magenta; brown tones are reserved for a meaningful use or an explicit request.
+Your explicit diagram type, engine, theme, or colors take priority. PlantUML is preferred where it overlaps with Mermaid. Vega-Lite charts use clear colors chosen from the Ant Design palette to suit the data; no hue is the required default for a chart type. Dark or muted fills are used when they have a meaningful purpose or are explicitly requested.
 
 For a whole document, the skill selects the important or difficult passages first. It preserves source facts, supplies editable diagram source, and checks syntax and layout when rendering tools are available. If rendering cannot be verified, it reports that limit.
 

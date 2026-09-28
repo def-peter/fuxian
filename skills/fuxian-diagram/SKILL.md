@@ -56,7 +56,7 @@ The detailed guides provide complete adaptable examples, relationship or data se
 
 Use theme defaults as the starting point. Add custom colors for a stated reading purpose; when colors distinguish categories, states, stages, or emphasis, make their meaning visible in a legend, direct labels, or adjacent explanation. Preserve explicit palettes and existing mappings. Before delivery, check both [label-to-edge association and color meaning](references/validation.md#visual-inspection), not only whether text is present.
 
-For Vega-Lite charts, include a concise chart title, readable numeric labels, and authored tooltips by default. Apply the [chart reading defaults](references/vega-lite.md#chart-reading-defaults) for dense charts, number formats, and explicit user overrides; axes alone are not sufficient for reading exact values.
+For new Vega-Lite charts, choose from the [Ant Design color guidance](references/vega-lite/layout-troubleshooting.md#default-colors) according to the data and chart context; prefer clear colors over dark or muted fills on light backgrounds. Include a concise chart title, readable numeric labels, and authored tooltips by default. Apply the [chart reading defaults](references/vega-lite.md#chart-reading-defaults) for dense charts, number formats, and explicit user overrides; axes alone are not sufficient for reading exact values.
 
 ## 4. Validate and deliver
 
