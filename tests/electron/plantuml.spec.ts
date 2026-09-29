@@ -123,10 +123,12 @@ test('keeps SVG styles local to each rendered visual', async () => {
       timeout: 20_000,
     });
     const colors = await tasks.locator('rect.shared-bar').evaluateAll((rects) =>
-      rects.map((rect) => ({
-        color: getComputedStyle(rect).fill,
-        label: rect.parentElement?.querySelector('text')?.textContent,
-      })),
+      rects
+        .map((rect) => ({
+          color: getComputedStyle(rect).fill,
+          label: rect.parentElement?.querySelector('text')?.textContent,
+        }))
+        .sort((left, right) => (left.label ?? '').localeCompare(right.label ?? '')),
     );
     expect(colors).toEqual([
       { color: 'rgb(229, 57, 53)', label: 'First visual' },

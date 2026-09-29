@@ -73,6 +73,7 @@ export default defineConfig({
           '@fuxian/shared-types',
           '@fuxian/markdown-renderer',
           'builder-util-runtime',
+          'css-tree',
           'electron-log',
           'electron-updater',
           'parse5',
