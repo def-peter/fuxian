@@ -10,6 +10,8 @@ No signing secrets are required. Current Windows and macOS artifacts are unsigne
 
 ## Local verification
 
+`pnpm install` enables the repository's Git hooks unless a custom hooks path is already configured. Commits check the formatting of staged files; pushes to `main` run formatting, lint, type checking, and unit tests. Run `pnpm setup:hooks` to enable the hooks in an existing checkout without reinstalling dependencies.
+
 From the repository root:
 
 ```bash
@@ -46,6 +48,8 @@ pnpm release
 ```
 
 The default increments the patch version, asks for optional English and Chinese Markdown notes, updates both package manifests, commits `chore(release): prepare v<version>`, pushes `main`, and dispatches **Build release installers**. Use `pnpm release minor`, `pnpm release major`, or an explicit version such as `pnpm release 1.0.0` when needed. Add `--dry-run` to check the proposed version without changing anything, `--yes` to skip interactive input, or `--wait` to keep the terminal open until publishing finishes.
+
+Before changing the version, the helper runs the static and unit checks, builds an unpacked application, and verifies its packaged contents. `--dry-run` runs the static and unit checks without building a package.
 
 Use `--notes-en` and `--notes-zh` for non-interactive bilingual notes. English stays visible and Chinese appears in a native collapsible `中文更新日志` section. Both languages live in one GitHub Release body; no changelog file is required. Use `--notes "<Markdown>"` or `--notes-file <path>` only when supplying a complete custom body. A local file is read but never staged. Curated text is placed before GitHub-generated notes and the full changelog link. For example:
 

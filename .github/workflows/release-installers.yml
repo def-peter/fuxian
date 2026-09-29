@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: Run static and unit checks
-        run: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+        run: pnpm check
 
   package-windows:
     name: Windows x64 installer

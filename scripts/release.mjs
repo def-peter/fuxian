@@ -272,6 +272,7 @@ const main = async () => {
       ? `Ready to retry unpublished version ${currentVersion}.`
       : `Ready to publish ${currentVersion} -> ${targetVersion}.`,
   );
+  command('pnpm', ['check'], { capture: false });
   if (options.dryRun) {
     console.log('Dry run complete; no files were changed.');
     return;
@@ -284,6 +285,9 @@ const main = async () => {
     }
     releaseNotes = input.releaseNotes;
   }
+
+  command('pnpm', ['package:dir'], { capture: false });
+  command('pnpm', ['verify:package'], { capture: false });
 
   if (options.retry) {
     command('pnpm', ['verify:release-version'], { capture: false });
