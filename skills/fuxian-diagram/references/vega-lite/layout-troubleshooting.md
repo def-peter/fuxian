@@ -6,14 +6,14 @@ Explicit themes, colors, and existing color mappings take priority. For unspecif
 
 The following choices come from Ant Design's palette. They are examples, not a required color order or a built-in Vega scheme named `antd`. Use the hexadecimal values directly; no Ant Design installation or extra theme package is needed.
 
-| Purpose                               | Ant Design choices and usage                                                                                                                                                  |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Single-series bars, lines, points     | Choose one fitting base color, such as blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, or green `#52C41A`; set `mark.color` explicitly                                   |
+| Purpose                               | Ant Design choices and usage                                                                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-series bars, lines, points     | Choose one fitting base color, such as blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, or green `#52C41A`; set `mark.color` explicitly                                          |
 | Unordered categories                  | Choose distinguishable colors from blue `#1677FF`, cyan `#13C2C2`, purple `#722ED1`, green `#52C41A`, magenta `#EB2F96`, and other suitable Ant Design hues; keep mappings stable |
-| Continuous magnitude                  | Choose a light-to-strong sequential ramp within a suitable Ant Design hue, such as green `#F6FFED` → `#95DE64` → `#52C41A`; retain a legend and distinguish pale cells      |
-| Deviations around a meaningful center | Choose two distinct Ant Design hues around a neutral center, such as blue `#1677FF` → gray `#F5F5F5` → purple `#722ED1`; explain the center, sign, and units                  |
-| Explicit status                       | Success green `#52C41A`, failure red `#F5222D`, warning orange `#FA8C16`; also express status through text/symbols                                                            |
-| Text and grid                         | Text `#262626`, secondary text `#595959`, grid `#F0F0F0`; pale low-contrast colors must not carry primary labels                                                              |
+| Continuous magnitude                  | Choose a light-to-strong sequential ramp within a suitable Ant Design hue, such as green `#F6FFED` → `#95DE64` → `#52C41A`; retain a legend and distinguish pale cells            |
+| Deviations around a meaningful center | Choose two distinct Ant Design hues around a neutral center, such as blue `#1677FF` → gray `#F5F5F5` → purple `#722ED1`; explain the center, sign, and units                      |
+| Explicit status                       | Success green `#52C41A`, failure red `#F5222D`, warning orange `#FA8C16`; also express status through text/symbols                                                                |
+| Text and grid                         | Text `#262626`, secondary text `#595959`, grid `#F0F0F0`; pale low-contrast colors must not carry primary labels                                                                  |
 
 Fix category mappings with `encoding.color.scale.domain/range`. If categories exceed distinguishable colors, use semantic facets/groups or additional shapes and line styles. For a single series, set `mark.color` to the selected hue. A global `config.range.category` can provide a fallback, but a chart's established field scale or mark color takes priority.
 

@@ -2,7 +2,7 @@
 name: fuxian-diagram
 description: Create or improve diagrams for Fuxian Markdown. When users ask for diagrams, visualizations, explanations of complex content, or document illustrations, identify the content to explain, choose PlantUML, Mermaid, Vega-Lite, or AntV Infographic, generate source, and validate layout. Users need no prior knowledge of these engines.
 metadata:
-  version: "1.1.7"
+  version: '1.1.7'
 ---
 
 # Fuxian Diagram
