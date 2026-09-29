@@ -117,6 +117,9 @@ importers:
       codemirror:
         specifier: 6.0.2
         version: 6.0.2
+      css-tree:
+        specifier: 3.2.1
+        version: 3.2.1
       dompurify:
         specifier: 3.4.14
         version: 3.4.14
@@ -181,6 +184,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.3.0)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.1))
+      '@types/css-tree':
+        specifier: ^3.2.0
+        version: 3.2.0
       '@types/jsdom':
         specifier: 27.0.0
         version: 27.0.0

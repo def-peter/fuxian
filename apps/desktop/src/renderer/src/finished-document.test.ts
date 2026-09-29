@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { parseHTML } from 'linkedom';
-import { applyDocumentTheme, prepareRenderedVisualSvg } from './finished-document';
+import {
+  applyDocumentTheme,
+  isolateRenderedVisualSvgIds,
+  prepareRenderedVisualSvg,
+} from './finished-document';
 
 describe('finished document theme', () => {
   it('waits for an iframe document element before applying the theme', () => {
@@ -147,5 +151,97 @@ describe('rendered visual preparation', () => {
     const uses = svg.querySelectorAll('use');
     expect(uses[0]?.getAttribute('href')).toBe('#arrow');
     expect(uses[1]?.hasAttribute('href')).toBe(false);
+  });
+
+  it('isolates SVG IDs and their local references across visual blocks', () => {
+    const document = frameDocument();
+    const source = [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '<defs><clipPath id="clip1"><rect width="18" height="54" /></clipPath>',
+      '<filter id="shadow" /><mask id="fade" /><marker id="arrow" /></defs>',
+      '<title id="label">Chart</title>',
+      '<style>#label{font-weight:bold}.bar{clip-path:url(#clip1);marker-end:url("#arrow")}</style>',
+      '<g aria-labelledby="label" clip-path="url(#clip1)" filter="url(#shadow)" mask="url(#fade)">',
+      '<use href="#arrow"/><path class="bar" data-vega-tooltip="url(#clip1)" style="fill:url(#fade)" d="M0 0H540V54H0Z" /></g>',
+      '</svg>',
+    ].join('');
+    const first = prepareRenderedVisualSvg(document, source, 'vega-lite');
+    const second = prepareRenderedVisualSvg(document, source, 'vega-lite');
+    isolateRenderedVisualSvgIds(first);
+    isolateRenderedVisualSvgIds(second);
+    document.body.append(first, second);
+
+    const firstClip = first.querySelector('clipPath')?.id;
+    const secondClip = second.querySelector('clipPath')?.id;
+    expect(firstClip).toBeTruthy();
+    expect(secondClip).toBeTruthy();
+    expect(firstClip).not.toBe(secondClip);
+    expect(second.querySelector('g')?.getAttribute('clip-path')).toBe(`url(#${secondClip})`);
+    expect(second.querySelector('g')?.getAttribute('filter')).toBe(
+      `url(#${second.querySelector('filter')?.id})`,
+    );
+    expect(second.querySelector('g')?.getAttribute('mask')).toBe(
+      `url(#${second.querySelector('mask')?.id})`,
+    );
+    expect(second.querySelector('use')?.getAttribute('href')).toBe(
+      `#${second.querySelector('marker')?.id}`,
+    );
+    expect(second.querySelector('g')?.getAttribute('aria-labelledby')).toBe(
+      second.querySelector('title')?.id,
+    );
+    expect(second.querySelector('style')?.textContent).toContain(`url(#${secondClip})`);
+    expect(second.querySelector('style')?.textContent).toContain(
+      `#${second.querySelector('title')?.id}`,
+    );
+    expect(second.querySelector('style')?.textContent).toContain(
+      `url(#${second.querySelector('marker')?.id})`,
+    );
+    expect(second.querySelector('path.bar')?.getAttribute('style')).toBe(
+      `fill:url(#${second.querySelector('mask')?.id})`,
+    );
+    expect(second.querySelector('path.bar')?.getAttribute('data-vega-tooltip')).toBe('url(#clip1)');
+  });
+
+  it('keeps references on the first definition when a source SVG repeats an ID', () => {
+    const svg = prepareRenderedVisualSvg(
+      frameDocument(),
+      '<svg><defs><clipPath id="clip"><rect width="18"/></clipPath><clipPath id="clip"><rect width="540"/></clipPath></defs><rect clip-path="url(#clip)"/></svg>',
+      'vega-lite',
+    );
+    isolateRenderedVisualSvgIds(svg);
+    const firstClip = svg.querySelector('clipPath');
+    expect(svg.querySelector('rect[clip-path]')?.getAttribute('clip-path')).toBe(
+      `url(#${firstClip?.id})`,
+    );
+  });
+
+  it('rewrites escaped local CSS references and animation names', () => {
+    const document = frameDocument();
+    const source = String.raw`<svg><defs><clipPath id="clip"><rect width="18"/></clipPath><filter id="filter"/></defs>
+      <style>@keyframes pulse{from{opacity:.2}to{opacity:.8}}.bar{clip-path:url(#cli\70);animation:pulse 1s infinite}</style>
+      <rect class="bar" clip-path="url(#cli\70)" style="filter:url(#fil\74 er);animation-name:pulse"/></svg>`;
+    const first = prepareRenderedVisualSvg(document, source, 'plantuml');
+    const second = prepareRenderedVisualSvg(document, source, 'plantuml');
+    isolateRenderedVisualSvgIds(first);
+    isolateRenderedVisualSvgIds(second);
+
+    const firstStyle = first.querySelector('style')?.textContent ?? '';
+    const secondStyle = second.querySelector('style')?.textContent ?? '';
+    const firstAnimation = /@keyframes ([\w-]+)/u.exec(firstStyle)?.[1];
+    const secondAnimation = /@keyframes ([\w-]+)/u.exec(secondStyle)?.[1];
+    expect(firstAnimation).toBeTruthy();
+    expect(secondAnimation).toBeTruthy();
+    expect(firstAnimation).not.toBe(secondAnimation);
+    expect(secondStyle).toContain(`animation:${secondAnimation} 1s infinite`);
+    expect(secondStyle).toContain(`url(#${second.querySelector('clipPath')?.id})`);
+    expect(second.querySelector('rect.bar')?.getAttribute('clip-path')).toBe(
+      `url(#${second.querySelector('clipPath')?.id})`,
+    );
+    expect(second.querySelector('rect.bar')?.getAttribute('style')).toContain(
+      `url(#${second.querySelector('filter')?.id})`,
+    );
+    expect(second.querySelector('rect.bar')?.getAttribute('style')).toContain(
+      `animation-name:${secondAnimation}`,
+    );
   });
 });

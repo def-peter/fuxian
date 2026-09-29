@@ -28,6 +28,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "6.0.2",
+    "css-tree": "3.2.1",
     "dompurify": "3.4.14",
     "electron-log": "^5.4.4",
     "electron-updater": "6.8.9",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/css-tree": "^3.2.0",
     "@types/jsdom": "27.0.0",
     "@types/plantuml-encoder": "^1.4.2",
     "@types/react": "19.2.18",

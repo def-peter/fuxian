@@ -11,6 +11,8 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createCanvas } from '@napi-rs/canvas';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -39,6 +41,7 @@ const launchDesktop = (
   sourceDocumentPath: string,
   preferencesFilePath: string,
   sessionFilePath: string,
+  pdfExportFilePath?: string,
 ): Promise<ElectronApplication> =>
   electron.launch({
     executablePath: electronPath,
@@ -48,6 +51,7 @@ const launchDesktop = (
       FUXIAN_E2E_PREFERENCES_FILE: preferencesFilePath,
       FUXIAN_E2E_SESSION_FILE: sessionFilePath,
       FUXIAN_E2E_SOURCE_DOCUMENT: sourceDocumentPath,
+      ...(pdfExportFilePath ? { FUXIAN_E2E_PDF_EXPORT_FILE: pdfExportFilePath } : {}),
       NODE_ENV: 'test',
     },
   });
@@ -72,6 +76,156 @@ test.afterEach(async () => {
         }),
     ),
   );
+});
+
+test('keeps SVG styles local to each rendered visual', async () => {
+  test.setTimeout(60_000);
+  let requestCount = 0;
+  const serverUrl = await startServer((_request, response) => {
+    requestCount += 1;
+    const color = requestCount === 1 ? '#e53935' : '#1677ff';
+    const stroke = requestCount === 1 ? '#853021' : '#124a9f';
+    const foreground = requestCount === 1 ? '#315a1c' : '#6a347c';
+    const opacity = requestCount === 1 ? 0.2 : 0.8;
+    const label = requestCount === 1 ? 'First visual' : 'Second visual';
+    response.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+    response.end(
+      `<svg xmlns="http://www.w3.org/2000/svg" class="svg-root" viewBox="0 0 160 60">` +
+        `<style>svg{stroke:${stroke}}:root{color:${foreground}}` +
+        `.svg-root{stroke-width:3px}.svg-root > .shared-bar{stroke-linecap:round}` +
+        `@media (min-width:1px){.shared-bar{fill:${color}}}` +
+        `@keyframes pulse{from{opacity:${opacity}}to{opacity:${opacity}}}` +
+        `.animated{animation:pulse .1s linear infinite}</style>` +
+        `<rect class="shared-bar" x="0" y="0" width="100" height="30"/>` +
+        `<circle class="animated" cx="120" cy="15" r="5"/>` +
+        `<text x="0" y="55">${label}</text></svg>`,
+    );
+  });
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-svg-style-scope-'));
+  const sourcePath = join(directory, 'two-visuals.md');
+  const pdfPath = join(directory, 'two-visuals.pdf');
+  const preferencesPath = join(directory, 'preferences.json');
+  const sessionPath = join(directory, 'session.json');
+  await writeFile(
+    sourcePath,
+    '# Two visuals\n\n```plantuml\n@startuml\nAlice -> Bob: first\n@enduml\n```\n\n```plantuml\n@startuml\nAlice -> Bob: second\n@enduml\n```',
+  );
+  await writeFile(preferencesPath, JSON.stringify(createPreferences(serverUrl)));
+  const electronApp = await launchDesktop(sourcePath, preferencesPath, sessionPath, pdfPath);
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const tasks = window
+      .frameLocator('iframe[data-finished-document="active"]')
+      .locator('[data-render-task-kind="plantuml"]');
+    await expect(tasks).toHaveCount(2);
+    await expect(tasks.nth(1)).toHaveAttribute('data-render-state', 'succeeded', {
+      timeout: 20_000,
+    });
+    const colors = await tasks.locator('rect.shared-bar').evaluateAll((rects) =>
+      rects.map((rect) => ({
+        color: getComputedStyle(rect).fill,
+        label: rect.parentElement?.querySelector('text')?.textContent,
+      })),
+    );
+    expect(colors).toEqual([
+      { color: 'rgb(229, 57, 53)', label: 'First visual' },
+      { color: 'rgb(22, 119, 255)', label: 'Second visual' },
+    ]);
+    await expect
+      .poll(() =>
+        tasks
+          .locator('circle.animated')
+          .evaluateAll((circles) =>
+            circles.map((circle) => Number(getComputedStyle(circle).opacity)),
+          ),
+      )
+      .toEqual([0.2, 0.8]);
+    expect(
+      await tasks
+        .locator('.render-task-output > svg')
+        .evaluateAll((svgs) => svgs.map((svg) => getComputedStyle(svg).stroke)),
+    ).toEqual(['rgb(133, 48, 33)', 'rgb(18, 74, 159)']);
+    expect(
+      await tasks
+        .locator('.render-task-output > svg')
+        .evaluateAll((svgs) => svgs.map((svg) => getComputedStyle(svg).color)),
+    ).toEqual(['rgb(49, 90, 28)', 'rgb(106, 52, 124)']);
+    expect(
+      await tasks
+        .locator('.render-task-output > svg')
+        .evaluateAll((svgs) => svgs.map((svg) => getComputedStyle(svg).strokeWidth)),
+    ).toEqual(['3px', '3px']);
+    expect(
+      await tasks
+        .locator('rect.shared-bar')
+        .evaluateAll((rects) => rects.map((rect) => getComputedStyle(rect).strokeLinecap)),
+    ).toEqual(['round', 'round']);
+
+    await tasks.first().getByRole('button', { name: '全屏查看图表' }).click();
+    const focusDialog = window.getByRole('dialog', { name: '全屏图表' });
+    expect(
+      await focusDialog.locator('rect.shared-bar').evaluate((rect) => getComputedStyle(rect).fill),
+    ).toBe('rgb(229, 57, 53)');
+    await focusDialog.getByRole('button', { name: '返回文档' }).click();
+
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paperTasks = window
+      .frameLocator('iframe[title="纸张预览"]')
+      .locator('[data-render-task-kind="plantuml"]');
+    await expect(paperTasks).toHaveCount(2, { timeout: 20_000 });
+    await expect(paperTasks.locator('rect.shared-bar')).toHaveCount(2, { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        paperTasks
+          .locator('rect.shared-bar')
+          .evaluateAll((rects) => rects.map((rect) => getComputedStyle(rect).fill)),
+      )
+      .toEqual(['rgb(229, 57, 53)', 'rgb(22, 119, 255)']);
+    await expect
+      .poll(() =>
+        paperTasks
+          .locator('circle.animated')
+          .evaluateAll((circles) =>
+            circles.map((circle) => Number(getComputedStyle(circle).opacity)),
+          ),
+      )
+      .toEqual([0.2, 0.8]);
+
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 20_000 });
+    const loading = getDocument({ data: new Uint8Array(await readFile(pdfPath)) });
+    const pdf = await loading.promise;
+    try {
+      const counts = { red: 0, blue: 0 };
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+        const context = canvas.getContext('2d');
+        await page.render({
+          canvas: canvas as unknown as HTMLCanvasElement,
+          canvasContext: context as unknown as CanvasRenderingContext2D,
+          viewport,
+        }).promise;
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let index = 0; index < pixels.length; index += 4) {
+          const red = pixels[index]!;
+          const green = pixels[index + 1]!;
+          const blue = pixels[index + 2]!;
+          if (red > 190 && green < 100 && blue < 100) counts.red += 1;
+          if (red < 80 && green > 80 && blue > 170) counts.blue += 1;
+        }
+      }
+      expect(counts.red).toBeGreaterThan(100);
+      expect(counts.blue).toBeGreaterThan(100);
+    } finally {
+      await loading.destroy();
+    }
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
 });
 
 test('shows a stable visual skeleton without exposing source while PlantUML is pending', async () => {

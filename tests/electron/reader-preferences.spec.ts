@@ -90,7 +90,7 @@ test('preferences synchronize live, persist at their limits, and restore after r
     const defaultTypography = {
       bodyFont: 'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
       bodySize: '15px',
-      codeBackground: '#f7faf8',
+      codeBackground: '#f7f8fa',
       codeTheme: 'fuxian-light',
       computedBodyFont:
         'Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',

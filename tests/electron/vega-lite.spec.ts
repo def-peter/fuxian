@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createCanvas } from '@napi-rs/canvas';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const require = createRequire(import.meta.url);
@@ -38,6 +39,144 @@ const vegaBlock = (values: Array<{ category: string; value: number }>): string =
     }),
     '```',
   ].join('\n');
+
+test('keeps rounded bars visible when multiple Vega-Lite charts share a document', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-vega-clips-'));
+  const documentPath = join(directory, 'rounded-bars.md');
+  const outputPath = join(directory, 'rounded-bars.pdf');
+  const roundedBar = (count: number, color: string): string =>
+    [
+      '```vega-lite',
+      JSON.stringify({
+        width: 600,
+        height: 60,
+        data: { values: [{ label: `Bar ${count}`, count }] },
+        mark: { type: 'bar', cornerRadiusEnd: 2, color },
+        encoding: {
+          y: { field: 'label', type: 'nominal', title: null },
+          x: {
+            field: 'count',
+            type: 'quantitative',
+            scale: { domain: [0, 4000] },
+          },
+          tooltip: [{ field: 'count', type: 'quantitative' }],
+        },
+      }),
+      '```',
+    ].join('\n');
+  await writeFile(
+    documentPath,
+    ['# Rounded bars', '', roundedBar(120, '#1677FF'), '', roundedBar(3600, '#FA8C16')].join('\n'),
+  );
+  const electronApp = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_SOURCE_DOCUMENT: documentPath,
+      FUXIAN_E2E_PDF_EXPORT_FILE: outputPath,
+      NODE_ENV: 'test',
+    },
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.getByRole('button', { name: '打开 Markdown' }).click();
+    const charts = window
+      .frameLocator('iframe[data-finished-document="active"]')
+      .locator('[data-render-task-kind="vega-lite"]');
+    await expect(charts).toHaveCount(2);
+    await expect(charts.nth(1)).toHaveAttribute('data-render-state', 'succeeded', {
+      timeout: 20_000,
+    });
+    const clipIds = await charts
+      .locator('svg clipPath')
+      .evaluateAll((clips) => clips.map((clip) => clip.id));
+    const longBar = charts.nth(1).locator('svg [data-vega-tooltip]').first();
+    await expect(longBar).toBeAttached();
+    expect(
+      await longBar.evaluate((bar) => {
+        const bounds = bar.getBoundingClientRect();
+        const hit = bar.ownerDocument.elementFromPoint(
+          bounds.left + bounds.width * 0.5,
+          bounds.top + bounds.height * 0.5,
+        );
+        return hit === bar || bar.contains(hit);
+      }),
+    ).toBe(true);
+    expect(new Set(clipIds).size).toBe(clipIds.length);
+
+    await window.getByRole('radio', { name: '纸张预览' }).click();
+    const paperCharts = window
+      .frameLocator('iframe[title="纸张预览"]')
+      .locator('[data-render-task-kind="vega-lite"]');
+    await expect(paperCharts).toHaveCount(2, { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        paperCharts.locator('svg clipPath').evaluateAll((clips) => {
+          const ids = clips.map((clip) => clip.id);
+          return ids.length === 2 && new Set(ids).size === 2;
+        }),
+      )
+      .toBe(true);
+    const paperLongBar = paperCharts.nth(1).locator('svg [data-vega-tooltip]').first();
+    await paperLongBar.scrollIntoViewIfNeeded();
+    expect(
+      await paperLongBar.evaluate((bar) => {
+        const bounds = bar.getBoundingClientRect();
+        const hit = bar.ownerDocument.elementFromPoint(
+          bounds.left + bounds.width * 0.5,
+          bounds.top + bounds.height * 0.5,
+        );
+        return hit === bar || bar.contains(hit);
+      }),
+    ).toBe(true);
+
+    await window.getByRole('button', { name: '导出 PDF' }).click();
+    await expect(window.getByText('PDF 已导出')).toBeVisible({ timeout: 20_000 });
+    const pdfText = await readPdfText(outputPath);
+    expect(pdfText).toContain('Bar120');
+    expect(pdfText).toContain('Bar3600');
+    const loading = getDocument({ data: new Uint8Array(await readFile(outputPath)) });
+    const pdf = await loading.promise;
+    try {
+      let orangeWidth = 0;
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+        const context = canvas.getContext('2d');
+        await page.render({
+          canvas: canvas as unknown as HTMLCanvasElement,
+          canvasContext: context as unknown as CanvasRenderingContext2D,
+          viewport,
+        }).promise;
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let minX = canvas.width;
+        let maxX = 0;
+        for (let index = 0; index < pixels.length; index += 4) {
+          const red = pixels[index]!;
+          const green = pixels[index + 1]!;
+          const blue = pixels[index + 2]!;
+          if (red > 230 && green > 115 && green < 165 && blue < 55) {
+            const x = (index / 4) % canvas.width;
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+          }
+        }
+        orangeWidth = Math.max(orangeWidth, maxX - minX);
+      }
+      expect(orangeWidth).toBeGreaterThan(200);
+    } finally {
+      await loading.destroy();
+    }
+  } finally {
+    await electronApp.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});
 
 test('sizes responsive charts to the document and preserves their paper and PDF snapshots', async () => {
   test.setTimeout(90_000);

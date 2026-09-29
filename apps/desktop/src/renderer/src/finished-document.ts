@@ -22,6 +22,12 @@ import { Code2, Maximize2 } from 'lucide-react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import createDOMPurify from 'dompurify';
+import {
+  generate as generateCss,
+  parse as parseCss,
+  walk as walkCss,
+  type CssNode,
+} from 'css-tree';
 import { createTranslator, type MessageKey, type Translator } from '../../localization';
 import {
   createDocumentRenderAdapter,
@@ -102,6 +108,7 @@ interface BindFinishedDocumentOptions {
 
 const emptyFindResult = (): FindResult => ({ current: 0, total: 0 });
 let finishedDocumentRevision = 0;
+let renderedVisualId = 0;
 
 const renderTaskKinds = new Set([
   'infographic',
@@ -112,6 +119,17 @@ const renderTaskKinds = new Set([
   'vega-lite',
 ]);
 const renderedVisualTaskKinds = new Set(['infographic', 'mermaid', 'plantuml', 'vega-lite']);
+const svgUrlReferenceAttributes = new Set([
+  'clip-path',
+  'fill',
+  'filter',
+  'marker-end',
+  'marker-mid',
+  'marker-start',
+  'mask',
+  'stroke',
+  'style',
+]);
 const maximumRenderedVisualElements = 100_000;
 const mermaidLabelTags = [
   'foreignObject',
@@ -380,6 +398,162 @@ export const prepareRenderedVisualSvg = (
   if (kind === 'mermaid') sanitizeMermaidText(svg, frameDocument);
   for (const anchor of svg.querySelectorAll('a')) anchor.replaceWith(...anchor.childNodes);
   return svg as SVGElement;
+};
+
+export const isolateRenderedVisualSvgIds = (svg: SVGElement): void => {
+  const rootId = `fuxian-visual-${++renderedVisualId}`;
+  const ids = new Map<string, string>();
+  const sourceRootId = svg.getAttribute('id');
+  if (sourceRootId) ids.set(sourceRootId, rootId);
+  svg.setAttribute('id', rootId);
+  let nextId = 0;
+  for (const element of svg.querySelectorAll('[id]')) {
+    const id = element.getAttribute('id');
+    if (!id) continue;
+    const isolatedId = `${rootId}-${++nextId}`;
+    if (!ids.has(id)) ids.set(id, isolatedId);
+    element.setAttribute('id', isolatedId);
+  }
+
+  const styles = [...svg.querySelectorAll('style')].map((element) => ({
+    element,
+    css: parseCss(element.textContent ?? ''),
+  }));
+  const animationNames = new Map<string, string>();
+  for (const { css } of styles) {
+    walkCss(css, {
+      visit: 'Atrule',
+      enter(node) {
+        if (!node.name.toLowerCase().endsWith('keyframes')) return;
+        const name = node.prelude?.type === 'AtrulePrelude' && node.prelude.children.first;
+        if (name && name.type === 'Identifier' && !animationNames.has(name.name)) {
+          animationNames.set(name.name, `${rootId}-${name.name}`);
+        }
+      },
+    });
+  }
+
+  const rewriteCssReferences = (css: CssNode): boolean => {
+    let changed = false;
+    walkCss(css, (node) => {
+      if (node.type === 'Url' && node.value.startsWith('#')) {
+        const isolatedId = ids.get(node.value.slice(1));
+        if (isolatedId) {
+          node.value = `#${isolatedId}`;
+          changed = true;
+        }
+      }
+      if (
+        node.type === 'Declaration' &&
+        (node.property.toLowerCase() === 'animation' ||
+          node.property.toLowerCase() === 'animation-name')
+      ) {
+        walkCss(node.value, (valueNode) => {
+          if (valueNode.type !== 'Identifier') return;
+          const isolatedName = animationNames.get(valueNode.name);
+          if (isolatedName) {
+            valueNode.name = isolatedName;
+            changed = true;
+          }
+        });
+      }
+    });
+    return changed;
+  };
+
+  for (const { element, css } of styles) {
+    let changed = rewriteCssReferences(css);
+    walkCss(css, {
+      visit: 'Atrule',
+      enter(node) {
+        if (!node.name.toLowerCase().endsWith('keyframes')) return;
+        const name = node.prelude?.type === 'AtrulePrelude' && node.prelude.children.first;
+        if (name && name.type === 'Identifier') {
+          const isolatedName = animationNames.get(name.name);
+          if (isolatedName) {
+            name.name = isolatedName;
+            changed = true;
+          }
+        }
+      },
+    });
+    walkCss(css, (node) => {
+      if (node.type !== 'IdSelector') return;
+      const isolatedId = ids.get(node.name);
+      if (isolatedId) {
+        node.name = isolatedId;
+        changed = true;
+      }
+    });
+    walkCss(css, {
+      visit: 'Rule',
+      enter(node) {
+        if (
+          this.atrule?.name.toLowerCase().endsWith('keyframes') ||
+          node.prelude?.type !== 'SelectorList'
+        )
+          return;
+        node.prelude.children.forEach((selector) => {
+          if (selector.type !== 'Selector') return;
+          const first = selector.children.first;
+          if (!first) return;
+          if (first.type === 'IdSelector' && first.name === rootId) return;
+          const parts = selector.children.toArray();
+          const firstCombinator = parts.findIndex((part) => part.type === 'Combinator');
+          const leading = firstCombinator < 0 ? parts : parts.slice(0, firstCombinator);
+          let targetsRoot = first.type === 'PseudoClassSelector' && first.name === 'root';
+          if (!targetsRoot) {
+            try {
+              targetsRoot = svg.matches(leading.map((part) => generateCss(part)).join(''));
+            } catch {
+              targetsRoot = false;
+            }
+          }
+          if (targetsRoot) {
+            selector.children.fromArray([
+              { type: 'IdSelector', name: rootId },
+              ...parts.slice(leading.length),
+            ]);
+          } else {
+            selector.children.prependData({ type: 'Combinator', name: ' ' });
+            selector.children.prependData({ type: 'IdSelector', name: rootId });
+          }
+          changed = true;
+        });
+      },
+    });
+    if (changed) element.textContent = generateCss(css);
+  }
+
+  for (const element of [svg, ...svg.querySelectorAll('*')]) {
+    for (const attribute of [...element.attributes]) {
+      if (attribute.name === 'id') continue;
+      let value = attribute.value;
+      if (
+        svgUrlReferenceAttributes.has(attribute.name) &&
+        (value.toLowerCase().includes('url') ||
+          (attribute.name === 'style' && value.toLowerCase().includes('animation')))
+      ) {
+        const css = parseCss(value, {
+          context: attribute.name === 'style' ? 'declarationList' : 'value',
+        });
+        if (rewriteCssReferences(css)) value = generateCss(css);
+      }
+      if ((attribute.localName === 'href' || attribute.name === 'xlink:href') && value[0] === '#') {
+        value = `#${ids.get(value.slice(1)) ?? value.slice(1)}`;
+      } else if (attribute.name === 'aria-labelledby' || attribute.name === 'aria-describedby') {
+        value = value
+          .split(/\s+/u)
+          .map((id) => ids.get(id) ?? id)
+          .join(' ');
+      }
+      if (value !== attribute.value) {
+        if (attribute.namespaceURI)
+          element.setAttributeNS(attribute.namespaceURI, attribute.name, value);
+        else element.setAttribute(attribute.name, value);
+      }
+    }
+  }
 };
 
 const numericSvgLength = (value: string | null): number | undefined => {
@@ -772,6 +946,7 @@ export function bindFinishedDocument(
       output.innerHTML = result.html;
     } else {
       const svg = prepareRenderedVisualSvg(frameDocument, result.svg, task.kind, t);
+      isolateRenderedVisualSvgIds(svg);
       if (task.kind === 'plantuml') normalizePlantUmlSvgSize(svg);
       output.hidden = false;
       output.replaceChildren(svg);
