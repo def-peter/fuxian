@@ -39,6 +39,9 @@ export class OpenDocumentWatchCoordinator {
       ...(options.settleMilliseconds === undefined
         ? {}
         : { settleMilliseconds: options.settleMilliseconds }),
+      ...(options.pollingMilliseconds === undefined
+        ? {}
+        : { pollingMilliseconds: options.pollingMilliseconds }),
     };
   }
 

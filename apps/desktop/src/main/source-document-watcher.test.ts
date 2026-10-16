@@ -21,7 +21,10 @@ describe('SourceDocumentWatcher', () => {
     await writeFile(sourcePath, '# Initial');
     await writeFile(resourcePath, 'initial image');
     const changed = vi.fn();
-    const watcher = new SourceDocumentWatcher(changed, { settleMilliseconds: 25 });
+    const watcher = new SourceDocumentWatcher(changed, {
+      settleMilliseconds: 25,
+      pollingMilliseconds: 25,
+    });
     watcher.configure([sourcePath, resourcePath]);
 
     await writeFile(sourcePath, '# Partial');

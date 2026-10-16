@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 
 export interface SourceDocumentWatcherOptions {
   settleMilliseconds?: number;
+  pollingMilliseconds?: number;
 }
 
 const fingerprintPaths = async (paths: readonly string[]): Promise<string> => {
@@ -23,16 +24,20 @@ const fingerprintPaths = async (paths: readonly string[]): Promise<string> => {
 export class SourceDocumentWatcher {
   readonly #onStableChange: () => void;
   readonly #settleMilliseconds: number;
+  readonly #pollingMilliseconds: number;
   #baselineFingerprint: string | undefined;
   #candidateFingerprint: string | undefined;
   #generation = 0;
   #paths: string[] = [];
+  #polling = false;
+  #pollTimer: ReturnType<typeof setInterval> | undefined;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #watchers: FSWatcher[] = [];
 
   constructor(onStableChange: () => void, options: SourceDocumentWatcherOptions = {}) {
     this.#onStableChange = onStableChange;
     this.#settleMilliseconds = options.settleMilliseconds ?? 150;
+    this.#pollingMilliseconds = options.pollingMilliseconds ?? 2_000;
   }
 
   configure(paths: readonly string[]): void {
@@ -44,6 +49,10 @@ export class SourceDocumentWatcher {
       if (generation !== this.#generation) return;
       this.#baselineFingerprint = fingerprint;
     });
+    if (this.#paths.length > 0) {
+      this.#pollTimer = setInterval(() => void this.#poll(), this.#pollingMilliseconds);
+      this.#pollTimer.unref();
+    }
   }
 
   #startWatching(): void {
@@ -71,7 +80,7 @@ export class SourceDocumentWatcher {
         watcher.on('error', () => this.#scheduleProbe());
         this.#watchers.push(watcher);
       } catch {
-        // A later reconfiguration or manual retry can recover an unavailable directory.
+        // Periodic probes still detect revisions when native watching is unavailable.
       }
     }
   }
@@ -80,9 +89,25 @@ export class SourceDocumentWatcher {
     this.#generation += 1;
     this.#baselineFingerprint = undefined;
     this.#candidateFingerprint = undefined;
+    this.#paths = [];
+    if (this.#pollTimer) clearInterval(this.#pollTimer);
+    this.#pollTimer = undefined;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = undefined;
     for (const watcher of this.#watchers.splice(0)) watcher.close();
+  }
+
+  async #poll(): Promise<void> {
+    if (this.#polling || this.#timer || this.#baselineFingerprint === undefined) return;
+    this.#polling = true;
+    const generation = this.#generation;
+    try {
+      const fingerprint = await fingerprintPaths(this.#paths);
+      if (generation !== this.#generation || this.#timer) return;
+      if (fingerprint !== this.#baselineFingerprint) this.#scheduleProbe();
+    } finally {
+      this.#polling = false;
+    }
   }
 
   #scheduleProbe(): void {
