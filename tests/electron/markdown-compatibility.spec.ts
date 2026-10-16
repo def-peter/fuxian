@@ -75,13 +75,22 @@ test('basic Markdown compatibility in reading, paper and PDF', async () => {
       await expect(colored).toHaveCSS('background-color', 'rgb(255, 240, 200)');
       const images = reader.locator('img');
       await expect(images).toHaveCount(2);
+      for (const image of await images.all()) await image.scrollIntoViewIfNeeded();
       await expect
-        .poll(() =>
-          images.evaluateAll((nodes) =>
-            nodes.every((node) => (node as HTMLImageElement).naturalWidth === 160),
-          ),
+        .poll(
+          () =>
+            images.evaluateAll((nodes) =>
+              nodes.map((node) => ({
+                alt: (node as HTMLImageElement).alt,
+                width: (node as HTMLImageElement).naturalWidth,
+              })),
+            ),
+          { timeout: 30_000 },
         )
-        .toBe(true);
+        .toEqual([
+          { alt: 'Parent image', width: 160 },
+          { alt: 'Remote image', width: 160 },
+        ]);
       await reader.getByRole('link', { name: 'reader@example.com' }).click();
     };
     await verify(

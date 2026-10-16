@@ -80,14 +80,17 @@ test.afterEach(async () => {
 
 test('keeps SVG styles local to each rendered visual', async () => {
   test.setTimeout(60_000);
-  let requestCount = 0;
-  const serverUrl = await startServer((_request, response) => {
-    requestCount += 1;
-    const color = requestCount === 1 ? '#e53935' : '#1677ff';
-    const stroke = requestCount === 1 ? '#853021' : '#124a9f';
-    const foreground = requestCount === 1 ? '#315a1c' : '#6a347c';
-    const opacity = requestCount === 1 ? 0.2 : 0.8;
-    const label = requestCount === 1 ? 'First visual' : 'Second visual';
+  const encoder = createRequire(join(desktopAppPath, 'package.json'))('plantuml-encoder') as {
+    decode(source: string): string;
+  };
+  const serverUrl = await startServer((request, response) => {
+    const source = encoder.decode(request.url?.split('/').at(-1) ?? '');
+    const first = source.includes('Bob: first');
+    const color = first ? '#e53935' : '#1677ff';
+    const stroke = first ? '#853021' : '#124a9f';
+    const foreground = first ? '#315a1c' : '#6a347c';
+    const opacity = first ? 0.2 : 0.8;
+    const label = first ? 'First visual' : 'Second visual';
     response.writeHead(200, { 'Content-Type': 'image/svg+xml' });
     response.end(
       `<svg xmlns="http://www.w3.org/2000/svg" class="svg-root" viewBox="0 0 160 60">` +
