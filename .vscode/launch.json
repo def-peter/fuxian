@@ -1,0 +1,68 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Fuxian: 运行开发版",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "corepack pnpm dev -- --user-data-dir=\"${workspaceFolder}/.cache/fuxian-development\"",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Fuxian: Electron 主进程",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "runtimeExecutable": "node",
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true,
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/apps/desktop/out/**/*.js",
+        "${workspaceFolder}/apps/desktop/out/**/*.cjs"
+      ],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceFolder}/apps/desktop/node_modules/electron-vite/bin/electron-vite.js",
+      "args": [
+        "dev",
+        "--watch",
+        "--inspect=5858",
+        "--remoteDebuggingPort=9333",
+        "--sourcemap",
+        "--",
+        "--user-data-dir=${workspaceFolder}/.cache/fuxian-development"
+      ]
+    },
+    {
+      "name": "Fuxian: Renderer 进程",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9333,
+      "urlFilter": "http://localhost:*/*",
+      "webRoot": "${workspaceFolder}/apps/desktop/src/renderer",
+      "timeout": 60000,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Fuxian: 当前 Vitest 文件",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}", "--no-file-parallelism"],
+      "console": "integratedTerminal",
+      "smartStep": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Fuxian: 完整应用",
+      "configurations": ["Fuxian: Electron 主进程", "Fuxian: Renderer 进程"],
+      "stopAll": true
+    }
+  ]
+}

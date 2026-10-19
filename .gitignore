@@ -48,6 +48,7 @@ crashDumps/
 Thumbs.db
 .idea/
 .vscode/*
+!.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
