@@ -1,3 +1,4 @@
+import { releaseChannel } from './release-version.mjs';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -12,6 +13,8 @@ const temporaryDirectories = [];
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const verifierPath = resolve(import.meta.dirname, 'verify-update-assets.mjs');
 const version = JSON.parse(await readFile(resolve(repositoryRoot, 'package.json'), 'utf8')).version;
+
+const channel = releaseChannel(version);
 
 const checksum = (contents) => createHash('sha512').update(contents).digest('base64');
 
@@ -43,11 +46,11 @@ const createFixture = async () => {
     url: name,
   });
   await writeFile(
-    join(directory, 'latest.yml'),
+    join(directory, `${channel}.yml`),
     stringify({ files: [metadataEntry(windows)], version }),
   );
   await writeFile(
-    join(directory, 'latest-mac.yml'),
+    join(directory, `${channel}-mac.yml`),
     stringify({ files: [metadataEntry(macX64), metadataEntry(macArm64)], version }),
   );
   return { directory, macX64 };

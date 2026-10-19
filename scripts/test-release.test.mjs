@@ -9,7 +9,7 @@ import { parseArguments } from './test-release.mjs';
 describe('Windows test release', () => {
   it('creates a unique prerelease version above the current patch', () => {
     expect(resolveTestVersion('0.1.8', 42)).toBe('0.1.9-test.42');
-    expect(() => resolveTestVersion('0.1.8-beta.1', 42)).toThrow('stable SemVer');
+    expect(resolveTestVersion('0.1.8-beta.1', 42)).toBe('0.1.8-test.42');
     expect(() => resolveTestVersion('0.1.8', 0)).toThrow('positive integer');
   });
 

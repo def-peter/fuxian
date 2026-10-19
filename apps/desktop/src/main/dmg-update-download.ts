@@ -1,3 +1,4 @@
+import { isPublicUpdateVersion } from './app-update-channel';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
@@ -27,7 +28,7 @@ export class DmgUpdateDownload {
   ) {}
 
   private selectAsset(info: UpdateInfo): DmgAsset {
-    if (!/^\d+\.\d+\.\d+$/.test(info.version)) throw new Error('Invalid stable version');
+    if (!isPublicUpdateVersion(info.version)) throw new Error('Invalid release version');
     if (!['arm64', 'x64'].includes(this.architecture)) throw new Error('Unsupported architecture');
     const name = `fuxian-${info.version}-mac-${this.architecture}.dmg`;
     const url = `https://github.com/def-peter/fuxian/releases/download/v${info.version}/${name}`;

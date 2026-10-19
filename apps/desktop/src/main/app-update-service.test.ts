@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppUpdateService, type AppUpdateAdapter } from './app-update-service';
 
 class FakeUpdateAdapter extends EventEmitter implements AppUpdateAdapter {
+  channel = 'latest';
   allowDowngrade = true;
   allowPrerelease = true;
   autoDownload = true;
@@ -30,10 +31,11 @@ const createService = (
   supported = true,
   delivery: 'automatic-install' | 'release-page' = 'automatic-install',
   lastNotifiedVersion?: string,
+  overrides: Partial<ConstructorParameters<typeof AppUpdateService>[0]> = {},
 ) => {
   const adapter = new FakeUpdateAdapter();
   const broadcast = vi.fn();
-  const beforeInstall = vi.fn(async () => undefined);
+  const beforeInstall = vi.fn<() => Promise<void>>(async () => undefined);
   const openReleasePage = vi.fn(async () => undefined);
   const persistNotifiedVersion = vi.fn(async () => undefined);
   const service = new AppUpdateService({
@@ -46,6 +48,7 @@ const createService = (
     openReleasePage,
     persistNotifiedVersion,
     supported,
+    ...overrides,
   });
   service.initialize();
   return {
@@ -83,7 +86,7 @@ describe('AppUpdateService', () => {
       download: vi.fn(async () => undefined),
       open: vi.fn(async () => undefined),
     };
-    const beforeInstall = vi.fn(async () => undefined);
+    const beforeInstall = vi.fn<() => Promise<void>>(async () => undefined);
     const service = new AppUpdateService({
       adapter,
       manualDownload,
@@ -302,5 +305,193 @@ describe('AppUpdateService', () => {
       message: '暂时无法重启安装，请稍后重试。',
       phase: 'downloaded',
     });
+  });
+});
+
+describe('update channels', () => {
+  it('defaults stable even on a Beta build and only offers a confirmed stable rollback', async () => {
+    const { adapter, service } = createService(true, 'automatic-install', undefined, {
+      currentVersion: '0.3.0-beta.2',
+    });
+    expect(adapter).toMatchObject({
+      channel: 'latest',
+      allowPrerelease: false,
+      allowDowngrade: true,
+    });
+    adapter.emit('update-available', updateInfo('0.2.0'));
+    expect(service.getStatus()).toMatchObject({
+      channel: 'stable',
+      downgrade: true,
+      reminderVersion: undefined,
+    });
+    await service.downloadUpdate();
+    await service.downloadUpdate('0.1.0');
+    expect(adapter.downloadUpdate).not.toHaveBeenCalled();
+    await service.downloadUpdate('0.2.0');
+    expect(adapter.downloadUpdate).toHaveBeenCalledOnce();
+  });
+
+  it.each(['0.2.0-beta.1', '0.2.0-alpha.1', '0.2.0-test.1', '../0.2.0'])(
+    'rejects %s from stable even if the adapter reports it',
+    (version) => {
+      const { adapter, service } = createService();
+      adapter.emit('update-available', updateInfo(version));
+      expect(service.getStatus()).toMatchObject({
+        phase: 'up-to-date',
+        availableVersion: undefined,
+      });
+    },
+  );
+
+  it('includes subsequent stable releases on Beta and refuses older Beta candidates', () => {
+    const { adapter, service } = createService(true, 'automatic-install', undefined, {
+      currentVersion: '0.2.0-beta.2',
+      channel: 'beta',
+    });
+    expect(adapter).toMatchObject({
+      channel: 'beta',
+      allowPrerelease: true,
+      allowDowngrade: false,
+    });
+    for (const version of ['0.2.0-beta.3', '0.2.0', '0.3.0-beta.1']) {
+      adapter.emit('update-available', updateInfo(version));
+      expect(service.getStatus()).toMatchObject({
+        availableVersion: version,
+        phase: 'available',
+        downgrade: false,
+      });
+    }
+    for (const version of ['0.2.0-beta.1', '0.1.0', '0.3.0-test.1']) {
+      adapter.emit('update-available', updateInfo(version));
+      expect(service.getStatus()).toMatchObject({
+        phase: 'up-to-date',
+        availableVersion: undefined,
+      });
+    }
+  });
+
+  it('drains an old check and ignores its result and failure before switching feeds', async () => {
+    const persistChannel = vi.fn<(channel: 'stable' | 'beta') => Promise<void>>(
+      async () => undefined,
+    );
+    const { adapter, service } = createService(true, 'automatic-install', undefined, {
+      persistChannel,
+    });
+    let rejectCheck!: (error: Error) => void;
+    adapter.checkForUpdates.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectCheck = reject;
+        }),
+    );
+    const check = service.checkForUpdates();
+    const switchChannel = service.setChannel('beta');
+    expect(service.getStatus().changingChannel).toBe(true);
+    expect(adapter.channel).toBe('latest');
+    adapter.emit('update-available', updateInfo('0.2.0'));
+    adapter.emit('error', new Error('old check failed'));
+    rejectCheck(new Error('old check failed'));
+    await check;
+    adapter.checkForUpdates.mockImplementationOnce(async () => {
+      adapter.emit('update-available', updateInfo('0.3.0-beta.1'));
+    });
+    await switchChannel;
+    expect(persistChannel).toHaveBeenCalledWith('beta');
+    expect(service.getStatus()).toMatchObject({
+      channel: 'beta',
+      changingChannel: false,
+      availableVersion: '0.3.0-beta.1',
+    });
+    expect(adapter.allowDowngrade).toBe(false);
+  });
+
+  it('cancels an old download and blocks stale progress, completion, and install', async () => {
+    const { adapter, service } = createService();
+    adapter.emit('update-available', updateInfo());
+    let rejectDownload!: (error: Error) => void;
+    let token: CancellationToken | undefined;
+    adapter.downloadUpdate.mockImplementationOnce((value) => {
+      token = value;
+      return new Promise((_, reject) => {
+        rejectDownload = reject;
+      });
+    });
+    const download = service.downloadUpdate();
+    await vi.waitFor(() => expect(adapter.downloadUpdate).toHaveBeenCalledOnce());
+    const switchChannel = service.setChannel('beta');
+    expect(token?.cancelled).toBe(true);
+    adapter.emit('download-progress', { percent: 99 });
+    adapter.emit('update-downloaded', { ...updateInfo(), downloadedFile: '/tmp/stale.exe' });
+    adapter.emit('update-cancelled', updateInfo());
+    await service.installUpdate();
+    expect(adapter.quitAndInstall).not.toHaveBeenCalled();
+    expect(service.getStatus().changingChannel).toBe(true);
+    expect(service.getStatus().availableVersion).toBeUndefined();
+    expect(service.getStatus().percent).toBeUndefined();
+    rejectDownload(new CancellationError());
+    await download;
+    await switchChannel;
+    expect(service.getStatus().channel).toBe('beta');
+    expect(service.getStatus().availableVersion).toBeUndefined();
+    await service.installUpdate();
+    expect(adapter.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a downloaded candidate when changing channel', async () => {
+    const { adapter, service } = createService();
+    adapter.emit('update-downloaded', { ...updateInfo(), downloadedFile: '/tmp/stale.exe' });
+    await service.setChannel('beta');
+    await service.installUpdate();
+    expect(adapter.quitAndInstall).not.toHaveBeenCalled();
+    expect(service.getStatus().availableVersion).toBeUndefined();
+  });
+
+  it('does not change the channel during install preparation', async () => {
+    const { adapter, beforeInstall, service } = createService();
+    adapter.emit('update-downloaded', { ...updateInfo(), downloadedFile: '/tmp/ready.exe' });
+    let finish!: () => void;
+    beforeInstall.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const install = service.installUpdate();
+    await service.setChannel('beta');
+    expect(service.getStatus().channel).toBe('stable');
+    finish();
+    await install;
+    expect(adapter.quitAndInstall).toHaveBeenCalledOnce();
+  });
+
+  it('keeps stable on a failed preference save and handles rapid channel changes in order', async () => {
+    const persistChannel = vi.fn<(channel: 'stable' | 'beta') => Promise<void>>(
+      async () => undefined,
+    );
+    persistChannel.mockRejectedValueOnce(new Error('disk full'));
+    const { adapter, service } = createService(true, 'automatic-install', undefined, {
+      persistChannel,
+    });
+    await service.setChannel('beta');
+    expect(service.getStatus()).toMatchObject({
+      channel: 'stable',
+      phase: 'error',
+      message: '无法保存更新通道，请重试。',
+    });
+    expect(adapter.checkForUpdates).not.toHaveBeenCalled();
+    const beta = service.setChannel('beta');
+    const stable = service.setChannel('stable');
+    await Promise.all([beta, stable]);
+    expect(service.getStatus()).toMatchObject({ channel: 'stable', changingChannel: false });
+    expect(adapter).toMatchObject({
+      channel: 'latest',
+      allowPrerelease: false,
+      allowDowngrade: false,
+    });
+    expect(persistChannel.mock.calls.map(([channel]) => channel)).toEqual([
+      'beta',
+      'beta',
+      'stable',
+    ]);
   });
 });

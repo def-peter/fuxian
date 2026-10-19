@@ -2,6 +2,7 @@ import type { AppUpdateStatus } from '@fuxian/shared-types';
 import { useEffect, useState } from 'react';
 
 const initialStatus: AppUpdateStatus = {
+  channel: 'stable',
   currentVersion: '',
   delivery: 'automatic-install',
   phase: 'idle',

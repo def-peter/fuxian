@@ -1,3 +1,4 @@
+import { parseReleaseVersion } from './release-version.mjs';
 import { readFile } from 'node:fs/promises';
 
 const readPackageVersion = async (path) => {
@@ -10,11 +11,7 @@ const readPackageVersion = async (path) => {
 
 const rootVersion = await readPackageVersion('package.json');
 const desktopVersion = await readPackageVersion('apps/desktop/package.json');
-const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-
-if (!stableSemver.test(rootVersion)) {
-  throw new Error(`Release version ${rootVersion} must be stable SemVer without a prerelease tag.`);
-}
+parseReleaseVersion(rootVersion);
 if (desktopVersion !== rootVersion) {
   throw new Error(
     `Version mismatch: package.json is ${rootVersion}, apps/desktop/package.json is ${desktopVersion}.`,

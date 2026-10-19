@@ -4,9 +4,9 @@ import { CancellationError, type CancellationToken, type ProgressInfo } from 'bu
 import type { UpdateInfo } from 'electron-updater';
 import type { AppUpdateAdapter } from './app-update-service';
 
-type E2EUpdateScenario = 'available' | 'error' | 'up-to-date';
+type E2EUpdateScenario = 'available' | 'channels' | 'error' | 'up-to-date';
 
-const updateInfo = (): UpdateInfo => ({
+const updateInfo = (version = '0.2.0'): UpdateInfo => ({
   files: [],
   path: 'fuxian-0.2.0-mac-arm64.zip',
   releaseDate: '2026-08-28T00:00:00.000Z',
@@ -15,16 +15,18 @@ const updateInfo = (): UpdateInfo => ({
     process.env.FUXIAN_E2E_UPDATE_NOTES ??
     '<p>新增安全可靠的软件更新，并完善发布流程。</p><ul><li>修复 HTML 标签显示。</li></ul><script>不可信脚本</script>',
   sha512: 'e2e-sha512',
-  version: '0.2.0',
+  version,
 });
 
 const wait = (milliseconds: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export const isE2EUpdateScenario = (value: unknown): value is E2EUpdateScenario =>
-  value === 'available' || value === 'error' || value === 'up-to-date';
+  value === 'channels' || value === 'available' || value === 'error' || value === 'up-to-date';
 
 export class E2EAppUpdateAdapter extends EventEmitter implements AppUpdateAdapter {
+  channel = 'latest';
+  private candidate = updateInfo();
   allowDowngrade = true;
   allowPrerelease = true;
   autoDownload = true;
@@ -46,17 +48,20 @@ export class E2EAppUpdateAdapter extends EventEmitter implements AppUpdateAdapte
       this.emit('error', error);
       throw error;
     }
+    this.candidate = updateInfo(
+      this.scenario === 'channels' && this.channel === 'beta' ? '0.3.0-beta.3' : '0.2.0',
+    );
     this.emit(
-      this.scenario === 'available' ? 'update-available' : 'update-not-available',
-      updateInfo(),
+      this.scenario !== 'up-to-date' ? 'update-available' : 'update-not-available',
+      this.candidate,
     );
   }
 
   async downloadUpdate(cancellationToken?: CancellationToken): Promise<void> {
     for (const percent of [15, 55, 100]) {
-      await wait(40);
+      await wait(this.scenario === 'channels' ? 200 : 40);
       if (cancellationToken?.cancelled) {
-        this.emit('update-cancelled', updateInfo());
+        this.emit('update-cancelled', this.candidate);
         throw new CancellationError();
       }
       this.emit('download-progress', {
@@ -68,14 +73,18 @@ export class E2EAppUpdateAdapter extends EventEmitter implements AppUpdateAdapte
       } satisfies ProgressInfo);
     }
     this.emit('update-downloaded', {
-      ...updateInfo(),
+      ...this.candidate,
       downloadedFile: '/tmp/fuxian-e2e-update.zip',
     });
   }
 
   quitAndInstall(): void {
     if (this.installMarkerPath) {
-      writeFileSync(this.installMarkerPath, JSON.stringify({ installedVersion: '0.2.0' }), 'utf8');
+      writeFileSync(
+        this.installMarkerPath,
+        JSON.stringify({ installedVersion: this.candidate.version }),
+        'utf8',
+      );
     }
   }
 }

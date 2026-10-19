@@ -100,7 +100,7 @@ jobs:
           retention-days: 7
 
       - name: Build NSIS installer
-        run: pnpm exec electron-builder --win nsis --x64 --publish never
+        run: node scripts/build-installers.mjs --win nsis --x64 --publish never
 
       - name: Verify installed default-app registration
         shell: pwsh
@@ -127,6 +127,7 @@ jobs:
             release/*-windows-x64-setup.exe
             release/*-windows-x64-setup.exe.blockmap
             release/latest.yml
+            release/beta.yml
           if-no-files-found: error
           retention-days: 30
 
@@ -154,7 +155,7 @@ jobs:
         run: pnpm test:e2e:release
 
       - name: Build unsigned macOS artifacts
-        run: pnpm exec electron-builder --mac dmg zip --x64 --arm64 --publish never
+        run: node scripts/build-installers.mjs --mac dmg zip --x64 --arm64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
@@ -178,6 +179,7 @@ jobs:
             release/*-mac-arm64.zip
             release/*-mac-arm64.zip.blockmap
             release/latest-mac.yml
+            release/beta-mac.yml
           if-no-files-found: error
           retention-days: 30
 
@@ -221,6 +223,11 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
           echo "title=Fuxian ${version}" >> "${GITHUB_OUTPUT}"
+          if [[ "${version}" == *-beta.* ]]; then
+            echo "prerelease=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "prerelease=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Create draft GitHub Release
         shell: bash
@@ -229,6 +236,7 @@ jobs:
           RELEASE_NOTES: ${{ inputs.release_notes }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_TITLE: ${{ steps.release.outputs.title }}
+          IS_PRERELEASE: ${{ steps.release.outputs.prerelease }}
         run: |
           release_arguments=(
             --draft
@@ -236,6 +244,9 @@ jobs:
             --target "${GITHUB_SHA}"
             --title "${RELEASE_TITLE}"
           )
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            release_arguments+=(--prerelease --latest=false)
+          fi
           if [[ -n "${RELEASE_NOTES}" ]]; then
             release_arguments+=(--notes "${RELEASE_NOTES}")
           fi
@@ -257,9 +268,15 @@ jobs:
             fi
           done < <(find release-assets -maxdepth 1 -type f -print | sort)
 
-      - name: Publish stable release atomically
+      - name: Publish release atomically
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-        run: gh release edit "${RELEASE_TAG}" --draft=false --latest
+          IS_PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        run: |
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            gh release edit "${RELEASE_TAG}" --draft=false --prerelease --latest=false
+          else
+            gh release edit "${RELEASE_TAG}" --draft=false --prerelease=false --latest
+          fi

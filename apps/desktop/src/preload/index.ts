@@ -5,6 +5,7 @@ import {
   type AppCloseRequest,
   type AppUpdateInstallPreparationResult,
   type AppUpdateStatus,
+  type AppUpdateChannel,
   type ExternalRevisionEvent,
   type FuxianDesktopBridge,
   type DocumentLinkRequest,
@@ -77,6 +78,8 @@ const bridge: FuxianDesktopBridge = Object.freeze({
   confirmAppClose: (): void => ipcRenderer.send(desktopIpcChannels.appCloseConfirmed),
   configureOpenDocumentWatches: async (request: OpenDocumentWatchesRequest): Promise<void> =>
     ipcRenderer.invoke(desktopIpcChannels.configureOpenDocumentWatches, request),
+  setAppUpdateChannel: async (channel: AppUpdateChannel): Promise<AppUpdateStatus> =>
+    ipcRenderer.invoke(desktopIpcChannels.appUpdateSetChannel, channel),
   checkForAppUpdates: async (): Promise<AppUpdateStatus> =>
     ipcRenderer.invoke(desktopIpcChannels.appUpdateCheck),
   copyText: async (text: string): Promise<void> =>

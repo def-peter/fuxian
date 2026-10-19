@@ -37,6 +37,20 @@ async function setup() {
 }
 
 describe('DMG update download', () => {
+  it('downloads and verifies the Beta DMG using its exact versioned release URL', async () => {
+    const { request, openPath, make } = await setup();
+    const betaInfo: UpdateInfo = { ...info(), version: '0.3.0-beta.2' };
+    betaInfo.files[0]!.url = 'fuxian-0.3.0-beta.2-mac-arm64.dmg';
+    request.mockResolvedValueOnce(new Response(bytes));
+    const downloader = make();
+    await downloader.download(betaInfo, new CancellationToken(), vi.fn());
+    await downloader.open();
+    expect(request.mock.calls[0]?.[0]).toBe(
+      'https://github.com/def-peter/fuxian/releases/download/v0.3.0-beta.2/fuxian-0.3.0-beta.2-mac-arm64.dmg',
+    );
+    expect(openPath).toHaveBeenCalledOnce();
+  });
+
   it('verifies a download, restores completed cache and rechecks before opening', async () => {
     const { request, openPath, make } = await setup();
     request.mockResolvedValueOnce(new Response(bytes));

@@ -307,3 +307,138 @@ test('requires a decision about unsaved source changes before installing an upda
     await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });
+
+for (const locale of ['zh-CN', 'en-US']) {
+  test(`switches update channels, invalidates downloads and restores the selection (${locale})`, async () => {
+    test.setTimeout(60_000);
+    const label = (zh: string, en: string): string => (locale === 'zh-CN' ? zh : en);
+    const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-channels-'));
+    const updateState = join(directory, 'app-update-state.json');
+    const installMarker = join(directory, 'install.json');
+    const launch = () =>
+      electron.launch({
+        executablePath: electronPath,
+        args: [desktopAppPath],
+        env: {
+          ...process.env,
+          FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+          FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+          FUXIAN_E2E_UPDATE_STATE_FILE: updateState,
+          FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarker,
+          FUXIAN_E2E_UPDATE_SCENARIO: 'channels',
+          FUXIAN_E2E_SYSTEM_LOCALE: locale,
+          NODE_ENV: 'test',
+        },
+      });
+    let app = await launch();
+    try {
+      const reader = await app.firstWindow();
+      await reader
+        .getByRole('button', { name: label('设置，有可用更新', 'Settings, update available') })
+        .click();
+      let settings = await findSettingsWindow(app);
+      const stableLabel = label('稳定版', 'Stable');
+      const betaLabel = label('Beta 内测版', 'Beta');
+      await expect(settings.getByRole('radio', { name: stableLabel, exact: true })).toHaveAttribute(
+        'data-state',
+        'on',
+      );
+      await settings.getByRole('radio', { name: betaLabel, exact: true }).click();
+      await expect(
+        settings.getByText(label('新版本 0.3.0-beta.3 可用', 'Version 0.3.0-beta.3 is available')),
+      ).toBeVisible();
+      await settings
+        .getByRole('button', { name: label('下载更新', 'Download update'), exact: true })
+        .click();
+      await expect(
+        settings.getByRole('button', { name: label('取消下载', 'Cancel download') }),
+      ).toBeVisible();
+      await settings.getByRole('radio', { name: stableLabel, exact: true }).click();
+      await expect(
+        settings.getByText(label('新版本 0.2.0 可用', 'Version 0.2.0 is available')),
+      ).toBeVisible();
+      await settings.evaluate(async () => {
+        await window.fuxian.installAppUpdate();
+      });
+      expect(await readJsonIfAvailable(installMarker)).toBeUndefined();
+      await settings.getByRole('radio', { name: betaLabel, exact: true }).click();
+      await expect
+        .poll(() => readJsonIfAvailable(`${updateState}.channel.json`))
+        .toEqual({ version: 1, channel: 'beta' });
+      await captureSettingsWindow(app, test.info().outputPath(`beta-channel-${locale}.png`));
+      await app.close();
+      app = await launch();
+      const restartedReader = await app.firstWindow();
+      await restartedReader
+        .getByRole('button', { name: label('设置，有可用更新', 'Settings, update available') })
+        .click();
+      settings = await findSettingsWindow(app);
+      await expect(settings.getByRole('radio', { name: betaLabel, exact: true })).toHaveAttribute(
+        'data-state',
+        'on',
+      );
+      await expect(
+        settings.getByText(label('新版本 0.3.0-beta.3 可用', 'Version 0.3.0-beta.3 is available')),
+      ).toBeVisible();
+      await expect(settings.getByRole('radio', { name: stableLabel, exact: true })).toBeEnabled();
+    } finally {
+      await app.close();
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+}
+
+test('confirms the exact stable rollback before downloading from a Beta build', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-rollback-'));
+  const installMarker = join(directory, 'install.json');
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [desktopAppPath],
+    env: {
+      ...process.env,
+      FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
+      FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
+      FUXIAN_E2E_UPDATE_STATE_FILE: join(directory, 'update.json'),
+      FUXIAN_E2E_UPDATE_INSTALL_MARKER: installMarker,
+      FUXIAN_E2E_UPDATE_SCENARIO: 'channels',
+      FUXIAN_E2E_UPDATE_CURRENT_VERSION: '0.3.0-beta.2',
+      NODE_ENV: 'test',
+    },
+  });
+  try {
+    const reader = await app.firstWindow();
+    await reader.getByRole('button', { name: /^设置/u }).click();
+    const settings = await findSettingsWindow(app);
+    await settings.getByRole('button', { name: '关于与更新', exact: true }).click();
+    await expect(settings.getByText('可退回稳定版 0.2.0')).toBeVisible();
+    await expect(settings.getByText('版本 0.3.0-beta.2', { exact: true })).toBeVisible();
+    // Exercise the native confirmation branch without opening a foreground OS dialog.
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false });
+    });
+    await settings.getByRole('button', { name: '下载稳定版', exact: true }).click();
+    await expect(settings.getByRole('button', { name: '下载稳定版', exact: true })).toBeVisible();
+    expect(await readJsonIfAvailable(installMarker)).toBeUndefined();
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async (options) => {
+        if (
+          !options.message.includes('0.2.0') ||
+          options.defaultId !== 0 ||
+          options.cancelId !== 0
+        ) {
+          throw new Error('Rollback confirmation must identify the version and default to cancel');
+        }
+        return { response: 1, checkboxChecked: false };
+      };
+    });
+    await settings.getByRole('button', { name: '下载稳定版', exact: true }).click();
+    await expect(settings.getByText('更新已准备好')).toBeVisible();
+    await settings.getByRole('button', { name: '重启并退回稳定版' }).click();
+    await expect
+      .poll(() => readJsonIfAvailable(installMarker))
+      .toEqual({ installedVersion: '0.2.0' });
+  } finally {
+    await app.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+});

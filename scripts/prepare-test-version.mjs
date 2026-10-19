@@ -1,16 +1,15 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+import { parseReleaseVersion } from './release-version.mjs';
 const versionFiles = ['package.json', 'apps/desktop/package.json'];
 
 export const resolveTestVersion = (currentVersion, runNumber) => {
-  const match = stableSemver.exec(currentVersion);
-  if (!match) throw new Error(`Base version ${currentVersion} must be a stable SemVer version.`);
+  const { base, beta } = parseReleaseVersion(currentVersion);
   if (!/^[1-9]\d*$/u.test(String(runNumber))) {
     throw new Error(`Run number ${runNumber} must be a positive integer.`);
   }
-  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}-test.${runNumber}`;
+  return `${base[0]}.${base[1]}.${base[2] + (beta ? 0 : 1)}-test.${runNumber}`;
 };
 
 const readVersion = async (path) => {

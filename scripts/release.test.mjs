@@ -1,3 +1,4 @@
+import { installerArguments } from './build-installers.mjs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,6 +10,21 @@ import {
 } from './release.mjs';
 
 describe('release script', () => {
+  it('explicitly assigns the matching metadata channel to installer builds', () => {
+    expect(installerArguments('0.1.27-beta.1', ['--win', 'nsis', '--publish', 'never'])).toEqual([
+      'exec',
+      'electron-builder',
+      '--win',
+      'nsis',
+      '--publish',
+      'never',
+      '--config.publish.channel=beta',
+    ]);
+    expect(installerArguments('0.1.27', ['--mac', 'dmg', 'zip']).at(-1)).toBe(
+      '--config.publish.channel=latest',
+    );
+  });
+
   it('defaults to a patch release', () => {
     expect(parseArguments([])).toMatchObject({
       bump: 'patch',
@@ -27,12 +43,28 @@ describe('release script', () => {
 
   it('rejects invalid and non-increasing versions', () => {
     expect(() => resolveNextVersion('0.1.2', '0.1.2')).toThrow('must be newer');
-    expect(() => resolveNextVersion('0.1.2', '1.0.0-beta.1')).toThrow('not a stable SemVer');
+    expect(() => resolveNextVersion('0.1.2', '1.0.0-beta.1')).toThrow('provide a stable SemVer');
+  });
+
+  it('increments Beta releases and promotes the same base to stable', () => {
+    expect(parseArguments(['--beta', '--yes'])).toMatchObject({ beta: true });
+    expect(resolveNextVersion('0.1.26', 'patch', true)).toBe('0.1.27-beta.1');
+    expect(resolveNextVersion('0.1.27-beta.1', 'patch', true)).toBe('0.1.27-beta.2');
+    expect(resolveNextVersion('0.1.27-beta.2', 'patch')).toBe('0.1.27');
+    expect(resolveNextVersion('0.1.26', '0.2.0-beta.3', true)).toBe('0.2.0-beta.3');
+    expect(() => resolveNextVersion('0.1.27-beta.2', '0.1.27-beta.1', true)).toThrow(
+      'must be newer',
+    );
+    expect(() => resolveNextVersion('0.1.26', '0.1.27', true)).toThrow('Use --beta');
+    for (const invalid of ['0.1.27-alpha.1', '0.1.27-beta.01', '0.1.27-beta.0', '0.1.27-test.1']) {
+      expect(() => resolveNextVersion('0.1.26', invalid, true)).toThrow();
+    }
   });
 
   it('parses release controls', () => {
     expect(parseArguments(['minor', '--yes', '--wait', '--dry-run'])).toEqual({
       bump: 'minor',
+      beta: false,
       dryRun: true,
       help: false,
       notes: undefined,

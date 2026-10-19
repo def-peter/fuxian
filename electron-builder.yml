@@ -54,6 +54,7 @@ mac:
     - dmg
     - zip
 npmRebuild: false
+generateUpdatesFilesForAllChannels: false
 publish:
   provider: github
   owner: def-peter

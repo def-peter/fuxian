@@ -8,6 +8,7 @@ import {
   type DiagnosticActionResult,
   type RendererDiagnosticEvent,
   type AppCloseRequest,
+  isAppUpdateChannel,
   type AppUpdateDelivery,
   type AppUpdateInstallPreparationResult,
   type AppUpdateStatus,
@@ -73,6 +74,7 @@ import {
 } from './session-persistence';
 import { OpenDocumentWatchCoordinator } from './open-document-watch-coordinator';
 import { extractSourceDocumentPaths } from './system-open';
+import { AppUpdateChannelPersistence } from './app-update-channel';
 import { AppUpdateService } from './app-update-service';
 import { scheduleAppUpdateChecks, type AppUpdateScheduler } from './app-update-scheduler';
 import { JsonFileAppUpdateStatePersistence } from './app-update-state-persistence';
@@ -615,8 +617,33 @@ const registerDesktopHandlers = (
       : updateService.getStatus(),
   );
   ipcMain.handle(desktopIpcChannels.appUpdateGetStatus, () => updateService.getStatus());
+  ipcMain.handle(desktopIpcChannels.appUpdateSetChannel, (_event, channel: unknown) => {
+    if (!isAppUpdateChannel(channel)) throw new Error('Invalid update channel');
+    return updateService.setChannel(channel);
+  });
   ipcMain.handle(desktopIpcChannels.appUpdateCheck, () => updateService.checkForUpdates());
-  ipcMain.handle(desktopIpcChannels.appUpdateDownload, () => updateService.downloadUpdate());
+  ipcMain.handle(desktopIpcChannels.appUpdateDownload, async () => {
+    const candidate = updateService.getStatus();
+    if (!candidate.downgrade) return updateService.downloadUpdate();
+    const result = await dialog.showMessageBox({
+      type: 'question',
+      title: mainText('退回稳定版'),
+      message: mainText('下载稳定版 {version}？', { version: candidate.availableVersion ?? '' }),
+      detail: mainText('当前安装的是预发行版。下载后仍需手动确认安装，安装后将替换当前版本。'),
+      buttons: [mainText('取消'), mainText('下载稳定版')],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (result.response !== 1) return updateService.getStatus();
+    const current = updateService.getStatus();
+    if (
+      current.channel !== candidate.channel ||
+      current.availableVersion !== candidate.availableVersion
+    )
+      return current;
+    return updateService.downloadUpdate(candidate.availableVersion);
+  });
   ipcMain.handle(desktopIpcChannels.appUpdateCancelDownload, () => updateService.cancelDownload());
   ipcMain.handle(desktopIpcChannels.appUpdateInstall, () => updateService.installUpdate());
   ipcMain.handle(desktopIpcChannels.appUpdateOpenRelease, () => updateService.openReleasePage());
@@ -1804,6 +1831,12 @@ if (!hasSingleInstanceLock) {
       !app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_UPDATE_STATE_FILE
         ? process.env.FUXIAN_E2E_UPDATE_STATE_FILE
         : join(app.getPath('userData'), 'app-update-state.json');
+    const channelPersistence = new AppUpdateChannelPersistence(
+      isE2ERuntime && process.env.FUXIAN_E2E_UPDATE_STATE_FILE
+        ? `${updateStatePath}.channel.json`
+        : join(app.getPath('userData'), 'app-update-channel.json'),
+    );
+    const updateChannel = await channelPersistence.load();
     const updateStatePersistence = new JsonFileAppUpdateStatePersistence(updateStatePath);
     const updateState = await updateStatePersistence.load();
     const updateScenario = process.env.FUXIAN_E2E_UPDATE_SCENARIO;
@@ -1825,7 +1858,11 @@ if (!hasSingleInstanceLock) {
       adapter: e2eUpdateAdapter ?? autoUpdater,
       beforeInstall: requestDocumentSessionFlush,
       broadcast: broadcastAppUpdateStatus,
-      currentVersion: app.getVersion(),
+      currentVersion: e2eUpdateAdapter
+        ? (process.env.FUXIAN_E2E_UPDATE_CURRENT_VERSION ?? app.getVersion())
+        : app.getVersion(),
+      channel: updateChannel,
+      persistChannel: (channel) => channelPersistence.save(channel),
       delivery: updateDelivery,
       ...(updateDelivery === 'manual-install'
         ? {
@@ -1854,7 +1891,9 @@ if (!hasSingleInstanceLock) {
         await openExternalUrl(
           version
             ? `https://github.com/def-peter/fuxian/releases/tag/v${encodeURIComponent(version)}`
-            : 'https://github.com/def-peter/fuxian/releases/latest',
+            : appUpdateService?.getStatus().channel === 'beta'
+              ? 'https://github.com/def-peter/fuxian/releases'
+              : 'https://github.com/def-peter/fuxian/releases/latest',
         );
       },
       persistNotifiedVersion: (version) => updateStatePersistence.saveLastNotifiedVersion(version),

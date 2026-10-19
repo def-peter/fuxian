@@ -1,6 +1,6 @@
 # Release Packaging
 
-Fuxian publishes stable builds for Windows x64, macOS Intel, and macOS Apple Silicon. Windows supports user-triggered differential download and installation in the app. macOS downloads the matching full DMG in-app, supports explicit resume after interruptions or restart, and opens the verified installer for manual drag-and-drop installation. Both platforms offer a GitHub download fallback. Linux remains a development and CI target only.
+Fuxian publishes stable and opt-in Beta builds for Windows x64, macOS Intel, and macOS Apple Silicon. Windows supports user-triggered differential download and installation in the app. macOS downloads the matching full DMG in-app, supports explicit resume after interruptions or restart, and opens the verified installer for manual drag-and-drop installation. Both platforms offer a GitHub download fallback. Linux remains a development and CI target only.
 
 ## Production prerequisites
 
@@ -65,6 +65,23 @@ The workflow runs static checks, unit tests, and a release-critical Electron E2E
 It verifies both macOS package structures, smoke-tests the Windows and native Apple Silicon applications, and validates asset presence, size, and SHA-512 metadata. GitHub's Apple Silicon runner cannot launch the Intel build without Rosetta, so the Intel application requires the manual acceptance check below. Assets enter a draft Release first; only the complete verified draft becomes the stable latest Release.
 
 Published assets include `latest.yml`, `latest-mac.yml`, NSIS EXE, macOS ZIP and DMG files, and matching blockmaps.
+
+## Beta update channel
+
+Settings → About & Updates separates the installed version from the selected update channel. Stable is always the default. Beta includes numbered Beta releases and subsequent stable releases. Choosing Stable on a prerelease offers an explicit, confirmed download of the latest stable installer, including a lower version when necessary. Windows then requires restart/install; macOS opens the verified DMG for manual replacement.
+
+From clean synchronized `main`, use the same release gates and bilingual notes:
+
+```bash
+pnpm release --beta --wait --notes-en "Add Stable and Beta update channels" --notes-zh "新增稳定版与 Beta 内测版更新通道"
+pnpm release 0.2.0-beta.1 --beta --dry-run
+```
+
+From `0.1.26`, `--beta` proposes `0.1.27-beta.1`; on that Beta, another `--beta` proposes `0.1.27-beta.2`. Running the normal `pnpm release` on a Beta promotes its base to stable (`0.1.27`). `--retry` retains the exact current version and its channel.
+
+Beta assets use `beta.yml` / `beta-mac.yml`; the asset verifier rejects stable metadata in a Beta release. The workflow publishes a complete GitHub prerelease with `latest=false`, preserving stable discovery for existing clients. Stable continues using `latest.yml` / `latest-mac.yml`. Beta prereleases are public downloads, whereas `release:test` remains an isolated Actions installer with no update subscription.
+
+Keep session, preference, and recovery-draft formats readable by the previous stable version before shipping a Beta. Validate switching during checks and downloads, invalidation of downloaded candidates, persisted selection after restart, newer stable detection on Beta, and explicit rollback. Perform real Windows and macOS installer acceptance before announcing those platform paths as verified.
 
 ## Release-note content
 

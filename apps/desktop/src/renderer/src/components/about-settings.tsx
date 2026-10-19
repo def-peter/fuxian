@@ -10,6 +10,7 @@ import { Progress } from './ui/progress';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { SettingsSection } from './settings-section';
 import { DiagnosticControls } from './diagnostic-controls';
+import { SegmentedControl, SegmentedControlItem } from './ui/segmented-control';
 import { UpdateReleaseNotes } from './update-release-notes';
 
 const repositoryUrl = 'https://github.com/def-peter/fuxian';
@@ -54,7 +55,11 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
       description={
         <div aria-live="polite" className="flex items-center gap-2">
           {status.phase === 'checking' || status.phase === 'installing' ? <Spinner /> : null}
-          {messages[status.phase]}
+          {status.changingChannel
+            ? t('正在切换更新通道...')
+            : status.downgrade && status.phase === 'available'
+              ? t('可退回稳定版 {version}', { version: status.availableVersion ?? '' })
+              : messages[status.phase]}
         </div>
       }
       actions={
@@ -72,7 +77,11 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
               ) : (
                 <Download data-icon="inline-start" />
               )}
-              {status.delivery === 'release-page' ? t('前往 GitHub Release') : t('下载更新')}
+              {status.delivery === 'release-page'
+                ? t('前往 GitHub Release')
+                : status.downgrade
+                  ? t('下载稳定版')
+                  : t('下载更新')}
             </Button>
           ) : null}
           {status.phase === 'downloading' ? (
@@ -92,7 +101,11 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
                 ) : (
                   <RefreshCw data-icon="inline-start" />
                 )}
-                {status.delivery === 'manual-install' ? t('打开安装包') : t('重启并更新')}
+                {status.delivery === 'manual-install'
+                  ? t('打开安装包')
+                  : status.downgrade
+                    ? t('重启并退回稳定版')
+                    : t('重启并更新')}
               </Button>
               <Button onClick={() => window.close()} size="sm" variant="ghost">
                 {t('稍后')}
@@ -101,7 +114,13 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
           ) : null}
           {status.phase === 'error' ? (
             <Button
-              onClick={status.availableVersion ? download : check}
+              onClick={
+                status.delivery === 'release-page'
+                  ? openRelease
+                  : status.availableVersion
+                    ? download
+                    : check
+              }
               size="sm"
               variant="outline"
             >
@@ -118,6 +137,31 @@ function SoftwareUpdateControls({ status }: { status: AppUpdateStatus }): React.
         </>
       }
     >
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p id="update-channel-label" className="text-sm">
+            {t('更新通道')}
+          </p>
+          <SegmentedControl
+            aria-labelledby="update-channel-label"
+            type="single"
+            value={status.channel}
+            disabled={status.changingChannel || status.phase === 'installing'}
+            onValueChange={(channel) => {
+              if (channel === 'stable' || channel === 'beta')
+                void window.fuxian.setAppUpdateChannel(channel);
+            }}
+          >
+            <SegmentedControlItem value="stable">{t('稳定版')}</SegmentedControlItem>
+            <SegmentedControlItem value="beta">{t('Beta 内测版')}</SegmentedControlItem>
+          </SegmentedControl>
+        </div>
+        <p className="text-sm leading-6 text-fg-secondary">
+          {status.channel === 'beta'
+            ? t('接收 Beta 内测版及后续稳定版。内测版可能存在尚未发现的问题。')
+            : t('仅接收稳定版。切换通道不会立即替换当前安装的版本。')}
+        </p>
+      </div>
       {status.phase === 'downloading' ? (
         <div className="flex flex-col gap-2">
           <Progress aria-label={t('更新下载进度')} value={status.percent ?? 0} />

@@ -11,6 +11,7 @@ export const desktopIpcChannels = {
   appUpdateAcknowledgeReminder: 'fuxian:app-update:acknowledge-reminder',
   appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
   appUpdateCheck: 'fuxian:app-update:check',
+  appUpdateSetChannel: 'fuxian:app-update:set-channel',
   appUpdateDownload: 'fuxian:app-update:download',
   appUpdateGetStatus: 'fuxian:app-update:get-status',
   appUpdateInstall: 'fuxian:app-update:install',
@@ -68,6 +69,11 @@ export type AppUpdatePhase =
   | 'unsupported'
   | 'up-to-date';
 
+export type AppUpdateChannel = 'stable' | 'beta';
+
+export const isAppUpdateChannel = (value: unknown): value is AppUpdateChannel =>
+  value === 'stable' || value === 'beta';
+
 export type AppUpdateDelivery = 'automatic-install' | 'manual-install' | 'release-page';
 
 export type AppReleaseNoteBlock =
@@ -77,6 +83,9 @@ export type AppReleaseNoteBlock =
 export type AppReleaseNotes = Partial<Record<UiLocale, AppReleaseNoteBlock[]>>;
 
 export interface AppUpdateStatus {
+  channel: AppUpdateChannel;
+  changingChannel?: boolean | undefined;
+  downgrade?: boolean | undefined;
   availableVersion?: string | undefined;
   bytesPerSecond?: number | undefined;
   checkedAt?: string | undefined;
@@ -594,6 +603,7 @@ export interface FuxianDesktopBridge {
   cancelPdfExport(exportId: string): Promise<void>;
   cancelPlantUmlRender(requestId: string): void;
   checkForAppUpdates(): Promise<AppUpdateStatus>;
+  setAppUpdateChannel(channel: AppUpdateChannel): Promise<AppUpdateStatus>;
   configureOpenDocumentWatches(request: OpenDocumentWatchesRequest): Promise<void>;
   copyText(text: string): Promise<void>;
   getPdfExportPayload(exportId: string): Promise<PdfExportPayload>;

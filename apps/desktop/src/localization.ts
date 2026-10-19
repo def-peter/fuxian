@@ -1,6 +1,23 @@
 import type { UiLocale } from '@fuxian/shared-types';
 
 const englishMessages = {
+  更新通道: 'Update channel',
+  稳定版: 'Stable',
+  'Beta 内测版': 'Beta',
+  '正在切换更新通道...': 'Switching update channel...',
+  '仅接收稳定版。切换通道不会立即替换当前安装的版本。':
+    'Receive stable releases only. Switching channels does not replace the installed version immediately.',
+  '接收 Beta 内测版及后续稳定版。内测版可能存在尚未发现的问题。':
+    'Receive Beta releases and subsequent stable releases. Beta releases may contain undiscovered issues.',
+  '可退回稳定版 {version}': 'Stable version {version} is available to return to',
+  退回稳定版: 'Return to Stable',
+  下载稳定版: 'Download Stable',
+  重启并退回稳定版: 'Restart and Return to Stable',
+  '下载稳定版 {version}？': 'Download stable version {version}?',
+  '当前安装的是预发行版。下载后仍需手动确认安装，安装后将替换当前版本。':
+    'A prerelease is currently installed. Installation still requires your confirmation after download and will replace the current version.',
+  '无法保存更新通道，请重试。': 'Could not save the update channel. Please try again.',
+
   诊断日志: 'Diagnostics',
   导出诊断日志: 'Export logs',
   清理日志: 'Clear logs',

@@ -1,10 +1,13 @@
 import { CancellationToken } from 'builder-util-runtime';
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import type { AppUpdateDelivery, AppUpdatePhase, AppUpdateStatus } from '@fuxian/shared-types';
+import { canReturnToStable, classifyUpdate } from './app-update-channel';
+import type { AppUpdateChannel } from '@fuxian/shared-types';
 import { parseReleaseNotes } from './release-notes';
 import { createTranslator, type Translator } from '../localization';
 
 export interface AppUpdateAdapter {
+  channel: string | null;
   allowDowngrade: boolean;
   allowPrerelease: boolean;
   autoDownload: boolean;
@@ -29,6 +32,8 @@ interface AppUpdateServiceOptions {
   beforeInstall(): Promise<void>;
   broadcast(status: AppUpdateStatus): void;
   currentVersion: string;
+  channel?: AppUpdateChannel;
+  persistChannel?(channel: AppUpdateChannel): Promise<void>;
   delivery: AppUpdateDelivery;
   lastNotifiedVersion?: string | undefined;
   openReleasePage(version?: string): Promise<void>;
@@ -62,6 +67,7 @@ const updateFailureMessage = (
 };
 
 export class AppUpdateService {
+  private channelPromise: Promise<void> | undefined;
   private checkPromise: Promise<AppUpdateStatus> | undefined;
   private downloadPromise: Promise<AppUpdateStatus> | undefined;
   private downloadToken: CancellationToken | undefined;
@@ -76,6 +82,7 @@ export class AppUpdateService {
     this.t = options.translate ?? createTranslator('zh-CN');
     this.lastNotifiedVersion = releaseText(options.lastNotifiedVersion, 64);
     this.status = {
+      channel: options.channel ?? 'stable',
       currentVersion: options.currentVersion,
       delivery: options.delivery,
       message: options.supported ? undefined : this.t('当前环境不支持软件更新。'),
@@ -89,18 +96,22 @@ export class AppUpdateService {
     const { adapter } = this.options;
     adapter.autoDownload = false;
     adapter.autoInstallOnAppQuit = false;
-    adapter.allowPrerelease = false;
-    adapter.allowDowngrade = false;
+    this.configureChannel();
     adapter.disableWebInstaller = true;
 
     adapter.on('checking-for-update', () => {
+      if (this.channelPromise) return;
       this.update({ message: undefined, phase: 'checking' });
     });
-    adapter.on('update-available', (info) => this.updateFromInfo('available', info));
+    adapter.on('update-available', (info) => {
+      if (!this.channelPromise) this.updateFromInfo('available', info);
+    });
     adapter.on('update-not-available', (info) => {
+      if (this.channelPromise) return;
       this.availableInfo = undefined;
       this.update({
         availableVersion: undefined,
+        downgrade: undefined,
         checkedAt: new Date().toISOString(),
         message: undefined,
         phase: 'up-to-date',
@@ -112,6 +123,7 @@ export class AppUpdateService {
       void info;
     });
     adapter.on('download-progress', (progress) => {
+      if (this.channelPromise) return;
       this.update({
         bytesPerSecond: Math.max(0, progress.bytesPerSecond),
         message: undefined,
@@ -121,12 +133,16 @@ export class AppUpdateService {
         transferred: Math.max(0, progress.transferred),
       });
     });
-    adapter.on('update-cancelled', () => this.finishCancellation());
+    adapter.on('update-cancelled', () => {
+      if (!this.channelPromise) this.finishCancellation();
+    });
     adapter.on('update-downloaded', (info) => {
+      if (this.channelPromise) return;
       this.downloadToken = undefined;
       this.updateFromInfo('downloaded', info);
     });
     adapter.on('error', (error) => {
+      if (this.channelPromise) return;
       if (this.downloadToken?.cancelled) {
         this.finishCancellation();
         return;
@@ -134,6 +150,60 @@ export class AppUpdateService {
       this.options.reportError?.('updater', error);
       this.fail(this.status.phase === 'downloading' ? 'download' : 'check');
     });
+  }
+
+  private configureChannel(): void {
+    const { adapter, currentVersion } = this.options;
+    adapter.channel = this.status.channel === 'beta' ? 'beta' : 'latest';
+    adapter.allowPrerelease = this.status.channel === 'beta';
+    // Setting channel implicitly enables downgrade in electron-updater; always override it.
+    adapter.allowDowngrade = canReturnToStable(currentVersion, this.status.channel);
+  }
+
+  setChannel(channel: AppUpdateChannel): Promise<AppUpdateStatus> {
+    if (this.channelPromise) return this.channelPromise.then(() => this.setChannel(channel));
+    if (
+      this.installPromise ||
+      this.status.phase === 'installing' ||
+      channel === this.status.channel
+    ) {
+      return Promise.resolve(this.getStatus());
+    }
+    this.initialize();
+    const pending = [this.checkPromise, this.downloadPromise];
+    this.downloadToken?.cancel();
+    this.availableInfo = undefined;
+    this.status = {
+      channel: this.status.channel,
+      changingChannel: true,
+      currentVersion: this.options.currentVersion,
+      delivery: this.options.delivery,
+      phase: 'checking',
+    };
+    this.update({});
+    const operation = Promise.resolve()
+      .then(async () => {
+        // Updater events lack operation IDs. Drain previous work before changing its feed.
+        await Promise.allSettled(pending);
+        try {
+          await this.options.persistChannel?.(channel);
+          this.update({ channel });
+          this.configureChannel();
+        } catch (error) {
+          this.options.reportError?.('channel-save', error);
+          this.update({ message: this.t('无法保存更新通道，请重试。') });
+        }
+      })
+      .finally(() => {
+        this.channelPromise = undefined;
+        this.downloadToken = undefined;
+        this.update({
+          changingChannel: false,
+          phase: this.status.message ? 'error' : this.options.supported ? 'idle' : 'unsupported',
+        });
+      });
+    this.channelPromise = operation;
+    return operation.then(() => (this.status.message ? this.getStatus() : this.checkForUpdates()));
   }
 
   getStatus(): AppUpdateStatus {
@@ -158,6 +228,7 @@ export class AppUpdateService {
 
   checkForUpdates(): Promise<AppUpdateStatus> {
     if (
+      this.channelPromise ||
       !this.options.supported ||
       this.status.phase === 'downloaded' ||
       this.status.phase === 'downloading' ||
@@ -171,6 +242,7 @@ export class AppUpdateService {
     const operation = this.options.adapter
       .checkForUpdates()
       .catch((error: unknown) => {
+        if (this.channelPromise) return;
         this.options.reportError?.('check', error);
         this.fail('check');
       })
@@ -182,7 +254,13 @@ export class AppUpdateService {
     return operation;
   }
 
-  downloadUpdate(): Promise<AppUpdateStatus> {
+  downloadUpdate(confirmedDowngradeVersion?: string): Promise<AppUpdateStatus> {
+    if (
+      this.channelPromise ||
+      (this.status.downgrade && confirmedDowngradeVersion !== this.status.availableVersion)
+    ) {
+      return Promise.resolve(this.getStatus());
+    }
     if (this.options.delivery === 'release-page') {
       return Promise.resolve(this.getStatus());
     }
@@ -206,14 +284,16 @@ export class AppUpdateService {
         if (this.options.delivery === 'manual-install') {
           if (!this.options.manualDownload) throw new Error('Missing manual downloader');
           await this.options.manualDownload.download(info, token, (progress) => {
-            if (!token.cancelled) this.update({ ...progress, phase: 'downloading' });
+            if (!token.cancelled && !this.channelPromise)
+              this.update({ ...progress, phase: 'downloading' });
           });
-          if (!token.cancelled) this.updateFromInfo('downloaded', info);
+          if (!token.cancelled && !this.channelPromise) this.updateFromInfo('downloaded', info);
         } else {
           await this.options.adapter.downloadUpdate(token);
         }
       })
       .catch((error: unknown) => {
+        if (this.channelPromise) return;
         if (token.cancelled) {
           this.finishCancellation();
           return;
@@ -231,13 +311,14 @@ export class AppUpdateService {
   }
 
   cancelDownload(): AppUpdateStatus {
-    if (this.options.delivery === 'release-page') return this.getStatus();
+    if (this.channelPromise || this.options.delivery === 'release-page') return this.getStatus();
     this.downloadToken?.cancel();
     if (this.status.phase === 'downloading') this.finishCancellation();
     return this.getStatus();
   }
 
   installUpdate(): Promise<AppUpdateStatus> {
+    if (this.channelPromise) return Promise.resolve(this.getStatus());
     if (this.options.delivery === 'release-page') return Promise.resolve(this.getStatus());
     if (this.installPromise) return this.installPromise;
     if (this.status.phase !== 'downloaded') return Promise.resolve(this.getStatus());
@@ -315,10 +396,26 @@ export class AppUpdateService {
     phase: Extract<AppUpdatePhase, 'available' | 'downloaded'>,
     info: UpdateInfo,
   ): void {
+    const kind = classifyUpdate(this.options.currentVersion, info.version, this.status.channel);
+    if (!kind) {
+      this.availableInfo = undefined;
+      this.update({
+        availableVersion: undefined,
+        downgrade: undefined,
+        reminderVersion: undefined,
+        releaseDate: undefined,
+        releaseName: undefined,
+        releaseNotes: undefined,
+        phase: 'up-to-date',
+        checkedAt: new Date().toISOString(),
+      });
+      return;
+    }
     this.availableInfo = info;
     const availableVersion = releaseText(info.version, 64);
     this.update({
       availableVersion,
+      downgrade: kind === 'downgrade',
       checkedAt: new Date().toISOString(),
       message: undefined,
       percent: phase === 'downloaded' ? 100 : undefined,
@@ -327,7 +424,7 @@ export class AppUpdateService {
       releaseName: releaseText(info.releaseName, 200),
       releaseNotes: parseReleaseNotes(info.releaseNotes),
       reminderVersion:
-        availableVersion && availableVersion !== this.lastNotifiedVersion
+        kind === 'upgrade' && availableVersion && availableVersion !== this.lastNotifiedVersion
           ? availableVersion
           : undefined,
     });

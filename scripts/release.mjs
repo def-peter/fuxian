@@ -3,14 +3,15 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 
-const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+import { parseReleaseVersion } from './release-version.mjs';
 const versionFiles = ['package.json', 'apps/desktop/package.json'];
 const maximumReleaseNotesLength = 20_000;
 
-const usage = `Usage: pnpm release [patch|minor|major|<version>] [--yes] [--wait] [--retry] [--dry-run] [release notes]
+const usage = `Usage: pnpm release [patch|minor|major|<version>] [--beta] [--yes] [--wait] [--retry] [--dry-run] [release notes]
 
 Examples:
   pnpm release              Publish the next patch version
+  pnpm release --beta       Publish the next Beta (or increment its sequence)
   pnpm release minor        Publish the next minor version
   pnpm release 1.0.0        Publish an explicit stable version
   pnpm release --wait       Wait for GitHub Actions to finish
@@ -19,6 +20,7 @@ Examples:
   pnpm release --retry      Retry the current unpublished version
 
 Options:
+  --beta     Publish a public Beta prerelease without replacing the latest stable release
   --yes      Skip the confirmation prompt
   --wait     Wait for the workflow and print the Release URL
   --retry    Retry the current version without creating another version commit
@@ -33,6 +35,7 @@ Options:
 export const parseArguments = (arguments_) => {
   const options = {
     bump: 'patch',
+    beta: false,
     dryRun: false,
     help: false,
     notes: undefined,
@@ -47,7 +50,8 @@ export const parseArguments = (arguments_) => {
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === '--dry-run') options.dryRun = true;
+    if (argument === '--beta') options.beta = true;
+    else if (argument === '--dry-run') options.dryRun = true;
     else if (argument === '--help' || argument === '-h') options.help = true;
     else if (argument === '--retry') options.retry = true;
     else if (argument === '--wait') options.wait = true;
@@ -116,12 +120,6 @@ export const createWorkflowDispatchArguments = (releaseNotes) => {
   return arguments_;
 };
 
-const parseVersion = (version) => {
-  const match = stableSemver.exec(version);
-  if (!match) throw new Error(`Version ${version} is not a stable SemVer version.`);
-  return match.slice(1).map(Number);
-};
-
 const compareVersions = (left, right) => {
   for (let index = 0; index < left.length; index += 1) {
     if (left[index] !== right[index]) return left[index] - right[index];
@@ -129,19 +127,33 @@ const compareVersions = (left, right) => {
   return 0;
 };
 
-export const resolveNextVersion = (currentVersion, bump) => {
-  const current = parseVersion(currentVersion);
+export const resolveNextVersion = (currentVersion, bump, beta = false) => {
+  const current = parseReleaseVersion(currentVersion);
   let next;
-
-  if (bump === 'major') next = [current[0] + 1, 0, 0];
-  else if (bump === 'minor') next = [current[0], current[1] + 1, 0];
-  else if (bump === 'patch') next = [current[0], current[1], current[2] + 1];
-  else next = parseVersion(bump);
-
-  if (compareVersions(next, current) <= 0) {
-    throw new Error(`Next version ${next.join('.')} must be newer than ${currentVersion}.`);
+  let sequence;
+  if (['patch', 'minor', 'major'].includes(bump)) {
+    next = [...current.base];
+    if (bump === 'major') next = [next[0] + 1, 0, 0];
+    else if (bump === 'minor') next = [next[0], next[1] + 1, 0];
+    else if (!current.beta) next[2] += 1;
+    sequence = beta ? (bump === 'patch' && current.beta ? current.beta + 1 : 1) : undefined;
+  } else {
+    const explicit = parseReleaseVersion(bump);
+    next = explicit.base;
+    sequence = explicit.beta;
+    if (Boolean(sequence) !== beta)
+      throw new Error(
+        'Use --beta only for a Beta version; otherwise provide a stable SemVer version.',
+      );
   }
-  return next.join('.');
+  const comparison = compareVersions(next, current.base);
+  if (
+    comparison < 0 ||
+    (comparison === 0 && (!current.beta || (sequence && sequence <= current.beta)))
+  ) {
+    throw new Error(`Next version must be newer than ${currentVersion}.`);
+  }
+  return `${next.join('.')}${sequence ? `-beta.${sequence}` : ''}`;
 };
 
 const command = (executable, arguments_, { capture = true, optional = false } = {}) => {
@@ -249,7 +261,9 @@ const main = async () => {
   const currentVersion = versions[0];
   const targetVersion = options.retry
     ? currentVersion
-    : resolveNextVersion(currentVersion, options.bump);
+    : resolveNextVersion(currentVersion, options.bump, options.beta);
+  if (options.beta && !parseReleaseVersion(targetVersion).beta)
+    throw new Error('--beta requires a Beta version.');
   const tag = `v${targetVersion}`;
   let releaseNotes = options.notesFile
     ? normalizeReleaseNotes(await readFile(options.notesFile, 'utf8'))
