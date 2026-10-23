@@ -59,6 +59,12 @@ const englishMessages = {
   'PlantUML Server 返回的 SVG 超过 5 MB。': 'The PlantUML server returned an SVG larger than 5 MB.',
   'PlantUML Server 没有返回内容。': 'The PlantUML Server returned no content.',
   'PlantUML Server 返回 HTTP {status}。': 'The PlantUML Server returned HTTP {status}.',
+  'PlantUML Server 暂时无法连接，请检查网络后重试。':
+    'The PlantUML Server could not be reached. Check your network and try again.',
+  'PlantUML Server 暂时不可用（HTTP {status}），请稍后重试。':
+    'The PlantUML Server is temporarily unavailable (HTTP {status}). Try again later.',
+  'PlantUML Server 拒绝了请求（HTTP {status}），请检查图表语法或服务器地址。':
+    'The PlantUML Server rejected the request (HTTP {status}). Check the diagram syntax or server URL.',
   'PlantUML Server 没有返回有效的 SVG。': 'The PlantUML server did not return a valid SVG.',
   '定位 Markdown': 'Locate Markdown',
   在访达中显示: 'Reveal in Finder',
@@ -155,6 +161,9 @@ const englishMessages = {
   全屏查看图表: 'View diagram full screen',
   '渲染任务占位已不存在。': 'The rendering placeholder no longer exists.',
   '渲染超时，请重试。': 'Rendering timed out. Try again.',
+  '文档已更新，但部分图表暂时无法加载。':
+    'The document was updated, but some diagrams could not be loaded.',
+  '部分图表暂时无法加载：{detail}': 'Some diagrams could not be loaded: {detail}',
   '静态文档快照不执行渲染任务。': 'Static document snapshots do not run rendering tasks.',
   '完成文档快照不可用。': 'The finished-document snapshot is unavailable.',
   无法呈现信息图: 'Unable to display infographic',

@@ -4,7 +4,33 @@ import { createTranslator, type Translator } from '../localization';
 
 const maximumPlantUmlSourceLength = 500_000;
 const maximumPlantUmlSvgBytes = 5 * 1024 * 1024;
+const plantUmlRetryDelays = [250, 750] as const;
 const validationSource = '@startuml\nAlice -> Bob: Fuxian\n@enduml';
+
+const retryablePlantUmlStatuses = new Set([408, 425, 429]);
+
+const isRetryablePlantUmlStatus = (status: number): boolean =>
+  retryablePlantUmlStatuses.has(status) || status >= 500;
+
+const createAbortError = (): DOMException =>
+  new DOMException('PlantUML 渲染请求已取消。', 'AbortError');
+
+const waitForRetry = (delay: number, signal: AbortSignal): Promise<void> => {
+  if (signal.aborted) return Promise.reject(createAbortError());
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, delay);
+    const abort = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      reject(createAbortError());
+    };
+    signal.addEventListener('abort', abort, { once: true });
+  });
+};
 
 export const createPlantUmlSvgUrl = (
   serverUrl: string,
@@ -58,14 +84,44 @@ export const fetchPlantUmlSvg = async (
   signal: AbortSignal,
   fetchImplementation: typeof fetch = fetch,
   t: Translator = createTranslator('zh-CN'),
+  retryDelays: readonly number[] = plantUmlRetryDelays,
 ): Promise<string> => {
-  const response = await fetchImplementation(createPlantUmlSvgUrl(serverUrl, source, t), {
-    headers: { Accept: 'image/svg+xml' },
-    redirect: 'error',
-    signal,
-  });
+  const url = createPlantUmlSvgUrl(serverUrl, source, t);
+  let response: Response | undefined;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+    try {
+      response = await fetchImplementation(url, {
+        headers: { Accept: 'image/svg+xml' },
+        redirect: 'error',
+        signal,
+      });
+      if (!isRetryablePlantUmlStatus(response.status) || attempt === retryDelays.length) break;
+    } catch (error) {
+      if (signal.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
+      lastError = error;
+      if (attempt === retryDelays.length) {
+        throw new Error(t('PlantUML Server 暂时无法连接，请检查网络后重试。'), { cause: error });
+      }
+    }
+
+    await waitForRetry(retryDelays[attempt] ?? 0, signal);
+  }
+
+  if (!response) {
+    throw new Error(t('PlantUML Server 暂时无法连接，请检查网络后重试。'), { cause: lastError });
+  }
   if (!response.ok) {
-    throw new Error(t('PlantUML Server 返回 HTTP {status}。', { status: response.status }));
+    throw new Error(
+      isRetryablePlantUmlStatus(response.status)
+        ? t('PlantUML Server 暂时不可用（HTTP {status}），请稍后重试。', {
+            status: response.status,
+          })
+        : t('PlantUML Server 拒绝了请求（HTTP {status}），请检查图表语法或服务器地址。', {
+            status: response.status,
+          }),
+    );
   }
 
   const svg = await readLimitedText(response, t);

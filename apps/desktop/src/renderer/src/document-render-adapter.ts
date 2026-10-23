@@ -42,23 +42,97 @@ const throwIfAborted = (signal: AbortSignal): void => {
 
 let plantUmlRequestId = 0;
 
-export const createDesktopPlantUmlRenderer =
-  (
-    bridge: Pick<FuxianDesktopBridge, 'cancelPlantUmlRender' | 'renderPlantUml'>,
-  ): PlantUmlRenderer =>
-  async (source, serverUrl, signal) => {
-    throwIfAborted(signal);
-    const requestId = `plantuml-${Date.now()}-${++plantUmlRequestId}`;
-    const cancel = (): void => bridge.cancelPlantUmlRender(requestId);
-    signal.addEventListener('abort', cancel, { once: true });
-    try {
-      const result = await bridge.renderPlantUml({ requestId, serverUrl, source });
-      throwIfAborted(signal);
-      return result.svg;
-    } finally {
-      signal.removeEventListener('abort', cancel);
+interface QueuedPlantUmlRender {
+  reject(reason: unknown): void;
+  resolve(svg: string): void;
+  serverUrl: string;
+  signal: AbortSignal;
+  source: string;
+  queuedAbort: (() => void) | undefined;
+}
+
+const plantUmlMaximumConcurrentRequests = 2;
+
+const createPlantUmlAbortError = (): DOMException =>
+  new DOMException('渲染任务已取消。', 'AbortError');
+
+export const createDesktopPlantUmlRenderer = (
+  bridge: Pick<FuxianDesktopBridge, 'cancelPlantUmlRender' | 'renderPlantUml'>,
+  maximumConcurrentRequests = plantUmlMaximumConcurrentRequests,
+): PlantUmlRenderer => {
+  const queue: QueuedPlantUmlRender[] = [];
+  let activeRequests = 0;
+  const concurrency = Math.max(1, Math.floor(maximumConcurrentRequests));
+
+  const runQueuedRenders = (): void => {
+    while (activeRequests < concurrency && queue.length > 0) {
+      const job = queue.shift();
+      if (!job) return;
+      if (job.queuedAbort) {
+        job.signal.removeEventListener('abort', job.queuedAbort);
+        job.queuedAbort = undefined;
+      }
+      if (job.signal.aborted) {
+        job.reject(createPlantUmlAbortError());
+        continue;
+      }
+
+      activeRequests += 1;
+      const requestId = `plantuml-${Date.now()}-${++plantUmlRequestId}`;
+      let settled = false;
+      const finish = (callback: () => void): void => {
+        if (settled) return;
+        settled = true;
+        job.signal.removeEventListener('abort', handleAbort);
+        activeRequests -= 1;
+        callback();
+        runQueuedRenders();
+      };
+      const handleAbort = (): void => {
+        try {
+          bridge.cancelPlantUmlRender(requestId);
+        } finally {
+          finish(() => job.reject(createPlantUmlAbortError()));
+        }
+      };
+      job.signal.addEventListener('abort', handleAbort, { once: true });
+      if (job.signal.aborted) {
+        handleAbort();
+        continue;
+      }
+
+      void bridge.renderPlantUml({ requestId, serverUrl: job.serverUrl, source: job.source }).then(
+        (result) => finish(() => job.resolve(result.svg)),
+        (error: unknown) => finish(() => job.reject(error)),
+      );
     }
   };
+
+  return (source, serverUrl, signal) => {
+    throwIfAborted(signal);
+    return new Promise<string>((resolve, reject) => {
+      const job: QueuedPlantUmlRender = {
+        queuedAbort: undefined,
+        reject,
+        resolve,
+        serverUrl,
+        signal,
+        source,
+      };
+      const handleQueuedAbort = (): void => {
+        const index = queue.indexOf(job);
+        if (index < 0) return;
+        queue.splice(index, 1);
+        signal.removeEventListener('abort', handleQueuedAbort);
+        reject(createPlantUmlAbortError());
+      };
+      job.queuedAbort = handleQueuedAbort;
+      signal.addEventListener('abort', handleQueuedAbort, { once: true });
+      queue.push(job);
+      runQueuedRenders();
+    });
+  };
+};
 
 export const createDocumentRenderAdapter = (
   initialPlantUmlServerUrl: string,

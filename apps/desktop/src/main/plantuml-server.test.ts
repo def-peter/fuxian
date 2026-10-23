@@ -1,5 +1,5 @@
 import { createServer, type RequestListener, type Server } from 'node:http';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPlantUmlSvgUrl, fetchPlantUmlSvg, validatePlantUmlServer } from './plantuml-server';
 
 const servers: Server[] = [];
@@ -76,6 +76,48 @@ describe('PlantUML server client', () => {
     await expect(validatePlantUmlServer('not-a-url', new AbortController().signal)).rejects.toThrow(
       '有效的 HTTP',
     );
+  });
+
+  it('retries transient network failures and HTTP failures', async () => {
+    const svgResponse = (): Response =>
+      new Response('<svg xmlns="http://www.w3.org/2000/svg" />', {
+        headers: { 'Content-Type': 'image/svg+xml' },
+      });
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response('unavailable', { status: 503 }))
+      .mockResolvedValueOnce(svgResponse());
+
+    await expect(
+      fetchPlantUmlSvg(
+        'https://example.test/plantuml',
+        '@startuml\nAlice -> Bob\n@enduml',
+        new AbortController().signal,
+        fetchImplementation,
+        undefined,
+        [0, 0],
+      ),
+    ).resolves.toContain('<svg');
+    expect(fetchImplementation).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry non-transient HTTP failures', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('bad request', { status: 400 }));
+
+    await expect(
+      fetchPlantUmlSvg(
+        'https://example.test/plantuml',
+        '@startuml\nAlice -> Bob\n@enduml',
+        new AbortController().signal,
+        fetchImplementation,
+        undefined,
+        [0, 0],
+      ),
+    ).rejects.toThrow('HTTP 400');
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
   it('cancels a request that has not completed', async () => {

@@ -6,6 +6,7 @@ export type ExternalRevisionStatus =
   | { state: 'new-content' }
   | { state: 'updating' }
   | { state: 'updated'; time: string }
+  | { detail: string; state: 'updated-with-errors'; time: string }
   | { detail: string; state: 'failed' };
 
 export interface AppendFollowState {

@@ -111,4 +111,34 @@ describe('document render adapter', () => {
     finishRequest?.({ svg: '<svg />' });
     await expect(rendering).rejects.toMatchObject({ name: 'AbortError' });
   });
+
+  it('limits concurrent PlantUML requests', async () => {
+    let resolveFirst: ((value: { svg: string }) => void) | undefined;
+    let resolveSecond: ((value: { svg: string }) => void) | undefined;
+    const bridge = {
+      cancelPlantUmlRender: vi.fn(),
+      renderPlantUml: vi.fn((request: PlantUmlRenderRequest) => {
+        void request;
+        return new Promise<{ svg: string }>((resolve) => {
+          if (bridge.renderPlantUml.mock.calls.length === 1) resolveFirst = resolve;
+          else resolveSecond = resolve;
+        });
+      }),
+    };
+    const renderer = createDesktopPlantUmlRenderer(bridge, 1);
+    const signal = new AbortController().signal;
+    const first = renderer('first', 'https://server.test/plantuml', signal);
+    const second = renderer('second', 'https://server.test/plantuml', signal);
+
+    await Promise.resolve();
+    expect(bridge.renderPlantUml).toHaveBeenCalledTimes(1);
+    resolveFirst?.({ svg: '<svg>first</svg>' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(bridge.renderPlantUml).toHaveBeenCalledTimes(2);
+    resolveSecond?.({ svg: '<svg>second</svg>' });
+
+    await expect(first).resolves.toBe('<svg>first</svg>');
+    await expect(second).resolves.toBe('<svg>second</svg>');
+  });
 });

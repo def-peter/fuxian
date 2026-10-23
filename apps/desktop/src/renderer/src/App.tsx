@@ -1032,7 +1032,8 @@ export function App(): React.JSX.Element {
     const timer = window.setTimeout(() => {
       updatedStatusTimers.current.delete(path);
       setExternalRevisionStatuses((current) => {
-        if (current.get(path)?.state !== 'updated') return current;
+        const state = current.get(path)?.state;
+        if (state !== 'updated' && state !== 'updated-with-errors') return current;
         const next = new Map(current);
         next.delete(path);
         return next;
@@ -1110,7 +1111,6 @@ export function App(): React.JSX.Element {
         const path = frame.sessionPath;
         if (pendingRevisionRefs.current.get(path)?.id !== frame.id) return;
         const failure = getRenderRevisionFailure(snapshot, t);
-        if (failure) throw new Error(failure);
 
         const documentPath = frame.document.document.path;
         const active = sessionRef.current.activeDocumentPath === path;
@@ -1162,15 +1162,19 @@ export function App(): React.JSX.Element {
           hour12: false,
           minute: '2-digit',
         }).format(new Date());
-        const status: ExternalRevisionStatus =
-          frame.followBehavior === 'notify' ? { state: 'new-content' } : { state: 'updated', time };
+        const status: ExternalRevisionStatus = failure
+          ? { detail: failure, state: 'updated-with-errors', time }
+          : frame.followBehavior === 'notify'
+            ? { state: 'new-content' }
+            : { state: 'updated', time };
         setExternalRevisionStatuses((current) => {
           const next = new Map(current);
           next.delete(path);
           next.set(documentPath, status);
           return next;
         });
-        if (status.state === 'updated') scheduleUpdatedStatusClear(documentPath);
+        if (status.state === 'updated' || status.state === 'updated-with-errors')
+          scheduleUpdatedStatusClear(documentPath);
 
         if (active && oldVisibleFrameId && oldVisibleFrameId !== frame.id) {
           frameControllers.current.get(oldVisibleFrameId)?.destroy();
@@ -2230,6 +2234,42 @@ export function App(): React.JSX.Element {
                         <CheckCircle2 aria-hidden="true" className="size-3.5 text-success" />
                         {t('已更新 · {time}', { time: externalRevisionStatus.time })}
                       </span>
+                    ) : null}
+                    {!sourceEdit && externalRevisionStatus.state === 'updated-with-errors' ? (
+                      <div
+                        aria-live="polite"
+                        className="ml-2 flex shrink-0 items-center gap-1 text-xs text-warning"
+                      >
+                        <AlertCircle aria-hidden="true" className="size-3.5" />
+                        <span>{t('文档已更新，但部分图表暂时无法加载。')}</span>
+                        <Button
+                          aria-label={t('重试文档更新')}
+                          onClick={() => void retryExternalRevision()}
+                          size="icon-xs"
+                          variant="ghost"
+                        >
+                          <RefreshCw aria-hidden="true" data-icon="inline-start" />
+                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="xs" variant="ghost">
+                              {t('详情')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-80">
+                            <PopoverHeader>
+                              <PopoverTitle>
+                                {t('文档已更新，但部分图表暂时无法加载。')}
+                              </PopoverTitle>
+                              <PopoverDescription className="break-words">
+                                {t('部分图表暂时无法加载：{detail}', {
+                                  detail: externalRevisionStatus.detail,
+                                })}
+                              </PopoverDescription>
+                            </PopoverHeader>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     ) : null}
                     {!sourceEdit && externalRevisionStatus.state === 'new-content' ? (
                       <Button
