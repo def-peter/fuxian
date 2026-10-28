@@ -347,41 +347,61 @@ test('removes missing open and recent documents while restoring a session', asyn
   }
 });
 
-test('removes a source document from the session when it is deleted on disk', async () => {
-  const temporaryDirectory = await realpath(
-    await mkdtemp(join(tmpdir(), 'fuxian-e2e-deleted-source-')),
-  );
-  const sessionFilePath = join(temporaryDirectory, 'document-session.json');
-  const deletedPath = join(temporaryDirectory, 'deleted.md');
-  await writeFile(deletedPath, '# Temporary document\n\nThis file will be deleted.');
-  const electronApp = await launchDesktop(deletedPath, { sessionFilePath });
+for (const beforeRegistration of [false, true]) {
+  test(`removes a source document from the session when it is deleted ${beforeRegistration ? 'before watch registration' : 'on disk'}`, async () => {
+    const temporaryDirectory = await realpath(
+      await mkdtemp(join(tmpdir(), 'fuxian-e2e-deleted-source-')),
+    );
+    const sessionFilePath = join(temporaryDirectory, 'document-session.json');
+    const deletedPath = join(temporaryDirectory, 'deleted.md');
+    await writeFile(deletedPath, '# Temporary document\n\nThis file will be deleted.');
+    const electronApp = await launchDesktop(deletedPath, { sessionFilePath });
 
-  try {
-    const window = await electronApp.firstWindow();
-    await window.getByRole('button', { name: '打开 Markdown' }).click();
-    const session = window.getByRole('complementary', { name: '文档会话' });
-    await expect(session.getByRole('button', { exact: true, name: 'deleted.md' })).toBeVisible();
+    try {
+      const window = await electronApp.firstWindow();
+      await window.getByRole('button', { name: '打开 Markdown' }).click();
+      const session = window.getByRole('complementary', { name: '文档会话' });
+      await expect(session.getByRole('button', { exact: true, name: 'deleted.md' })).toBeVisible();
 
-    await rm(deletedPath);
+      if (beforeRegistration) {
+        await expect(
+          window.frameLocator('iframe').getByRole('heading', { name: 'Temporary document' }),
+        ).toBeVisible();
+        // Exercise the public registration API with an already-authorized path,
+        // but no active watch that could observe the deletion for us.
+        await window.evaluate(() => window.fuxian.configureOpenDocumentWatches({ documents: [] }));
+      }
+      await rm(deletedPath);
+      if (beforeRegistration) {
+        await window.evaluate(
+          (path) =>
+            window.fuxian.configureOpenDocumentWatches({
+              activePath: path,
+              documents: [{ path, resourceUrls: [] }],
+            }),
+          deletedPath,
+        );
+      }
 
-    await expect(session.getByText('deleted.md', { exact: true })).toHaveCount(0, {
-      timeout: 10_000,
-    });
-    await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
-    await expect
-      .poll(async () => {
-        const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
-          openDocuments: Array<{ path: string }>;
-          recentDocuments: Array<{ path: string }>;
-        };
-        return [persisted.openDocuments.length, persisted.recentDocuments.length];
-      })
-      .toEqual([0, 0]);
-  } finally {
-    await electronApp.close();
-    await rm(temporaryDirectory, { force: true, recursive: true });
-  }
-});
+      await expect(session.getByText('deleted.md', { exact: true })).toHaveCount(0, {
+        timeout: 10_000,
+      });
+      await expect(window.getByRole('heading', { name: '浮现' })).toBeVisible();
+      await expect
+        .poll(async () => {
+          const persisted = JSON.parse(await readFile(sessionFilePath, 'utf8')) as {
+            openDocuments: Array<{ path: string }>;
+            recentDocuments: Array<{ path: string }>;
+          };
+          return [persisted.openDocuments.length, persisted.recentDocuments.length];
+        })
+        .toEqual([0, 0]);
+    } finally {
+      await electronApp.close();
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+}
 
 test('removes old paths when a source file or its directory is renamed', async () => {
   const temporaryDirectory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-e2e-renamed-')));

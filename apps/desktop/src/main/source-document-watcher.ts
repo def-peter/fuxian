@@ -7,18 +7,22 @@ export interface SourceDocumentWatcherOptions {
   pollingMilliseconds?: number;
 }
 
-const fingerprintPaths = async (paths: readonly string[]): Promise<string> => {
+const fingerprintPaths = async (
+  paths: readonly string[],
+): Promise<{ fingerprint: string; hasUnavailablePaths: boolean }> => {
+  let hasUnavailablePaths = false;
   const fingerprints = await Promise.all(
     paths.map(async (path) => {
       try {
         const details = await stat(path, { bigint: true });
         return `${path}:${details.mtimeNs}:${details.size}`;
       } catch {
+        hasUnavailablePaths = true;
         return `${path}:missing`;
       }
     }),
   );
-  return fingerprints.join('|');
+  return { fingerprint: fingerprints.join('|'), hasUnavailablePaths };
 };
 
 export class SourceDocumentWatcher {
@@ -45,9 +49,13 @@ export class SourceDocumentWatcher {
     this.#paths = [...new Set(paths.map((path) => resolve(path)))];
     const generation = this.#generation;
     this.#startWatching();
-    void fingerprintPaths(this.#paths).then((fingerprint) => {
+    void fingerprintPaths(this.#paths).then(({ fingerprint, hasUnavailablePaths }) => {
       if (generation !== this.#generation) return;
-      this.#baselineFingerprint = fingerprint;
+      if (hasUnavailablePaths) {
+        this.#scheduleProbe();
+      } else {
+        this.#baselineFingerprint = fingerprint;
+      }
     });
     if (this.#paths.length > 0) {
       this.#pollTimer = setInterval(() => void this.#poll(), this.#pollingMilliseconds);
@@ -102,7 +110,7 @@ export class SourceDocumentWatcher {
     this.#polling = true;
     const generation = this.#generation;
     try {
-      const fingerprint = await fingerprintPaths(this.#paths);
+      const { fingerprint } = await fingerprintPaths(this.#paths);
       if (generation !== this.#generation || this.#timer) return;
       if (fingerprint !== this.#baselineFingerprint) this.#scheduleProbe();
     } finally {
@@ -119,7 +127,7 @@ export class SourceDocumentWatcher {
 
   async #probe(generation: number): Promise<void> {
     if (generation !== this.#generation || this.#paths.length === 0) return;
-    const fingerprint = await fingerprintPaths(this.#paths);
+    const { fingerprint } = await fingerprintPaths(this.#paths);
     if (generation !== this.#generation) return;
     if (fingerprint !== this.#candidateFingerprint) {
       this.#candidateFingerprint = fingerprint;

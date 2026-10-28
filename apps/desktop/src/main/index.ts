@@ -720,8 +720,13 @@ const registerDesktopHandlers = (
           let canonicalPath: string;
           try {
             canonicalPath = await realpath(document.path);
-          } catch {
-            throw new TypeError('An open source document is unavailable.');
+          } catch (error) {
+            if (!isMissingPathError(error)) {
+              throw new TypeError('An open source document is unavailable.', { cause: error });
+            }
+            // The path was authorized when opened. A deletion during registration
+            // must reach the watcher instead of leaving the session unwatched.
+            canonicalPath = document.path;
           }
           if (canonicalPath !== document.path) {
             throw new TypeError('Open source document paths must be canonical.');
