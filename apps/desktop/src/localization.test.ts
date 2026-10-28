@@ -43,6 +43,15 @@ describe('application localization', () => {
     );
   });
 
+  it('explains the consequence of not saving in plain Chinese and English', () => {
+    expect(translate('zh-CN', '如果不保存，当前修改将会丢失。')).toBe(
+      '如果不保存，当前修改将会丢失。',
+    );
+    expect(translate('en-US', '如果不保存，当前修改将会丢失。')).toBe(
+      'Your changes will be lost if you don’t save.',
+    );
+  });
+
   it('does not bypass the catalog in high-risk accessibility text', async () => {
     const files = await listSourceFiles(join(sourceDirectory, 'renderer/src'));
     const forbiddenPatterns = [

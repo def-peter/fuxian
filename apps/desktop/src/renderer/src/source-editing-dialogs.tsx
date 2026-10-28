@@ -12,7 +12,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { useLocalization } from '@/localization-context';
 
 interface UnsavedChangesDialogProps {
-  actionDescription: string;
   error?: string;
   name: string;
   onCancel(): void;
@@ -23,7 +22,6 @@ interface UnsavedChangesDialogProps {
 }
 
 export function UnsavedChangesDialog({
-  actionDescription,
   error,
   name,
   onCancel,
@@ -38,11 +36,7 @@ export function UnsavedChangesDialog({
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('保存对“{name}”的修改？', { name })}</DialogTitle>
-          <DialogDescription>
-            {t('{action}前需要处理尚未保存的 Markdown 源码。恢复草稿不能代替正式保存。', {
-              action: actionDescription,
-            })}
-          </DialogDescription>
+          <DialogDescription>{t('如果不保存，当前修改将会丢失。')}</DialogDescription>
         </DialogHeader>
         {error ? (
           <p aria-live="assertive" className="text-sm text-destructive">
@@ -50,10 +44,10 @@ export function UnsavedChangesDialog({
           </p>
         ) : null}
         <DialogFooter>
-          <Button disabled={saving} onClick={onCancel} variant="outline">
+          <Button disabled={saving} onClick={onCancel} variant="outlinePanel">
             {t('取消')}
           </Button>
-          <Button disabled={saving} onClick={onDiscard} variant="secondary">
+          <Button disabled={saving} onClick={onDiscard} variant="outlinePanel">
             {t('不保存')}
           </Button>
           <Button disabled={saving} onClick={onSave}>
@@ -104,11 +98,11 @@ export function ExternalConflictDialog({
           </p>
         ) : null}
         <DialogFooter className="sm:justify-between">
-          <Button disabled={saving} onClick={onAdoptDisk} variant="outline">
+          <Button disabled={saving} onClick={onAdoptDisk} variant="outlinePanel">
             {t('采用磁盘版本')}
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button disabled={saving} onClick={onSaveAs} variant="secondary">
+            <Button disabled={saving} onClick={onSaveAs} variant="outlinePanel">
               {t('另存为')}
             </Button>
             <Button disabled={saving} onClick={onKeepLocal}>

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   JsonFileSourceRecoveryPersistence,
   MemorySourceRecoveryPersistence,
+  isSourceRecoveryDraft,
 } from './source-recovery-persistence';
 
 const temporaryDirectories: string[] = [];
@@ -25,6 +26,16 @@ afterEach(async () => {
 });
 
 describe('source recovery persistence', () => {
+  it('retains untitled recovery identities without inventing a saved baseline', async () => {
+    const path = 'untitled:33edcdd0-e014-4f6c-b130-589d6173ea01';
+    const draft = { ...draftFixture(path), baselineSource: '', name: '未命名' };
+    const persistence = new MemorySourceRecoveryPersistence();
+    await persistence.save(draft);
+    expect(await persistence.load()).toEqual([draft]);
+    expect(isSourceRecoveryDraft({ ...draft, baselineSource: '# Not a saved file' })).toBe(false);
+    expect(isSourceRecoveryDraft({ ...draft, path: 'untitled:../../arbitrary.md' })).toBe(false);
+  });
+
   it('keeps memory snapshots isolated and replaces drafts by path', async () => {
     const persistence = new MemorySourceRecoveryPersistence();
     const draft = draftFixture();

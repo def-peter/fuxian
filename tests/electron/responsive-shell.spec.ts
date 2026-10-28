@@ -84,9 +84,10 @@ test('adapts the reader shell without losing independent region preferences', as
     const documentSession = window.getByRole('complementary', { name: '文档会话' });
     await expect(documentSession).toBeVisible();
     const desktopHeaderActions = documentSession.locator('header').getByRole('button');
-    await expect(desktopHeaderActions).toHaveCount(2);
-    await expect(desktopHeaderActions.nth(0)).toHaveAccessibleName('打开文档');
-    await expect(desktopHeaderActions.nth(1)).toHaveAccessibleName('收起文档会话');
+    await expect(desktopHeaderActions).toHaveCount(3);
+    await expect(desktopHeaderActions.nth(0)).toHaveAccessibleName('新建 Markdown');
+    await expect(desktopHeaderActions.nth(1)).toHaveAccessibleName('打开文档');
+    await expect(desktopHeaderActions.nth(2)).toHaveAccessibleName('收起文档会话');
     await expect(window.getByRole('complementary', { name: '大纲' })).toBeVisible();
     await expect(finishedDocument.getByRole('heading', { name: '响应式阅读器' })).toBeVisible();
 
@@ -135,9 +136,10 @@ test('adapts the reader shell without losing independent region preferences', as
       .getByRole('complementary', { name: '文档会话' });
     await expect(documentSessionDrawer).toBeVisible();
     const drawerHeaderActions = documentSessionDrawer.locator('header').getByRole('button');
-    await expect(drawerHeaderActions).toHaveCount(2);
-    await expect(drawerHeaderActions.nth(0)).toHaveAccessibleName('打开文档');
-    await expect(drawerHeaderActions.nth(1)).toHaveAccessibleName('收起文档会话');
+    await expect(drawerHeaderActions).toHaveCount(3);
+    await expect(drawerHeaderActions.nth(0)).toHaveAccessibleName('新建 Markdown');
+    await expect(drawerHeaderActions.nth(1)).toHaveAccessibleName('打开文档');
+    await expect(drawerHeaderActions.nth(2)).toHaveAccessibleName('收起文档会话');
     await expect(window.getByRole('dialog')).toHaveCSS('width', '320px');
     await window.getByRole('button', { name: '收起文档会话' }).click();
     await expect(window.getByRole('dialog')).toHaveCount(0);

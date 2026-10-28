@@ -9,6 +9,7 @@ import {
   beginReopenRecentDocument,
   activateDocument,
   addDocumentsToSession,
+  addUntitledDocument,
   closeDocument,
   createDocumentSession,
   createPersistedDocumentSession,
@@ -64,6 +65,37 @@ const openPaths = (session: ReturnType<typeof createDocumentSession>): string[] 
   );
 
 describe('document session', () => {
+  it('keeps untitled identities out of file persistence and recent history', () => {
+    const path = 'untitled:33edcdd0-e014-4f6c-b130-589d6173ea01';
+    const session = addUntitledDocument(createDocumentSession(), path, '未命名', 42);
+    expect(session.openDocuments[0]).toMatchObject({ path, status: 'untitled' });
+    expect(createPersistedDocumentSession(session)).toEqual({
+      openDocuments: [],
+      recentDocuments: [],
+      version: 1,
+    });
+    expect(closeDocument(session, path, 43)).toEqual(createDocumentSession());
+  });
+
+  it('replaces an untitled identity after save without duplicating an open destination', () => {
+    const path = 'untitled:33edcdd0-e014-4f6c-b130-589d6173ea01';
+    const source = finishedDocument('/docs/saved.md');
+    const session = addUntitledDocument(
+      addDocumentsToSession(createDocumentSession(), [source], 41),
+      path,
+      '未命名',
+      42,
+    );
+    const saved = applyFinishedDocumentRevision(session, path, source, {
+      headingOffset: 0,
+      relativeProgress: 0,
+    });
+    expect(openPaths(saved)).toEqual(['/docs/saved.md']);
+    expect(saved.activeDocumentPath).toBe('/docs/saved.md');
+    expect(saved.openDocuments[0]?.status).toBe('available');
+    expect(createPersistedDocumentSession(saved).openDocuments[0]?.path).toBe('/docs/saved.md');
+  });
+
   it('applies a finished external revision without changing document identity', () => {
     const original = addDocumentsToSession(
       createDocumentSession(),

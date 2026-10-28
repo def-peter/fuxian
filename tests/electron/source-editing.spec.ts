@@ -22,6 +22,7 @@ test('edits and explicitly saves Markdown before returning to the finished docum
       FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
       FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
       FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SAVE_SOURCE_DOCUMENT_AS: sourcePath,
       FUXIAN_E2E_SOURCE_DRAFTS_FILE: join(directory, 'source-recovery-drafts.json'),
       NODE_ENV: 'test',
     },
@@ -138,6 +139,7 @@ test('shows an explicitly saved revision with an inline diagram failure', async 
       FUXIAN_E2E_PREFERENCES_FILE: join(directory, 'preferences.json'),
       FUXIAN_E2E_SESSION_FILE: join(directory, 'session.json'),
       FUXIAN_E2E_SOURCE_DOCUMENT: sourcePath,
+      FUXIAN_E2E_SAVE_SOURCE_DOCUMENT_AS: sourcePath,
       FUXIAN_E2E_SOURCE_DRAFTS_FILE: join(directory, 'source-recovery-drafts.json'),
       NODE_ENV: 'test',
     },
@@ -427,13 +429,17 @@ test('guards application quit and exits only after the reader confirms', async (
     await page.keyboard.insertText('# Unsaved');
 
     await electronApp.evaluate(({ app }) => app.quit());
-    await expect(page.getByRole('dialog')).toContainText('退出浮现前');
+    await expect(page.getByRole('dialog')).toHaveAccessibleDescription(
+      '如果不保存，当前修改将会丢失。',
+    );
     await page.getByRole('button', { name: '取消', exact: true }).click();
     await expect(page.locator('[data-source-editor-region]')).toBeVisible();
     expect(exited).toBe(false);
 
     await electronApp.evaluate(({ app }) => app.quit());
-    await expect(page.getByRole('dialog')).toContainText('退出浮现前');
+    await expect(page.getByRole('dialog')).toHaveAccessibleDescription(
+      '如果不保存，当前修改将会丢失。',
+    );
     await Promise.all([
       exitPromise,
       page.getByRole('button', { name: '不保存', exact: true }).click(),

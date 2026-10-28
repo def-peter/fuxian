@@ -2,7 +2,11 @@ import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { saveExistingSourceDocument, saveSourceDocumentCopy } from './source-document-save';
+import {
+  saveExistingSourceDocument,
+  saveSourceDocumentCopy,
+  saveSourceDocumentToSelectedPath,
+} from './source-document-save';
 
 const temporaryDirectories: string[] = [];
 
@@ -11,6 +15,41 @@ afterEach(async () => {
 });
 
 describe('source document saving', () => {
+  it('saves an untitled document only to the explicitly chosen destination', async () => {
+    const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-save-')));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'new.md');
+    await expect(
+      saveSourceDocumentToSelectedPath(
+        {
+          path: 'untitled:33edcdd0-e014-4f6c-b130-589d6173ea01',
+          expectedSource: '',
+          source: '# New',
+        },
+        path,
+      ),
+    ).resolves.toEqual({ path, status: 'saved' });
+    await expect(readFile(path, 'utf8')).resolves.toBe('# New');
+  });
+
+  it('retains baseline checks for the same destination and preserves originals when saving elsewhere', async () => {
+    const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-save-')));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'original.md');
+    const copyPath = join(directory, 'copy.md');
+    await writeFile(path, '# External', 'utf8');
+    const request = { path, expectedSource: '# Saved', source: '# Local' };
+    await expect(saveSourceDocumentToSelectedPath(request, path)).resolves.toMatchObject({
+      status: 'conflict',
+    });
+    await expect(saveSourceDocumentToSelectedPath(request, copyPath)).resolves.toEqual({
+      path: copyPath,
+      status: 'saved',
+    });
+    await expect(readFile(path, 'utf8')).resolves.toBe('# External');
+    await expect(readFile(copyPath, 'utf8')).resolves.toBe('# Local');
+  });
+
   it('atomically saves only when the expected source still matches disk', async () => {
     const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-source-save-')));
     temporaryDirectories.push(directory);

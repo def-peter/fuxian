@@ -456,22 +456,27 @@ test('a reader can open a source document from the start view', async () => {
     const slogan = window.getByText('让内容精彩浮现，让 Markdown 值得阅读。');
     const dropHint = window.getByText('或直接拖入文件');
     const openButton = window.getByRole('button', { name: '打开 Markdown' });
+    const startActions = openButton.locator('..');
+    const newButton = startActions.getByRole('button', { name: '新建 Markdown', exact: true });
     await expect(startTitle).toBeVisible();
     await expect(slogan).toBeVisible();
     await expect(dropHint).toBeVisible();
+    await expect(newButton).toBeVisible();
 
-    const [startViewBox, brandBox, sloganBox, openButtonBox, dropHintBox] = await Promise.all([
-      startView.boundingBox(),
-      startTitle.locator('..').boundingBox(),
-      slogan.boundingBox(),
-      openButton.boundingBox(),
-      dropHint.boundingBox(),
-    ]);
-    if (!startViewBox || !brandBox || !sloganBox || !openButtonBox || !dropHintBox) {
+    const [startViewBox, brandBox, sloganBox, actionsBox, openButtonBox, dropHintBox] =
+      await Promise.all([
+        startView.boundingBox(),
+        startTitle.locator('..').boundingBox(),
+        slogan.boundingBox(),
+        startActions.boundingBox(),
+        openButton.boundingBox(),
+        dropHint.boundingBox(),
+      ]);
+    if (!startViewBox || !brandBox || !sloganBox || !actionsBox || !openButtonBox || !dropHintBox) {
       throw new Error('The start view was not measurable.');
     }
     const startViewCenter = startViewBox.x + startViewBox.width / 2;
-    for (const elementBox of [brandBox, sloganBox, openButtonBox, dropHintBox]) {
+    for (const elementBox of [brandBox, sloganBox, actionsBox, dropHintBox]) {
       expect(elementBox.x + elementBox.width / 2).toBeCloseTo(startViewCenter, 0);
     }
     expect(openButtonBox.y - (sloganBox.y + sloganBox.height)).toBeGreaterThanOrEqual(35);

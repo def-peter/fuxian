@@ -40,6 +40,53 @@ const closeAndRemove = async (app: ElectronApplication, directory: string): Prom
   await rm(directory, { force: true, recursive: true });
 };
 
+for (const copy of [
+  {
+    locale: 'zh-CN',
+    newDocument: '新建 Markdown',
+    readingMode: '进入阅读模式',
+    title: '保存对“未命名”的修改？',
+    description: '如果不保存，当前修改将会丢失。',
+    cancel: '取消',
+    discard: '不保存',
+    save: '保存',
+  },
+  {
+    locale: 'en-US',
+    newDocument: 'New Markdown',
+    readingMode: 'Enter reading mode',
+    title: 'Save changes to “Untitled”?',
+    description: 'Your changes will be lost if you don’t save.',
+    cancel: 'Cancel',
+    discard: 'Don’t Save',
+    save: 'Save',
+  },
+]) {
+  test(`explains unsaved changes without technical jargon in ${copy.locale}`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-unsaved-copy-'));
+    const app = await launchDesktop(directory, copy.locale);
+    try {
+      const page = await app.firstWindow();
+      await page.getByRole('main').getByRole('button', { name: copy.newDocument }).click();
+      await expect(page.locator('.cm-content')).toBeFocused();
+      await page.keyboard.insertText('# Unsaved changes');
+      await page.getByRole('button', { name: copy.readingMode }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toHaveAccessibleName(copy.title);
+      await expect(dialog).toHaveAccessibleDescription(copy.description);
+      for (const name of [copy.cancel, copy.discard, copy.save]) {
+        await expect(dialog.getByRole('button', { name, exact: true })).toBeVisible();
+      }
+      await dialog.screenshot({ path: test.info().outputPath(`unsaved-copy-${copy.locale}.png`) });
+      await dialog.getByRole('button', { name: copy.cancel, exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(page.locator('.cm-content')).toContainText('# Unsaved changes');
+    } finally {
+      await closeAndRemove(app, directory);
+    }
+  });
+}
+
 test('follows any Chinese system locale by default', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'fuxian-e2e-localization-zh-'));
   const app = await launchDesktop(directory, 'zh-Hant-TW');

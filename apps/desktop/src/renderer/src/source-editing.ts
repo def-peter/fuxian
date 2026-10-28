@@ -55,6 +55,20 @@ export const createSourceEditBuffer = (
   };
 };
 
+export const createUntitledSourceEditBuffer = (
+  path: string,
+  name: string,
+  draft?: SourceRecoveryDraft,
+): SourceEditBuffer => ({
+  baselineSource: '',
+  name,
+  path,
+  recovered: Boolean(draft),
+  selection: clampSelection(draft?.selection ?? { anchor: 0, head: 0 }, draft?.source ?? ''),
+  source: draft?.source ?? '',
+  status: 'editing',
+});
+
 export const isSourceEditDirty = (buffer: SourceEditBuffer | undefined): boolean =>
   Boolean(buffer && buffer.source !== buffer.baselineSource);
 

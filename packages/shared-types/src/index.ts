@@ -8,6 +8,7 @@ export const desktopIpcChannels = {
   appCloseGuardReady: 'fuxian:app:close-guard-ready',
   appCloseRequested: 'fuxian:app:close-requested',
   activeDocumentCloseRequested: 'fuxian:document-session:close-active',
+  newDocumentRequested: 'fuxian:document-session:new',
   appUpdateAcknowledgeReminder: 'fuxian:app-update:acknowledge-reminder',
   appUpdateCancelDownload: 'fuxian:app-update:cancel-download',
   appUpdateCheck: 'fuxian:app-update:check',
@@ -383,6 +384,10 @@ export interface SourceDocumentData {
   source: string;
 }
 
+// Reserved session identities are never filesystem paths or resource grants.
+export const isUntitledDocumentPath = (path: string): boolean =>
+  /^untitled:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(path);
+
 export interface SourceEditorSelection {
   anchor: number;
   head: number;
@@ -409,6 +414,7 @@ export interface SaveSourceDocumentRequest {
 }
 
 export type SaveSourceDocumentResult =
+  | { status: 'cancelled' }
   | { document: SourceDocumentData; status: 'saved' }
   | { document: SourceDocumentData; status: 'conflict' }
   | { message: string; status: 'failed' };
@@ -623,6 +629,7 @@ export interface FuxianDesktopBridge {
   onExternalRevision(listener: (revision: ExternalRevisionEvent) => void): () => void;
   onAppCloseRequested(listener: (request: AppCloseRequest) => void): () => void;
   onActiveDocumentCloseRequested(listener: () => void): () => void;
+  onNewDocumentRequested(listener: () => void): () => void;
   onAppUpdateStatusChanged(listener: (status: AppUpdateStatus) => void): () => void;
   onPdfExportProgress(listener: (progress: PdfExportProgress) => void): () => void;
   onSourceDocumentOpenRequested(listener: (result: OpenSourceDocumentsResult) => void): () => void;

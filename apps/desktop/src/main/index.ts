@@ -1,6 +1,7 @@
 import {
   desktopIpcChannels,
   isSettingsSectionId,
+  isUntitledDocumentPath,
   normalizePlantUmlServerUrl,
   normalizeReaderPreferences,
   resolveUiLocale,
@@ -84,7 +85,7 @@ import {
   JsonFileSourceRecoveryPersistence,
   type SourceRecoveryPersistence,
 } from './source-recovery-persistence';
-import { saveExistingSourceDocument, saveSourceDocumentCopy } from './source-document-save';
+import { saveSourceDocumentToSelectedPath, saveSourceDocumentCopy } from './source-document-save';
 import {
   createMarkdownDefaultAppService,
   macDefaultApplicationHelperName,
@@ -106,6 +107,7 @@ const appIconPath = join(currentDirectory, '../../resources/icon.png');
 const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();
+let lastSourceSaveDirectory: string | undefined;
 let settingsWindow: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
 let allowMainWindowClose = false;
@@ -289,15 +291,17 @@ const chooseReplacementDocument = async (): Promise<string | undefined> => {
 const chooseSourceDocumentCopyPath = async (
   owner: BrowserWindow,
   suggestedName: string,
+  title = mainText('另存 Markdown'),
 ): Promise<string | undefined> => {
   const testDestination = process.env.FUXIAN_E2E_SAVE_SOURCE_DOCUMENT_AS;
   if (!app.isPackaged && process.env.NODE_ENV === 'test' && testDestination) {
     return testDestination;
   }
   const selection = await dialog.showSaveDialog(owner, {
-    title: mainText('另存 Markdown'),
+    title,
     defaultPath: suggestedName,
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
   });
   return selection.canceled ? undefined : selection.filePath;
 };
@@ -1190,30 +1194,39 @@ const registerDesktopHandlers = (
   ipcMain.handle(
     desktopIpcChannels.loadSourceRecoveryDrafts,
     async (): Promise<SourceRecoveryDraft[]> =>
-      (await sourceRecoveryPersistence.load()).filter((draft) =>
-        knownDocumentPaths.has(draft.path),
+      (await sourceRecoveryPersistence.load()).filter(
+        (draft) => knownDocumentPaths.has(draft.path) || isUntitledDocumentPath(draft.path),
       ),
   );
   ipcMain.handle(desktopIpcChannels.saveSourceRecoveryDraft, async (_event, value: unknown) => {
-    if (!isSourceRecoveryDraft(value) || !knownDocumentPaths.has(value.path)) {
+    if (
+      !isSourceRecoveryDraft(value) ||
+      (!knownDocumentPaths.has(value.path) &&
+        !(isUntitledDocumentPath(value.path) && value.baselineSource === ''))
+    ) {
       throw new TypeError('Invalid or unauthorized source recovery draft.');
     }
     await sourceRecoveryPersistence.save(value);
   });
   ipcMain.handle(desktopIpcChannels.deleteSourceRecoveryDraft, async (_event, path: unknown) => {
-    if (typeof path !== 'string' || !knownDocumentPaths.has(path)) {
+    if (
+      typeof path !== 'string' ||
+      (!knownDocumentPaths.has(path) && !isUntitledDocumentPath(path))
+    ) {
       throw new TypeError('Invalid or unauthorized source recovery draft path.');
     }
     await sourceRecoveryPersistence.remove(path);
   });
   ipcMain.handle(
     desktopIpcChannels.saveSourceDocument,
-    async (_event, value: unknown): Promise<SaveSourceDocumentResult> => {
+    async (event, value: unknown): Promise<SaveSourceDocumentResult> => {
       const request = value as Partial<SaveSourceDocumentRequest> | undefined;
+      const owner = BrowserWindow.fromWebContents(event.sender);
       if (
+        !owner ||
         !request ||
         typeof request.path !== 'string' ||
-        !knownDocumentPaths.has(request.path) ||
+        (!knownDocumentPaths.has(request.path) && !isUntitledDocumentPath(request.path)) ||
         typeof request.expectedSource !== 'string' ||
         request.expectedSource.length > 10_000_000 ||
         typeof request.source !== 'string' ||
@@ -1221,10 +1234,18 @@ const registerDesktopHandlers = (
       ) {
         return { message: mainText('保存请求无效或文档不属于当前会话。'), status: 'failed' };
       }
-      const result = await saveExistingSourceDocument(
-        request.path,
-        request.expectedSource,
-        request.source,
+      const defaultPath = isUntitledDocumentPath(request.path)
+        ? join(lastSourceSaveDirectory ?? app.getPath('documents'), `${mainText('未命名')}.md`)
+        : request.path;
+      const selectedPath = await chooseSourceDocumentCopyPath(
+        owner,
+        defaultPath,
+        mainText('保存 Markdown'),
+      );
+      if (!selectedPath) return { status: 'cancelled' };
+      const result = await saveSourceDocumentToSelectedPath(
+        request as SaveSourceDocumentRequest,
+        selectedPath,
         mainText,
       );
       if (result.status === 'failed') return result;
@@ -1234,6 +1255,7 @@ const registerDesktopHandlers = (
           ? { document: current.document, status: 'conflict' }
           : { message: current.message, status: 'failed' };
       }
+      lastSourceSaveDirectory = dirname(result.path);
       const saved = await readSourceDocument(result.path);
       return saved.status === 'available'
         ? { document: saved.document, status: 'saved' }
@@ -1587,6 +1609,14 @@ const createApplicationMenu = (): Menu => {
   const fileMenu: MenuItemConstructorOptions = {
     label: mainText('文件'),
     submenu: [
+      {
+        accelerator: 'CmdOrCtrl+N',
+        click: () => {
+          if (!mainWindow || mainWindow.isDestroyed()) return;
+          mainWindow.webContents.send(desktopIpcChannels.newDocumentRequested);
+        },
+        label: mainText('新建 Markdown'),
+      },
       {
         accelerator: 'CmdOrCtrl+O',
         click: openSourceDocumentsFromMenu,

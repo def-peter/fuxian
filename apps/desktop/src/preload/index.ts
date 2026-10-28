@@ -141,6 +141,11 @@ const bridge: FuxianDesktopBridge = Object.freeze({
     return () =>
       ipcRenderer.removeListener(desktopIpcChannels.activeDocumentCloseRequested, handleClose);
   },
+  onNewDocumentRequested: (listener: () => void): (() => void) => {
+    const handleNew = (): void => listener();
+    ipcRenderer.on(desktopIpcChannels.newDocumentRequested, handleNew);
+    return () => ipcRenderer.removeListener(desktopIpcChannels.newDocumentRequested, handleNew);
+  },
   onAppCloseRequested: (listener: (request: AppCloseRequest) => void): (() => void) => {
     const handleCloseRequested = (
       _event: Electron.IpcRendererEvent,

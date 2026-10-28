@@ -1,6 +1,10 @@
 import type { UiLocale } from '@fuxian/shared-types';
 
 const englishMessages = {
+  '新建 Markdown': 'New Markdown',
+  未命名: 'Untitled',
+  '未命名 {number}': 'Untitled {number}',
+  尚未选择保存位置: 'No save location chosen yet',
   更新通道: 'Update channel',
   稳定版: 'Stable',
   'Beta 内测版': 'Beta',
@@ -230,8 +234,7 @@ const englishMessages = {
   '{kind} 源码': '{kind} source',
   '{name} · {count} 个标题': '{name} · {count} headings',
   '{count} 页': '{count} pages',
-  '{action}前需要处理尚未保存的 Markdown 源码。恢复草稿不能代替正式保存。':
-    'Before you {action}, unsaved Markdown source must be handled. A recovery draft does not replace a saved document.',
+  '如果不保存，当前修改将会丢失。': 'Your changes will be lost if you don’t save.',
   一般用于打印与交付: 'Best for printing and delivery',
   上一个匹配项: 'Previous match',
   下一个匹配项: 'Next match',
@@ -519,8 +522,6 @@ const englishMessages = {
   统一宽度下显示正文与图表: 'Shows text and diagrams at one unified width',
   继续阅读: 'Continue reading',
   继续编辑: 'Continue editing',
-  '继续操作前需要处理尚未保存的 Markdown 源码。恢复草稿不能代替正式保存。':
-    'Unsaved Markdown source must be handled before continuing. A recovery draft does not replace a saved document.',
   复制: 'Copy',
   复制文件路径: 'Copy File Path',
   '复制 SVG': 'Copy SVG',

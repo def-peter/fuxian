@@ -7,6 +7,7 @@ import {
   completeSourceEditSave,
   createSourceEditBuffer,
   createSourceRecoveryDraft,
+  createUntitledSourceEditBuffer,
   isSourceEditDirty,
   keepLocalSourceEdit,
   receiveExternalSourceRevision,
@@ -20,6 +21,26 @@ const documentFixture = (source = '# Saved'): SourceDocumentData => ({
 });
 
 describe('source editing', () => {
+  it('starts an untitled document empty and recovers its source without a disk baseline', () => {
+    const path = 'untitled:33edcdd0-e014-4f6c-b130-589d6173ea01';
+    const buffer = createUntitledSourceEditBuffer(path, '未命名');
+    expect(buffer).toMatchObject({ baselineSource: '', source: '', status: 'editing' });
+    expect(isSourceEditDirty(buffer)).toBe(false);
+    expect(createSourceRecoveryDraft(buffer, 42)).toBeUndefined();
+
+    const changed = changeSourceEditBuffer(buffer, '# New', { anchor: 5, head: 5 });
+    const draft = createSourceRecoveryDraft(changed, 42)!;
+    expect(createUntitledSourceEditBuffer(path, buffer.name, draft)).toMatchObject({
+      baselineSource: '',
+      recovered: true,
+      selection: { anchor: 5, head: 5 },
+      source: '# New',
+    });
+    const saved = completeSourceEditSave(changed, documentFixture('# New'));
+    expect(saved.path).toBe('/documents/guide.md');
+    expect(isSourceEditDirty(saved)).toBe(false);
+  });
+
   it('tracks a dirty buffer independently from its saved baseline', () => {
     const changed = changeSourceEditBuffer(createSourceEditBuffer(documentFixture()), '# Local', {
       anchor: 7,

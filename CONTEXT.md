@@ -8,12 +8,16 @@ Fuxian turns Markdown source documents into polished, trustworthy documents for 
 One `.md` or `.markdown` file opened by the user, including references to local resources and renderable content. A source document remains independent of folders, projects, and other open documents.
 _Avoid_: Project, workspace, vault
 
+**Untitled document**:
+A newly created Markdown document that has no saved file or location yet. It opens directly in source editing mode, remains identifiable in the document session, and becomes a source document only after an explicit save. Unsaved content can have a recovery draft without becoming a local Markdown file.
+_Avoid_: Temporary file, autosaved file
+
 **Document session**:
-The ordered set of open source documents, the active document, and their restorable reading state in the single running application instance.
+The ordered set of open source and untitled documents, the active document, and their restorable state in the single running application instance.
 _Avoid_: Workspace, project, window
 
 **Open document**:
-A source document currently retained in the document session and available for immediate switching.
+A source or untitled document currently retained in the document session and available for immediate switching.
 _Avoid_: Tab, open file
 
 **Active document**:
@@ -37,7 +41,7 @@ The restorable location reached by the user within an open document's session st
 _Avoid_: Scroll position, progress percentage
 
 **Close document**:
-The explicit removal of an open document from the document session. It leaves a recent-document history entry but discards the document's reading, rendering, update, and editing state; quitting Fuxian is not equivalent to closing its open documents.
+The explicit removal of an open document from the document session. It leaves a recent-document history entry for a source document, but never for an untitled document, and discards the document's reading, rendering, update, and editing state; quitting Fuxian is not equivalent to closing its open documents.
 _Avoid_: Quit application, remove recent record
 
 **External revision**:
@@ -45,7 +49,7 @@ A stable change written to an open source document by another process while Fuxi
 _Avoid_: Reload
 
 **Source editing mode**:
-The active-document mode in which a reader works directly with Markdown source instead of the finished document. It remains scoped to one already-open source document and does not introduce projects, folders, or simultaneous preview.
+The active-document mode in which a reader works directly with Markdown source instead of the finished document. It remains scoped to one open source or untitled document and does not introduce projects, folders, or simultaneous preview.
 _Avoid_: Editor workspace, split preview
 
 **Edit buffer**:
@@ -81,7 +85,7 @@ Navigation generated from headings in the current source document. It navigates 
 _Avoid_: Directory, file directory, file tree
 
 **Start view**:
-The functional surface shown when no documents are open. It provides open and drop actions plus access to recent documents, without product-feature marketing.
+The functional surface shown when no documents are open. It provides new, open, and drop actions plus access to recent documents, without product-feature marketing.
 _Avoid_: Welcome page, landing page
 
 **Rendered visual block**:

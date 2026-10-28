@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Settings,
   X,
+  FilePlus2,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ interface DocumentSessionSidebarProps {
   onCollapse(): void;
   onCopyPath(path: string): void;
   onLocate(path: string): void;
+  onNew(): void;
   onOpen(): void;
   onOpenSettings(): void;
   onRemoveRecent(path: string): void;
@@ -73,6 +75,7 @@ interface DocumentItemProps {
   drag?: DocumentRowDragProps;
   dropPosition?: 'before' | 'after' | undefined;
   loading?: boolean;
+  untitled?: boolean;
   onActivate(): void;
   onAction?: () => void;
   onCopyPath(): void;
@@ -211,6 +214,7 @@ function DocumentItem({
   drag,
   dropPosition,
   loading,
+  untitled = false,
   onActivate,
   onAction,
   onCopyPath,
@@ -266,7 +270,7 @@ function DocumentItem({
             <TooltipTrigger asChild>
               <button
                 ref={triggerRef}
-                aria-haspopup="menu"
+                aria-haspopup={untitled ? undefined : 'menu'}
                 aria-label={`${document.name}${loading ? `, ${t('正在更新')}` : ''}`}
                 aria-current={active ? 'page' : undefined}
                 className="flex w-full min-w-0 max-w-full flex-1 items-center gap-2 overflow-hidden py-2 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -292,7 +296,7 @@ function DocumentItem({
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={30}>
-              {document.path}
+              {untitled ? t('尚未选择保存位置') : document.path}
             </TooltipContent>
           </Tooltip>
           {onAction && actionAccessibleLabel && actionLabel ? (
@@ -311,24 +315,26 @@ function DocumentItem({
           ) : null}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          triggerRef.current?.focus({ preventScroll: true });
-          setTooltipOpen(false);
-        }}
-      >
-        <ContextMenuGroup>
-          <ContextMenuItem onSelect={onCopyPath}>
-            <Copy aria-hidden="true" />
-            {t('复制文件路径')}
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={onReveal}>
-            <FolderSearch aria-hidden="true" />
-            {revealLabel}
-          </ContextMenuItem>
-        </ContextMenuGroup>
-      </ContextMenuContent>
+      {!untitled ? (
+        <ContextMenuContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus({ preventScroll: true });
+            setTooltipOpen(false);
+          }}
+        >
+          <ContextMenuGroup>
+            <ContextMenuItem disabled={untitled} onSelect={onCopyPath}>
+              <Copy aria-hidden="true" />
+              {t('复制文件路径')}
+            </ContextMenuItem>
+            <ContextMenuItem disabled={untitled} onSelect={onReveal}>
+              <FolderSearch aria-hidden="true" />
+              {revealLabel}
+            </ContextMenuItem>
+          </ContextMenuGroup>
+        </ContextMenuContent>
+      ) : null}
     </ContextMenu>
   );
 }
@@ -368,6 +374,7 @@ export function DocumentSessionSidebar({
   onCollapse,
   onCopyPath,
   onLocate,
+  onNew,
   onOpen,
   onOpenSettings,
   onRemoveRecent,
@@ -433,6 +440,22 @@ export function DocumentSessionSidebar({
           <FuxianMark className="size-7" label={t('浮现')} />
           <span className="truncate text-base font-semibold">{t('浮现')}</span>
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label={t('新建 Markdown')}
+              disabled={isOpening}
+              onClick={onNew}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <FilePlus2 aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent align="end" side="bottom" sideOffset={6}>
+            {t('新建 Markdown')} · {window.fuxian.platform === 'darwin' ? '⌘N' : 'Ctrl+N'}
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -534,6 +557,7 @@ export function DocumentSessionSidebar({
                         : document.path
                     }
                     loading={document.status === 'loading'}
+                    untitled={document.status === 'untitled'}
                     onActivate={() =>
                       onActivate(
                         document.status === 'available'

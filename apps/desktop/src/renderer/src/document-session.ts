@@ -40,8 +40,12 @@ export interface LoadingSessionDocument extends PersistedDocumentReference {
   status: 'loading';
 }
 
+export interface UntitledSessionDocument extends PersistedDocumentReference {
+  status: 'untitled';
+}
+
 export type OpenDocumentItem =
-  LoadingSessionDocument | SessionDocument | UnavailableSessionDocument;
+  LoadingSessionDocument | SessionDocument | UnavailableSessionDocument | UntitledSessionDocument;
 export type RecentDocument = PersistedRecentDocumentReference;
 
 export interface DocumentSession {
@@ -176,10 +180,37 @@ export const createRestoredDocumentSession = (
 export const createPersistedDocumentSession = (
   session: DocumentSession,
 ): PersistedDocumentSession => ({
-  ...(session.activeDocumentPath ? { activeDocumentPath: session.activeDocumentPath } : {}),
-  openDocuments: session.openDocuments.map(toReference),
+  ...(session.activeDocumentPath &&
+  session.openDocuments.some(
+    (item) => item.status !== 'untitled' && itemPath(item) === session.activeDocumentPath,
+  )
+    ? { activeDocumentPath: session.activeDocumentPath }
+    : {}),
+  openDocuments: session.openDocuments
+    .filter((item) => item.status !== 'untitled')
+    .map(toReference),
   recentDocuments: session.recentDocuments,
   version: 1,
+});
+
+export const addUntitledDocument = (
+  session: DocumentSession,
+  path: string,
+  name: string,
+  now: number,
+): DocumentSession => ({
+  ...session,
+  activeDocumentPath: path,
+  openDocuments: [
+    ...session.openDocuments.filter((item) => itemPath(item) !== path),
+    {
+      lastOpenedAt: now,
+      name,
+      path,
+      readingPosition: createInitialReadingPosition(),
+      status: 'untitled',
+    },
+  ],
 });
 
 export const addDocumentsToSession = (
@@ -282,6 +313,7 @@ export const closeDocument = (
   if (!closingDocument) {
     return session;
   }
+  if (closingDocument.status === 'untitled') return forgetDocument(session, path);
 
   const openDocuments = session.openDocuments.filter((item) => itemPath(item) !== path);
   return {
@@ -363,6 +395,7 @@ export const applyFinishedDocumentRevision = (
             }
           : item,
       ),
+    recentDocuments: session.recentDocuments.filter((item) => item.path !== documentPath),
   };
 };
 

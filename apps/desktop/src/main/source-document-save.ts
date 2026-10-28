@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { chmod, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
+import { isUntitledDocumentPath, type SaveSourceDocumentRequest } from '@fuxian/shared-types';
 import { createTranslator, type Translator } from '../localization';
 
 const supportedExtensions = new Set(['.md', '.markdown']);
@@ -80,4 +81,18 @@ export const saveSourceDocumentCopy = async (
       status: 'failed',
     };
   }
+};
+
+// The selected destination comes only from the native save dialog. A remembered
+// source path is a suggestion, not permission to skip destination confirmation.
+export const saveSourceDocumentToSelectedPath = async (
+  request: SaveSourceDocumentRequest,
+  selectedPath: string,
+  t: Translator = createTranslator('zh-CN'),
+): Promise<SourceDocumentWriteResult> => {
+  const destinationPath = await realpath(selectedPath).catch(() => selectedPath);
+  if (!isUntitledDocumentPath(request.path) && destinationPath === request.path) {
+    return saveExistingSourceDocument(request.path, request.expectedSource, request.source, t);
+  }
+  return saveSourceDocumentCopy(selectedPath, request.source, t);
 };

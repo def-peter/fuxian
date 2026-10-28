@@ -16,6 +16,8 @@ const buttonVariants = cva(
           'font-normal text-muted-foreground hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:hover:bg-interactive-hover/50',
         outline:
           'border border-line-subtle bg-surface-shell shadow-xs hover:bg-interactive-hover hover:text-interactive-hover-foreground dark:border-line-control dark:bg-line-control/30 dark:hover:bg-line-control/50',
+        outlinePanel:
+          'border border-line-subtle bg-surface-panel hover:border-line-control hover:bg-surface-panel hover:text-interactive-hover-foreground',
         navigation:
           'hover:bg-interactive-hover hover:text-interactive-hover-foreground aria-[current=page]:bg-interactive-secondary aria-[current=page]:text-interactive-secondary-foreground aria-[current=page]:hover:bg-interactive-secondary/80 aria-[current=page]:[&_svg]:text-focus dark:hover:bg-interactive-hover/50',
         secondary:

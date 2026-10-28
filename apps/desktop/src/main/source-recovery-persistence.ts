@@ -1,4 +1,4 @@
-import type { SourceRecoveryDraft } from '@fuxian/shared-types';
+import { isUntitledDocumentPath, type SourceRecoveryDraft } from '@fuxian/shared-types';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -31,6 +31,8 @@ export const isSourceRecoveryDraft = (value: unknown): value is SourceRecoveryDr
     draft.source.length <= maximumSourceLength &&
     typeof draft.baselineSource === 'string' &&
     draft.baselineSource.length <= maximumSourceLength &&
+    (!draft.path.startsWith('untitled:') ||
+      (isUntitledDocumentPath(draft.path) && draft.baselineSource === '')) &&
     typeof draft.updatedAt === 'number' &&
     Number.isFinite(draft.updatedAt) &&
     Boolean(draft.selection) &&

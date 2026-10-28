@@ -1,6 +1,7 @@
 import { renderMarkdown } from '@fuxian/markdown-renderer';
 import {
   readerPreferenceLimits,
+  isUntitledDocumentPath,
   type DocumentLinkRequest,
   type ExternalRevisionEvent,
   type OpenSourceDocumentsResult,
@@ -20,6 +21,7 @@ import {
   ChevronUp,
   FileText,
   FileDown,
+  FilePlus2,
   FolderOpen,
   PanelLeftOpen,
   PanelRightClose,
@@ -50,6 +52,7 @@ import { ContentOutline } from '@/content-outline';
 import {
   activateDocument,
   addDocumentsToSession,
+  addUntitledDocument,
   applyFinishedDocumentRevision,
   beginReopenRecentDocument,
   closeDocument,
@@ -68,6 +71,7 @@ import {
   type FinishedSourceDocument,
   type LoadingSessionDocument,
   type SessionDocument,
+  type UntitledSessionDocument,
 } from '@/document-session';
 import { DocumentSessionSidebar } from '@/document-session-sidebar';
 import { DocumentWidthPopover } from '@/document-width-controls';
@@ -107,6 +111,7 @@ import {
   completeSourceEditSave,
   createSourceEditBuffer,
   createSourceRecoveryDraft,
+  createUntitledSourceEditBuffer,
   failSourceEditSave,
   isSourceEditDirty,
   keepLocalSourceEdit,
@@ -121,6 +126,7 @@ const SourceEditor = lazy(() => import('@/source-editor'));
 let externalFrameRevision = 0;
 
 type GuardedSourceAction =
+  | { kind: 'new' }
   | { kind: 'accept-open'; result: OpenSourceDocumentsResult }
   | { kind: 'activate'; path: string }
   | { kind: 'close'; path: string; origin?: 'command' | 'sidebar' }
@@ -298,6 +304,7 @@ export function App(): React.JSX.Element {
   const paperSnapshotRequest = useRef(0);
   const viewModeRef = useRef(viewMode);
   const sourceEditRef = useRef<SourceEditBuffer | undefined>(undefined);
+  const untitledEdits = useRef(new Map<string, SourceEditBuffer>());
   const pendingInstallResolution = useRef<
     { reject(error: Error): void; resolve(): void } | undefined
   >(undefined);
@@ -327,6 +334,12 @@ export function App(): React.JSX.Element {
     (document): document is LoadingSessionDocument =>
       document.status === 'loading' && document.path === session.activeDocumentPath,
   );
+  const activeUntitledDocument = session.openDocuments.find(
+    (document): document is UntitledSessionDocument =>
+      document.status === 'untitled' && document.path === session.activeDocumentPath,
+  );
+  const activeSourceDocument = activeDocument?.latestSourceDocument ?? activeUntitledDocument;
+  const activeHeadings = activeDocument?.headings ?? [];
   const sessionFrame = activeDocument
     ? {
         document: activeDocument,
@@ -359,15 +372,26 @@ export function App(): React.JSX.Element {
   );
   const persistCurrentSourceDraft = useCallback(async (): Promise<void> => {
     const buffer = sourceEditRef.current;
-    if (!buffer) return;
-    const draft = createSourceRecoveryDraft(buffer, Date.now());
-    if (draft) {
-      await window.fuxian.saveSourceRecoveryDraft(draft);
-    } else {
-      await window.fuxian.deleteSourceRecoveryDraft(buffer.path);
+    const buffers = new Map(untitledEdits.current);
+    if (buffer) buffers.set(buffer.path, buffer);
+    for (const path of buffers.keys()) {
+      const item =
+        sourceEditRef.current?.path === path
+          ? sourceEditRef.current
+          : untitledEdits.current.get(path);
+      if (!item) continue;
+      const draft = createSourceRecoveryDraft(item, Date.now());
+      if (draft) {
+        await window.fuxian.saveSourceRecoveryDraft(draft);
+      } else {
+        await window.fuxian.deleteSourceRecoveryDraft(item.path);
+      }
     }
   }, []);
   const commitSourceEdit = useCallback((buffer: SourceEditBuffer | undefined): void => {
+    if (buffer && isUntitledDocumentPath(buffer.path)) {
+      untitledEdits.current.set(buffer.path, buffer);
+    }
     sourceEditRef.current = buffer;
     setSourceEdit(buffer);
   }, []);
@@ -596,7 +620,7 @@ export function App(): React.JSX.Element {
 
   const saveActiveSourceEdit = useCallback(async (): Promise<boolean> => {
     const buffer = sourceEditRef.current;
-    if (!buffer || !isSourceEditDirty(buffer) || buffer.status === 'saving') return true;
+    if (!buffer || buffer.status === 'saving' || buffer.conflictDocument) return false;
     const saving = beginSourceEditSave(buffer);
     commitSourceEdit(saving);
     try {
@@ -605,6 +629,11 @@ export function App(): React.JSX.Element {
         path: buffer.path,
         source: buffer.source,
       });
+      if (result.status === 'cancelled') {
+        const latest = sourceEditRef.current;
+        commitSourceEdit(latest?.conflictDocument ? { ...latest, status: 'conflict' } : buffer);
+        return false;
+      }
       if (result.status === 'conflict') {
         commitSourceEdit(receiveExternalSourceRevision(buffer, result.document));
         return false;
@@ -614,26 +643,37 @@ export function App(): React.JSX.Element {
         return false;
       }
       const saved = completeSourceEditSave(buffer, result.document);
+      untitledEdits.current.delete(buffer.path);
       commitSourceEdit(saved);
       await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
       const currentItem = sessionRef.current.openDocuments.find(
-        (item): item is SessionDocument =>
-          item.status === 'available' && item.latestSourceDocument.path === buffer.path,
+        (item) =>
+          (item.status === 'available' ? item.latestSourceDocument.path : item.path) ===
+          buffer.path,
       );
       pendingRevisionRefs.current.delete(buffer.path);
+      pendingRevisionRefs.current.delete(result.document.path);
+      for (const path of new Set([buffer.path, result.document.path])) {
+        const timer = updatedStatusTimers.current.get(path);
+        if (timer) window.clearTimeout(timer);
+        updatedStatusTimers.current.delete(path);
+      }
       setPendingRevisions((current) => {
         const next = new Map(current);
         next.delete(buffer.path);
+        next.delete(result.document.path);
         return next;
       });
       setPromotedRevisions((current) => {
         const next = new Map(current);
         next.delete(buffer.path);
+        next.delete(result.document.path);
         return next;
       });
       setExternalRevisionStatuses((current) => {
         const next = new Map(current);
         next.delete(buffer.path);
+        next.delete(result.document.path);
         return next;
       });
       if (currentItem) {
@@ -648,15 +688,16 @@ export function App(): React.JSX.Element {
           sessionRef.current = nextSession;
           setSession(nextSession);
         } catch (error) {
-          const nextSession = updateSourceDocumentRevision(
+          const nextSession = applyFinishedDocumentRevision(
             sessionRef.current,
             buffer.path,
-            result.document,
+            { document: result.document, headings: [], html: '', resourceUrls: [] },
+            currentItem.readingPosition,
           );
           sessionRef.current = nextSession;
           setSession(nextSession);
           setExternalRevisionStatuses((current) =>
-            new Map(current).set(buffer.path, {
+            new Map(current).set(result.document.path, {
               detail:
                 error instanceof Error
                   ? t('源码已保存，但无法生成阅读内容：{detail}', { detail: error.message })
@@ -680,6 +721,15 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     sourceEditRef.current = sourceEdit;
   }, [sourceEdit]);
+
+  useEffect(() => {
+    if (!activeUntitledDocument || sourceEditRef.current?.path === activeUntitledDocument.path)
+      return;
+    commitSourceEdit(
+      untitledEdits.current.get(activeUntitledDocument.path) ??
+        createUntitledSourceEditBuffer(activeUntitledDocument.path, activeUntitledDocument.name),
+    );
+  }, [activeUntitledDocument, commitSourceEdit]);
 
   useEffect(() => {
     visibleFrameIdRef.current = sourceEdit ? undefined : visibleFrame?.id;
@@ -763,12 +813,27 @@ export function App(): React.JSX.Element {
           missingDocumentPaths: result.missingDocumentPaths,
           protectedDocumentPaths: drafts.map(({ path }) => path),
         });
-        const recoveryDraft = drafts.find((draft) =>
-          nextSession.openDocuments.some(
-            (item) => item.status === 'available' && item.latestSourceDocument.path === draft.path,
-          ),
+        for (const draft of drafts) {
+          if (!isUntitledDocumentPath(draft.path)) continue;
+          untitledEdits.current.set(
+            draft.path,
+            createUntitledSourceEditBuffer(draft.path, draft.name, draft),
+          );
+          nextSession = addUntitledDocument(nextSession, draft.path, draft.name, draft.updatedAt);
+        }
+        const recoveryDraft = drafts.find(
+          (draft) =>
+            isUntitledDocumentPath(draft.path) ||
+            nextSession.openDocuments.some(
+              (item) =>
+                item.status === 'available' && item.latestSourceDocument.path === draft.path,
+            ),
         );
         if (recoveryDraft) {
+          if (isUntitledDocumentPath(recoveryDraft.path)) {
+            nextSession = activateDocument(nextSession, recoveryDraft.path);
+            commitSourceEdit(untitledEdits.current.get(recoveryDraft.path));
+          }
           const recoveryDocument = nextSession.openDocuments.find(
             (item): item is SessionDocument =>
               item.status === 'available' && item.latestSourceDocument.path === recoveryDraft.path,
@@ -803,7 +868,7 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [commitSourceEdit, t]);
 
   useEffect(() => {
     if (restorationStatus !== 'ready') {
@@ -1290,7 +1355,7 @@ export function App(): React.JSX.Element {
   const acceptOpenResult = (result: OpenSourceDocumentsResult): void => {
     if (
       result.status === 'opened' &&
-      isSourceEditDirty(sourceEditRef.current) &&
+      sourceEditRef.current &&
       result.documents[0]?.path !== sourceEditRef.current?.path
     ) {
       requestSourceActionRef.current({ kind: 'accept-open', result });
@@ -1395,12 +1460,46 @@ export function App(): React.JSX.Element {
 
   const executeSourceAction = async (action: GuardedSourceAction): Promise<void> => {
     setPendingSourceAction(undefined);
+    if (action.kind === 'new') {
+      if (restorationStatusRef.current !== 'ready') return;
+      const path = `untitled:${crypto.randomUUID()}`;
+      const names = new Set(
+        sessionRef.current.openDocuments
+          .filter((item) => item.status === 'untitled')
+          .map((item) => item.name),
+      );
+      let number = 1;
+      let name = t('未命名');
+      while (names.has(name)) name = t('未命名 {number}', { number: ++number });
+      const activePath = sessionRef.current.activeDocumentPath;
+      const position = getReadingController()?.getReadingPosition();
+      const positioned =
+        activePath && position
+          ? updateReadingPosition(sessionRef.current, activePath, position)
+          : sessionRef.current;
+      const next = addUntitledDocument(positioned, path, name, Date.now());
+      resetActiveDocumentControls();
+      setBlockingError(undefined);
+      setArticleStructureMapOpen(false);
+      setContentOutlineSheetOpen(false);
+      setDocumentSessionSheetOpen(false);
+      sessionRef.current = next;
+      setSession(next);
+      commitSourceEdit(createUntitledSourceEditBuffer(path, name));
+      return;
+    }
     if (action.kind === 'accept-open') {
       commitSourceEdit(undefined);
       performAcceptOpenResult(action.result);
       return;
     }
     if (action.kind === 'read') {
+      const path = sourceEditRef.current?.path;
+      if (path && isUntitledDocumentPath(path)) {
+        untitledEdits.current.delete(path);
+        await window.fuxian.deleteSourceRecoveryDraft(path);
+        performCloseOpenDocument(path);
+      }
       commitSourceEdit(undefined);
       return;
     }
@@ -1416,6 +1515,10 @@ export function App(): React.JSX.Element {
         origin: action.origin ?? 'sidebar',
       });
       if (sourceEditRef.current?.path === action.path) commitSourceEdit(undefined);
+      if (isUntitledDocumentPath(action.path)) {
+        untitledEdits.current.delete(action.path);
+        await window.fuxian.deleteSourceRecoveryDraft(action.path);
+      }
       performCloseOpenDocument(action.path);
       return;
     }
@@ -1439,15 +1542,36 @@ export function App(): React.JSX.Element {
 
   const requestSourceAction = (action: GuardedSourceAction): void => {
     const buffer = sourceEditRef.current;
+    if (buffer?.status === 'saving') return;
+    const closingBuffer =
+      action.kind === 'close' ? untitledEdits.current.get(action.path) : undefined;
     const affectsBuffer =
+      action.kind === 'new' ||
       action.kind === 'install-update' ||
       action.kind === 'quit' ||
       action.kind === 'close-window' ||
       action.kind === 'read' ||
       action.kind === 'accept-open' ||
       (action.kind === 'activate' && action.path !== buffer?.path) ||
-      (action.kind === 'close' && action.path === buffer?.path);
+      (action.kind === 'close' &&
+        (action.path === buffer?.path || isSourceEditDirty(closingBuffer)));
     if (affectsBuffer && isSourceEditDirty(buffer)) {
+      setPendingSourceAction(action);
+      return;
+    }
+    const remainingBuffer =
+      action.kind === 'close'
+        ? closingBuffer
+        : action.kind === 'quit' ||
+            action.kind === 'close-window' ||
+            action.kind === 'install-update'
+          ? [...untitledEdits.current.values()].find(isSourceEditDirty)
+          : undefined;
+    if (remainingBuffer && isSourceEditDirty(remainingBuffer)) {
+      const next = activateDocument(sessionRef.current, remainingBuffer.path);
+      sessionRef.current = next;
+      setSession(next);
+      commitSourceEdit(remainingBuffer);
       setPendingSourceAction(action);
       return;
     }
@@ -1459,6 +1583,22 @@ export function App(): React.JSX.Element {
     });
   };
   requestSourceActionRef.current = requestSourceAction;
+
+  useEffect(() => {
+    const requestNew = (): void => requestSourceActionRef.current({ kind: 'new' });
+    const unsubscribe = window.fuxian.onNewDocumentRequested(requestNew);
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const modifier = window.fuxian.platform === 'darwin' ? event.metaKey : event.ctrlKey;
+      if (!modifier || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'n') return;
+      event.preventDefault();
+      if (!event.repeat) requestNew();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   useEffect(
     () =>
@@ -1542,14 +1682,28 @@ export function App(): React.JSX.Element {
     const action = pendingSourceAction;
     if (!buffer || !action) return;
     await window.fuxian.deleteSourceRecoveryDraft(buffer.path).catch(() => undefined);
+    if (isUntitledDocumentPath(buffer.path)) {
+      untitledEdits.current.delete(buffer.path);
+      const next = forgetDocument(sessionRef.current, buffer.path);
+      sessionRef.current = next;
+      setSession(next);
+    }
     commitSourceEdit(undefined);
     requestSourceAction(action);
   };
 
   const saveSourceEditAndContinue = async (): Promise<void> => {
     const action = pendingSourceAction;
+    const previousPath = sourceEditRef.current?.path;
     if (!action) return;
-    if (await saveActiveSourceEdit()) requestSourceAction(action);
+    if (await saveActiveSourceEdit()) {
+      const savedPath = sourceEditRef.current?.path;
+      requestSourceAction(
+        action.kind === 'close' && action.path === previousPath && savedPath
+          ? { ...action, path: savedPath }
+          : action,
+      );
+    }
   };
 
   const updateActiveSourceEdit = (
@@ -1949,26 +2103,11 @@ export function App(): React.JSX.Element {
       : appUpdateStatus.availableVersion
         ? 'available'
         : undefined;
-  const pendingSourceActionDescription = pendingSourceAction
-    ? pendingSourceAction.kind === 'activate'
-      ? t('切换文档')
-      : pendingSourceAction.kind === 'accept-open'
-        ? t('打开其他文档')
-        : pendingSourceAction.kind === 'close'
-          ? t('关闭文档')
-          : pendingSourceAction.kind === 'install-update'
-            ? t('安装更新')
-            : pendingSourceAction.kind === 'quit'
-              ? t('退出浮现')
-              : pendingSourceAction.kind === 'close-window'
-                ? t('关闭窗口')
-                : t('返回阅读模式')
-    : '';
   const documentSessionSidebar = (
     <DocumentSessionSidebar
       activeDocumentPath={session.activeDocumentPath}
       appVersion={appUpdateStatus.currentVersion}
-      isOpening={opening}
+      isOpening={opening || restorationStatus !== 'ready' || sourceEdit?.status === 'saving'}
       onActivate={(path) => {
         setDocumentSessionSheetOpen(false);
         activateOpenDocument(path);
@@ -1982,6 +2121,7 @@ export function App(): React.JSX.Element {
         }
       }}
       onCopyPath={(path) => void window.fuxian.copyText(path)}
+      onNew={() => requestSourceAction({ kind: 'new' })}
       onLocate={(path) => void locateUnavailableDocument(path)}
       onOpen={() => void openSourceDocuments()}
       onOpenSettings={() =>
@@ -2177,7 +2317,7 @@ export function App(): React.JSX.Element {
                   ))}
                 </main>
               </div>
-            ) : activeDocument && visibleFrame ? (
+            ) : activeSourceDocument && (visibleFrame || sourceEdit) ? (
               <div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[44px_minmax(0,1fr)] overflow-hidden">
                 <header
                   className={cn(
@@ -2189,11 +2329,17 @@ export function App(): React.JSX.Element {
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <FileText aria-hidden="true" className="size-4 text-muted-foreground" />
                     <span
-                      aria-label={`${activeDocument.latestSourceDocument.name}，${activeDocument.latestSourceDocument.path}`}
+                      aria-label={
+                        activeUntitledDocument
+                          ? activeSourceDocument.name
+                          : `${activeSourceDocument.name}，${activeSourceDocument.path}`
+                      }
                       className="truncate text-sm font-semibold"
-                      title={activeDocument.latestSourceDocument.path}
+                      title={
+                        activeUntitledDocument ? t('尚未选择保存位置') : activeSourceDocument.path
+                      }
                     >
-                      {activeDocument.latestSourceDocument.name}
+                      {activeSourceDocument.name}
                     </span>
                     {sourceEdit ? (
                       <span
@@ -2210,7 +2356,7 @@ export function App(): React.JSX.Element {
                           ? t('外部修改冲突')
                           : sourceEdit.status === 'saving'
                             ? t('正在保存...')
-                            : isSourceEditDirty(sourceEdit)
+                            : isSourceEditDirty(sourceEdit) || activeUntitledDocument
                               ? sourceEdit.recovered
                                 ? t('已恢复草稿 · 未保存')
                                 : t('未保存')
@@ -2324,6 +2470,7 @@ export function App(): React.JSX.Element {
                         <ToolbarTooltip label={t('进入阅读模式')}>
                           <Button
                             aria-label={t('进入阅读模式')}
+                            disabled={sourceEdit.status === 'saving'}
                             onClick={() => requestSourceAction({ kind: 'read' })}
                             size="icon-sm"
                             variant="ghost"
@@ -2335,9 +2482,7 @@ export function App(): React.JSX.Element {
                           <Button
                             aria-label={t('保存 Markdown')}
                             disabled={
-                              !isSourceEditDirty(sourceEdit) ||
-                              sourceEdit.status === 'saving' ||
-                              Boolean(sourceEdit.conflictDocument)
+                              sourceEdit.status === 'saving' || Boolean(sourceEdit.conflictDocument)
                             }
                             onClick={() => void saveActiveSourceEdit()}
                             size="icon-sm"
@@ -2562,6 +2707,7 @@ export function App(): React.JSX.Element {
                           >
                             <SourceEditor
                               autoFocus
+                              key={sourceEdit.path}
                               onChange={updateActiveSourceEdit}
                               onSave={() => void saveActiveSourceEdit()}
                               readOnly={sourceEdit.status === 'saving'}
@@ -2590,18 +2736,18 @@ export function App(): React.JSX.Element {
                               key={`${frame.id}:${locale}`}
                               onLoad={handleFinishedDocumentLoad}
                               onRemove={handleFinishedDocumentFrameRemove}
-                              visible={frame.id === visibleFrame.id && viewMode === 'continuous'}
+                              visible={frame.id === visibleFrame?.id && viewMode === 'continuous'}
                             />
                           ))}
                           {paperSnapshot &&
-                          paperSnapshot.revisionId.startsWith(`${visibleFrame.id}:`) ? (
+                          paperSnapshot.revisionId.startsWith(`${visibleFrame?.id}:`) ? (
                             <PaperPreviewFrame
                               className={cn(
                                 'col-start-1 row-start-1 z-10',
                                 viewMode === 'paper' ? 'visible' : 'invisible pointer-events-none',
                                 draggingFiles && 'pointer-events-none',
                               )}
-                              key={activeDocument.latestSourceDocument.path}
+                              key={activeSourceDocument.path}
                               onActiveHeadingChange={setActiveHeadingId}
                               onControllerChange={(controller) => {
                                 paperPreviewController.current = controller;
@@ -2614,13 +2760,13 @@ export function App(): React.JSX.Element {
                               onOpenLink={(href) => {
                                 if (viewModeRef.current === 'paper')
                                   void openFinishedDocumentLink({
-                                    sourcePath: activeDocument.latestSourceDocument.path,
+                                    sourcePath: activeSourceDocument.path,
                                     href,
                                   });
                               }}
                               onDescribeLink={(href) =>
                                 window.fuxian.describeDocumentLink({
-                                  sourcePath: activeDocument.latestSourceDocument.path,
+                                  sourcePath: activeSourceDocument.path,
                                   href,
                                 })
                               }
@@ -2638,7 +2784,7 @@ export function App(): React.JSX.Element {
                                 setSession((current) =>
                                   updateReadingPosition(
                                     current,
-                                    activeDocument.latestSourceDocument.path,
+                                    activeSourceDocument.path,
                                     position,
                                   ),
                                 );
@@ -2707,8 +2853,8 @@ export function App(): React.JSX.Element {
                       >
                         <ContentOutline
                           activeHeadingId={activeHeadingId}
-                          headings={activeDocument.headings}
-                          key={activeDocument.latestSourceDocument.path}
+                          headings={activeHeadings}
+                          key={activeSourceDocument.path}
                           onNavigate={(id) => getReadingController()?.scrollToHeading(id)}
                           onOpenStructureMap={() => setArticleStructureMapOpen(true)}
                         />
@@ -2718,7 +2864,6 @@ export function App(): React.JSX.Element {
                 </ResizablePanelGroup>
                 {sourceEdit && pendingSourceAction ? (
                   <UnsavedChangesDialog
-                    actionDescription={pendingSourceActionDescription}
                     {...(sourceEdit.error ? { error: sourceEdit.error } : {})}
                     name={sourceEdit.name}
                     onCancel={cancelPendingSourceAction}
@@ -2747,8 +2892,8 @@ export function App(): React.JSX.Element {
                 />
                 {articleStructureMapOpen ? (
                   <ArticleStructureMapDialog
-                    documentName={activeDocument.latestSourceDocument.name}
-                    headings={activeDocument.headings}
+                    documentName={activeSourceDocument.name}
+                    headings={activeHeadings}
                     onOpenChange={setArticleStructureMapOpen}
                     open
                   />
@@ -2774,8 +2919,8 @@ export function App(): React.JSX.Element {
                       </SheetDescription>
                       <ContentOutline
                         activeHeadingId={activeHeadingId}
-                        headings={activeDocument.headings}
-                        key={`sheet:${activeDocument.latestSourceDocument.path}`}
+                        headings={activeHeadings}
+                        key={`sheet:${activeSourceDocument.path}`}
                         onNavigate={(id) => {
                           getReadingController()?.scrollToHeading(id);
                           setContentOutlineSheetOpen(false);
@@ -2851,14 +2996,25 @@ export function App(): React.JSX.Element {
                         {t('让内容精彩浮现，让 Markdown 值得阅读。')}
                       </p>
                       <div className="mt-9 flex flex-col items-center gap-2">
-                        <Button
-                          disabled={opening}
-                          onClick={() => void openSourceDocuments()}
-                          size="lg"
-                        >
-                          <FolderOpen aria-hidden="true" data-icon="inline-start" />
-                          {opening ? t('正在打开...') : t('打开 Markdown')}
-                        </Button>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <Button
+                            disabled={opening}
+                            onClick={() => void openSourceDocuments()}
+                            size="lg"
+                          >
+                            <FolderOpen aria-hidden="true" data-icon="inline-start" />
+                            {opening ? t('正在打开...') : t('打开 Markdown')}
+                          </Button>
+                          <Button
+                            disabled={opening}
+                            onClick={() => requestSourceAction({ kind: 'new' })}
+                            size="lg"
+                            variant="outlinePanel"
+                          >
+                            <FilePlus2 aria-hidden="true" data-icon="inline-start" />
+                            {t('新建 Markdown')}
+                          </Button>
+                        </div>
                         <p className="text-xs text-muted-foreground/70">{t('或直接拖入文件')}</p>
                       </div>
                     </div>
