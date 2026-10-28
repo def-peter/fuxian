@@ -208,6 +208,10 @@ const allowedMermaidTextStyles = new Map<string, RegExp>([
   ['max-width', /^\d+(?:\.\d+)?px$/u],
   ['text-align', /^(?:center|left|right)$/u],
   ['white-space', /^(?:break-spaces|normal|nowrap|pre-wrap)$/u],
+  // Chromium exposes white-space as these longhands when enumerating inline styles.
+  ['white-space-collapse', /^(?:break-spaces|collapse|preserve)$/u],
+  ['text-wrap-mode', /^(?:nowrap|wrap)$/u],
+  ['width', /^\d+(?:\.\d+)?px$/u],
 ]);
 
 const sanitizeInlineStyles = (

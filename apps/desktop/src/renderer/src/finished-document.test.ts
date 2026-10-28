@@ -153,6 +153,31 @@ describe('rendered visual preparation', () => {
     expect(uses[1]?.hasAttribute('href')).toBe(false);
   });
 
+  it.each([
+    ['white-space:break-spaces', 'white-space', 'break-spaces'],
+    [
+      'white-space-collapse:break-spaces;text-wrap-mode:wrap',
+      'white-space-collapse',
+      'break-spaces',
+    ],
+  ])('preserves Mermaid label sizing with %s', (wrapping, property, value) => {
+    const svg = prepareRenderedVisualSvg(
+      frameDocument(),
+      `<svg><foreignObject width="279" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display:table;width:200px;max-width:200px;${wrapping};position:fixed">
+        <span class="nodeLabel"><p>bi_dw.tags_user_purchase_lifecycle_di</p></span>
+      </div></foreignObject></svg>`,
+      'mermaid',
+    );
+    const div = svg.querySelector('div') as HTMLElement;
+    expect(div.style.width).toBe('200px');
+    expect(div.style.maxWidth).toBe('200px');
+    expect(div.style.getPropertyValue(property)).toBe(value);
+    if (property === 'white-space-collapse')
+      expect(div.style.getPropertyValue('text-wrap-mode')).toBe('wrap');
+    expect(div.style.position).toBe('');
+    expect(svg.querySelector('foreignObject')?.getAttribute('height')).toBe('24');
+  });
+
   it('isolates SVG IDs and their local references across visual blocks', () => {
     const document = frameDocument();
     const source = [

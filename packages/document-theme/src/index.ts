@@ -923,6 +923,16 @@ code {
   user-select: text;
 }
 
+/* Keep prose wrapping and typography out of Mermaid's measured HTML labels. */
+.diagram-render-task[data-render-task-kind="mermaid"] foreignObject {
+  overflow-wrap: normal;
+}
+
+.diagram-render-task[data-render-task-kind="mermaid"] foreignObject :where(p, li) {
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .diagram-render-task[data-render-task-kind="infographic"] foreignObject span {
   user-select: text;
 }
