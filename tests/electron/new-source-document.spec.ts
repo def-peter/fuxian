@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDefaultReaderPreferences } from '../../packages/shared-types/src/index';
+import { captureElectronWindow } from './capture-window';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -83,7 +84,11 @@ for (const appearance of ['light', 'dark'] as const) {
           .getByRole('complementary', { name: '文档会话' })
           .getByRole('button', { name: '新建 Markdown' }),
       ).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      await page.screenshot({ path: test.info().outputPath(`start-view-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`start-view-${appearance}.png`),
+      );
 
       await newButton.hover();
       await expect(newButton).toHaveCSS(
@@ -94,12 +99,20 @@ for (const appearance of ['light', 'dark'] as const) {
         'border-top-color',
         appearance === 'light' ? 'rgb(139, 150, 159)' : 'rgb(94, 102, 112)',
       );
-      await page.screenshot({ path: test.info().outputPath(`start-view-hover-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`start-view-hover-${appearance}.png`),
+      );
       await openButton.focus();
       await page.keyboard.press('Tab');
       await expect(newButton).toBeFocused();
       await expect(newButton).not.toHaveCSS('box-shadow', 'none');
-      await page.screenshot({ path: test.info().outputPath(`start-view-focus-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`start-view-focus-${appearance}.png`),
+      );
       await page.keyboard.press('Enter');
       await expect(page.locator('.cm-content')).toBeFocused();
     } finally {
@@ -138,15 +151,21 @@ for (const appearance of ['light', 'dark'] as const) {
         'background-color',
         appearance === 'light' ? 'rgb(41, 45, 50)' : 'rgb(220, 225, 229)',
       );
-      await dialog.screenshot({ path: test.info().outputPath(`unsaved-normal-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`unsaved-normal-${appearance}.png`),
+      );
       for (const [index, name] of ['取消', '不保存'].entries()) {
         const button = dialog.getByRole('button', { name, exact: true });
         await button.hover();
         await expect(button).toHaveCSS('background-color', panelColor);
         await expect(button).toHaveCSS('border-top-color', hoverBorder);
-        await dialog.screenshot({
-          path: test.info().outputPath(`unsaved-hover-${index}-${appearance}.png`),
-        });
+        await captureElectronWindow(
+          app,
+          page,
+          test.info().outputPath(`unsaved-hover-${index}-${appearance}.png`),
+        );
       }
       await dialog.getByRole('button', { name: '取消', exact: true }).focus();
       await page.keyboard.press('Tab');
@@ -154,7 +173,11 @@ for (const appearance of ['light', 'dark'] as const) {
       await expect(discard).toBeFocused();
       await expect(discard).toHaveCSS('background-color', panelColor);
       await expect(discard).not.toHaveCSS('box-shadow', 'none');
-      await dialog.screenshot({ path: test.info().outputPath(`unsaved-focus-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`unsaved-focus-${appearance}.png`),
+      );
       await page.keyboard.press('Escape');
       await expect(dialog).toHaveCount(0);
       await expect(page.locator('.cm-content')).toContainText('# Unsaved document');
@@ -200,7 +223,11 @@ for (const appearance of ['light', 'dark'] as const) {
           appearance === 'light' ? 'rgb(139, 150, 159)' : 'rgb(94, 102, 112)',
         );
       }
-      await dialog.screenshot({ path: test.info().outputPath(`conflict-hover-${appearance}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`conflict-hover-${appearance}.png`),
+      );
       await dialog.getByRole('button', { name: '保留本地修改' }).click();
       await expect(dialog).toHaveCount(0);
       await expect(page.locator('.cm-content')).toContainText('# Local version');
@@ -221,12 +248,12 @@ test('creates focused untitled documents from the start view, sidebar, shortcut,
     await expect(
       page.getByRole('main').getByRole('button', { name: '新建 Markdown' }),
     ).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('start-view.png') });
+    await captureElectronWindow(app, page, test.info().outputPath('start-view.png'));
     await page.getByRole('main').getByRole('button', { name: '新建 Markdown' }).click();
     await expect(page.locator('.cm-content')).toBeFocused();
     await expect(page.locator('.cm-content')).toHaveText('');
     await expect(page.getByText('未保存', { exact: true })).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('new-markdown.png') });
+    await captureElectronWindow(app, page, test.info().outputPath('new-markdown.png'));
     expect((await readdir(directory)).filter((name) => /\.md$/i.test(name))).toEqual([]);
 
     const sidebar = page.getByRole('complementary', { name: '文档会话' });

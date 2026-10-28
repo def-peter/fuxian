@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { captureElectronWindow } from './capture-window';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
@@ -77,7 +78,11 @@ for (const copy of [
       for (const name of [copy.cancel, copy.discard, copy.save]) {
         await expect(dialog.getByRole('button', { name, exact: true })).toBeVisible();
       }
-      await dialog.screenshot({ path: test.info().outputPath(`unsaved-copy-${copy.locale}.png`) });
+      await captureElectronWindow(
+        app,
+        page,
+        test.info().outputPath(`unsaved-copy-${copy.locale}.png`),
+      );
       await dialog.getByRole('button', { name: copy.cancel, exact: true }).click();
       await expect(dialog).toHaveCount(0);
       await expect(page.locator('.cm-content')).toContainText('# Unsaved changes');
