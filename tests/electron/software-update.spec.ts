@@ -67,11 +67,16 @@ test('downloads an available update and flushes the reading session before insta
     const readerWindow = await electronApp.firstWindow();
     await readerWindow.setViewportSize({ height: 900, width: 1_440 });
     await readerWindow.getByRole('button', { name: '打开 Markdown' }).click();
+    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
+    // The outline appears before the iframe controller and asynchronous diagrams settle.
+    await expect(finishedDocument.locator('html')).toHaveAttribute(
+      'data-render-readiness',
+      'ready',
+    );
     await readerWindow
       .getByRole('complementary', { name: '大纲' })
       .getByRole('button', { name: '本地资源' })
       .click();
-    const finishedDocument = readerWindow.frameLocator('iframe[data-finished-document="active"]');
     await expect
       .poll(() =>
         finishedDocument
