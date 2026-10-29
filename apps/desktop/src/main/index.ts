@@ -108,7 +108,11 @@ import { createDesktopTray, type DesktopTray, type DesktopTrayFactory } from './
 const { autoUpdater } = electronUpdater;
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
-const appIconPath = join(currentDirectory, '../../resources/icon.png');
+const appIconPath = join(
+  currentDirectory,
+  '../../resources',
+  process.platform === 'win32' ? 'icon-windows.png' : 'icon.png',
+);
 const supportedSourceDocumentExtensions = new Set(['.md', '.markdown']);
 const documentResourceTrustStore = new DocumentResourceTrustStore();
 const knownDocumentPaths = new Set<string>();

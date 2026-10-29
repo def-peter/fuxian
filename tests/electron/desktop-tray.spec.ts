@@ -128,6 +128,51 @@ test.beforeEach(() => {
   );
 });
 
+test('native image loading preserves macOS Retina representations and accepts Windows ICO assets', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-tray-icons-')));
+  const app = await launch(directory, 'en-US');
+  try {
+    const filenames =
+      process.platform === 'darwin' ? ['trayTemplate.png'] : ['tray.ico', 'icon-windows.png'];
+    const images = await app.evaluate(
+      ({ nativeImage }, paths) =>
+        paths.map((path) => {
+          const image = nativeImage.createFromPath(path);
+          return {
+            empty: image.isEmpty(),
+            scales: image.getScaleFactors(),
+            size: image.getSize(),
+            representations: image.getScaleFactors().map((scaleFactor) => {
+              const png = image.toPNG({ scaleFactor });
+              return {
+                scaleFactor,
+                width: png.readUInt32BE(16),
+                height: png.readUInt32BE(20),
+              };
+            }),
+          };
+        }),
+      filenames.map((filename) => join(repositoryRoot, 'apps/desktop/resources', filename)),
+    );
+    for (const image of images) {
+      expect(image.empty).toBe(false);
+      expect(image.size.width).toBeGreaterThan(0);
+      expect(image.size.height).toBeGreaterThan(0);
+    }
+    if (process.platform === 'darwin') {
+      expect(images[0]?.scales).toEqual([1, 2]);
+      expect(images[0]?.size).toEqual({ width: 18, height: 18 });
+      expect(images[0]?.representations).toEqual([
+        { scaleFactor: 1, width: 18, height: 18 },
+        { scaleFactor: 2, width: 36, height: 36 },
+      ]);
+    }
+  } finally {
+    await closeApp(app);
+    await removeDirectory(directory);
+  }
+});
+
 for (const locale of ['zh-CN', 'en-US'] as const) {
   test(`tray commands use the document guards, update language, and clean up only after a confirmed quit (${locale})`, async () => {
     const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-tray-')));

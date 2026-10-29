@@ -132,6 +132,10 @@ The operating system owns window controls and the application menu. macOS keeps 
 
 While running, Fuxian also provides a macOS menu-bar icon and a Windows notification-area icon. Their native menus offer Show Main Window, New Markdown, Open Markdown, Settings, and Quit. macOS uses a monochrome template mark that follows the system menu-bar appearance; Windows uses a multi-resolution color application icon, with a primary click restoring the main window and a right-click opening the menu. Menu labels and the tooltip follow the interface language. New and Open recreate the main window when needed and wait for session restoration; document guards still apply. These are shortcuts, not a new background-residency mode: window closing and quitting retain their existing behavior, and no login-startup registration is added. See ADR 0036.
 
+macOS menu-bar icons use a tightly cropped, uniformly scaled version of the original transparent mark, without boldening, outlines, or redrawn details. Standard and Retina monochrome templates use area-averaged alpha coverage and the same logical alignment so thin bars are not lost during reduction. The macOS Dock remains unchanged. See ADR 0037.
+
+Windows icon sizing only reclaims transparent space outside the complete white-backed application artwork; the white carrier and foreground proportions remain fixed. Windows windows use a dedicated cropped PNG, and application/tray ICO frames at 32px and above use the same whole-artwork crop. The application 16px frame and tray 16/20/24px frames retain their existing artwork. All approved macOS icon resources and document-association icons remain unchanged. See ADR 0038.
+
 ## Confirmed Prototype Decisions
 
 - Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`, with `连续阅读` and `A4 分页预览` tooltips respectively; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.
