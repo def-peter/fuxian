@@ -26,6 +26,20 @@ interface TestTrayState {
   trays: Array<{ destroyed: boolean; menu: Menu; tooltip: string; emit(event: string): void }>;
 }
 
+const closeApp = async (app: ElectronApplication): Promise<void> => {
+  if (app.windows().length > 0) {
+    await app.evaluate(({ BrowserWindow }) => {
+      // Assertions are finished; a remaining dirty draft must not block test cleanup.
+      for (const window of BrowserWindow.getAllWindows()) window.removeAllListeners('close');
+    });
+  }
+  // On Windows, killing app.process() can kill only Playwright's launch shell.
+  await app.close();
+};
+
+const removeDirectory = (directory: string): Promise<void> =>
+  rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+
 const launch = async (
   directory: string,
   locale: UiLocale,
@@ -70,7 +84,7 @@ const launch = async (
     });
     return app;
   } catch (error) {
-    app.process().kill('SIGKILL');
+    await closeApp(app);
     throw error;
   }
 };
@@ -214,7 +228,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await editor.focus();
       await page.keyboard.press('ControlOrMeta+z');
       await expect(editor).toHaveText('');
-      await page.keyboard.press('ControlOrMeta+Shift+z');
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+y');
       await expect(editor).toContainText('# Keep on quit');
       await clickTrayItem(app, 'tray-quit');
       await expect(dialog).toBeVisible();
@@ -232,11 +246,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       });
       expect(await readFile(sourcePath, 'utf8')).toBe('# Existing document');
     } finally {
-      if (!exited) {
-        app.process().kill('SIGKILL');
-        await exit;
-      }
-      await rm(directory, { recursive: true, force: true });
+      await closeApp(app);
+      await removeDirectory(directory);
     }
   });
 }
@@ -285,8 +296,8 @@ test('tray New and Open recreate a closed main window and deliver commands after
       ),
     ).toBe(true);
   } finally {
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
+    await closeApp(app);
+    await removeDirectory(directory);
   }
 });
 
@@ -303,7 +314,6 @@ test('tray New queued at startup guards a recovered draft instead of replacing i
   };
   await writeFile(join(directory, 'drafts.json'), JSON.stringify({ drafts: [draft], version: 1 }));
   const app = await launch(directory, 'en-US', 'tray-new');
-  const exit = new Promise<void>((resolveExit) => app.process().once('exit', () => resolveExit()));
   try {
     const page = await app.firstWindow();
     const dialog = page.getByRole('dialog');
@@ -317,8 +327,7 @@ test('tray New queued at startup guards a recovered draft instead of replacing i
     });
     expect((await traySnapshot(app))[0]?.destroyed).toBe(false);
   } finally {
-    app.process().kill('SIGKILL');
-    await exit;
-    await rm(directory, { recursive: true, force: true });
+    await closeApp(app);
+    await removeDirectory(directory);
   }
 });
