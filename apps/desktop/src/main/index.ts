@@ -85,7 +85,11 @@ import {
   JsonFileSourceRecoveryPersistence,
   type SourceRecoveryPersistence,
 } from './source-recovery-persistence';
-import { saveSourceDocumentToSelectedPath, saveSourceDocumentCopy } from './source-document-save';
+import {
+  saveExistingSourceDocument,
+  saveSourceDocumentToSelectedPath,
+  saveSourceDocumentCopy,
+} from './source-document-save';
 import {
   createMarkdownDefaultAppService,
   macDefaultApplicationHelperName,
@@ -1239,20 +1243,27 @@ const registerDesktopHandlers = (
       ) {
         return { message: mainText('保存请求无效或文档不属于当前会话。'), status: 'failed' };
       }
-      const defaultPath = isUntitledDocumentPath(request.path)
-        ? join(lastSourceSaveDirectory ?? app.getPath('documents'), `${mainText('未命名')}.md`)
-        : request.path;
-      const selectedPath = await chooseSourceDocumentCopyPath(
-        owner,
-        defaultPath,
-        mainText('保存 Markdown'),
-      );
-      if (!selectedPath) return { status: 'cancelled' };
-      const result = await saveSourceDocumentToSelectedPath(
-        request as SaveSourceDocumentRequest,
-        selectedPath,
-        mainText,
-      );
+      let selectedPath: string | undefined;
+      if (isUntitledDocumentPath(request.path)) {
+        selectedPath = await chooseSourceDocumentCopyPath(
+          owner,
+          join(lastSourceSaveDirectory ?? app.getPath('documents'), `${mainText('未命名')}.md`),
+          mainText('保存 Markdown'),
+        );
+        if (!selectedPath) return { status: 'cancelled' };
+      }
+      const result = selectedPath
+        ? await saveSourceDocumentToSelectedPath(
+            request as SaveSourceDocumentRequest,
+            selectedPath,
+            mainText,
+          )
+        : await saveExistingSourceDocument(
+            request.path,
+            request.expectedSource,
+            request.source,
+            mainText,
+          );
       if (result.status === 'failed') return result;
       if (result.status === 'conflict') {
         const current = await readSourceDocument(request.path);

@@ -83,8 +83,8 @@ export const saveSourceDocumentCopy = async (
   }
 };
 
-// The selected destination comes only from the native save dialog. A remembered
-// source path is a suggestion, not permission to skip destination confirmation.
+// This helper handles destinations explicitly selected in the native save dialog.
+// Normal saves of authorized source documents use saveExistingSourceDocument directly.
 export const saveSourceDocumentToSelectedPath = async (
   request: SaveSourceDocumentRequest,
   selectedPath: string,

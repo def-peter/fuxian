@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; the every-save destination rule is superseded by ADR 0035.
 
 ## Decision
 

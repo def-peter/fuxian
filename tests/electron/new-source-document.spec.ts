@@ -286,13 +286,83 @@ test('creates focused untitled documents from the start view, sidebar, shortcut,
   }
 });
 
-test('confirms every save destination, preserves canceled edits, and defaults subsequent saves to the previous full path', async () => {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-new-save-')));
-  const firstPath = join(directory, 'first.md');
-  const secondPath = join(directory, 'second.md');
+test('saves existing documents in place from the toolbar, shortcut, and unsaved-changes guard without choosing a path', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-existing-save-')));
+  const sourcePath = join(directory, 'existing.md');
+  await writeFile(sourcePath, '# Original', 'utf8');
   const app = await launch(directory);
   try {
-    await stubSaveDialogs(app, [null, firstPath, null, secondPath, secondPath]);
+    await stubSaveDialogs(app, []);
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: [path],
+      })) as typeof dialog.showOpenDialog;
+    }, sourcePath);
+    const page = await app.firstWindow();
+    await page.getByRole('main').getByRole('button', { name: '打开 Markdown' }).click();
+    await page.getByRole('button', { name: '进入编辑模式' }).click();
+    const editor = page.locator('.cm-content');
+
+    // Exercise a stale baseline through the real save IPC without waiting for a watcher.
+    const conflict = await page.evaluate(
+      (path) =>
+        window.fuxian.saveSourceDocument({
+          path,
+          expectedSource: '# Stale baseline',
+          source: '# Must not overwrite',
+        }),
+      sourcePath,
+    );
+    expect(conflict).toMatchObject({
+      document: { path: sourcePath, source: '# Original' },
+      status: 'conflict',
+    });
+    expect(await dialogDefaults(app)).toEqual([]);
+    expect(await readFile(sourcePath, 'utf8')).toBe('# Original');
+
+    for (const action of ['toolbar', 'shortcut', 'close'] as const) {
+      const source = `# Saved via ${action}`;
+      await editor.click();
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.insertText(source);
+      if (action === 'toolbar') {
+        await page.getByRole('button', { name: '保存 Markdown' }).click();
+      } else if (action === 'shortcut') {
+        await page.keyboard.press('ControlOrMeta+s');
+      } else {
+        await page
+          .getByRole('complementary', { name: '文档会话' })
+          .getByRole('button', { name: '关闭“existing.md”', exact: true })
+          .click();
+        await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
+      }
+      await expect
+        .poll(async () => ({
+          dialogs: await dialogDefaults(app),
+          source: await readFile(sourcePath, 'utf8'),
+        }))
+        .toEqual({ dialogs: [], source });
+      if (action !== 'close') {
+        await expect(page.getByText('已保存', { exact: true })).toBeVisible();
+      }
+    }
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(
+      page.getByRole('main').getByRole('button', { name: '打开 Markdown', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('chooses a path only for the first untitled save, preserves canceled edits, and saves subsequent edits in place', async () => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'fuxian-new-save-')));
+  const firstPath = join(directory, 'first.md');
+  const app = await launch(directory);
+  try {
+    await stubSaveDialogs(app, [null, firstPath]);
     const page = await app.firstWindow();
     await page.getByRole('main').getByRole('button', { name: '新建 Markdown' }).click();
     await expect(page.locator('.cm-content')).toBeFocused();
@@ -311,25 +381,16 @@ test('confirms every save destination, preserves canceled edits, and defaults su
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.insertText('# Second version');
     await page.keyboard.press('ControlOrMeta+s');
-    await expect(page.getByText('未保存', { exact: true })).toBeVisible();
-    expect(await readFile(firstPath, 'utf8')).toBe('# First version');
-    await page.getByRole('button', { name: '保存 Markdown' }).click();
     await expect(page.getByText('已保存', { exact: true })).toBeVisible();
-    expect(await readFile(secondPath, 'utf8')).toBe('# Second version');
-    expect(await readFile(firstPath, 'utf8')).toBe('# First version');
+    expect(await readFile(firstPath, 'utf8')).toBe('# Second version');
 
-    // A clean document can still be saved elsewhere; no edit is required to choose a location.
+    // Saving again without edits must not turn Save into Save As.
     await page.getByRole('button', { name: '保存 Markdown' }).click();
-    await expect
-      .poll(() => dialogDefaults(app))
-      .toEqual([
-        expect.stringMatching(/未命名\.md$/),
-        expect.stringMatching(/未命名\.md$/),
-        firstPath,
-        firstPath,
-        secondPath,
-      ]);
     await expect(page.getByText('已保存', { exact: true })).toBeVisible();
+    expect(await dialogDefaults(app)).toEqual([
+      expect.stringMatching(/未命名\.md$/),
+      expect.stringMatching(/未命名\.md$/),
+    ]);
     await page.getByRole('button', { name: '进入阅读模式' }).click();
     await expect(
       page
@@ -337,8 +398,8 @@ test('confirms every save destination, preserves canceled edits, and defaults su
         .getByRole('heading', { name: 'Second version' }),
     ).toBeVisible();
     const sidebar = page.getByRole('complementary', { name: '文档会话' });
-    await expect(sidebar.getByRole('button', { name: 'second.md', exact: true })).toBeVisible();
-    await expect(sidebar.getByRole('button', { name: 'first.md', exact: true })).toHaveCount(0);
+    await expect(sidebar.getByRole('button', { name: 'first.md', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: '未命名', exact: true })).toHaveCount(0);
   } finally {
     await app.close();
     await rm(directory, { recursive: true, force: true });
