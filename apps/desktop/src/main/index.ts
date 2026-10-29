@@ -103,6 +103,7 @@ import { describeDocumentLink, openDocumentLink } from './document-links';
 import { hasDefaultFileApplication } from './file-association';
 import { Diagnostics, diagnosticError } from './diagnostics';
 import { removePdfTitle } from './pdf-export-metadata';
+import { createDesktopTray, type DesktopTray, type DesktopTrayFactory } from './desktop-tray';
 
 const { autoUpdater } = electronUpdater;
 
@@ -114,6 +115,7 @@ const knownDocumentPaths = new Set<string>();
 let lastSourceSaveDirectory: string | undefined;
 let settingsWindow: BrowserWindow | undefined;
 let mainWindow: BrowserWindow | undefined;
+let desktopTray: DesktopTray | undefined;
 let allowMainWindowClose = false;
 let appQuitRequested = false;
 let mainWindowCloseGuardReady = false;
@@ -122,7 +124,8 @@ let appUpdateService: AppUpdateService | undefined;
 let appUpdateScheduler: AppUpdateScheduler | undefined;
 let diagnostics: Diagnostics | undefined;
 let sourceDocumentOpenReceiver: Electron.WebContents | undefined;
-const pendingSourceDocumentOpenRequests: string[][] = [];
+type PendingSourceDocumentRequest = { kind: 'new' } | { kind: 'open'; paths: string[] };
+const pendingSourceDocumentOpenRequests: PendingSourceDocumentRequest[] = [];
 let sourceDocumentOpenDelivery = Promise.resolve();
 let activeUiLocale: UiLocale = 'en-US';
 let systemLocale = '';
@@ -418,10 +421,18 @@ const deliverPendingSourceDocumentOpenRequests = (): void => {
           queueMicrotask(deliverPendingSourceDocumentOpenRequests);
           return;
         }
-        receiver.send(
-          desktopIpcChannels.sourceDocumentOpenRequested,
-          await readSourceDocuments(requests[index] ?? []),
-        );
+        const request = requests[index]!;
+        if (request.kind === 'new') {
+          receiver.send(desktopIpcChannels.newDocumentRequested);
+        } else {
+          const result = await readSourceDocuments(request.paths);
+          if (receiver.isDestroyed() || sourceDocumentOpenReceiver !== receiver) {
+            pendingSourceDocumentOpenRequests.unshift(...requests.slice(index));
+            queueMicrotask(deliverPendingSourceDocumentOpenRequests);
+            return;
+          }
+          receiver.send(desktopIpcChannels.sourceDocumentOpenRequested, result);
+        }
       }
     })
     .catch(() => {
@@ -436,7 +447,7 @@ const deliverPendingSourceDocumentOpenRequests = (): void => {
 
 const enqueueSourceDocumentOpenRequest = (paths: readonly string[]): void => {
   if (paths.length === 0) return;
-  pendingSourceDocumentOpenRequests.push([...paths]);
+  pendingSourceDocumentOpenRequests.push({ kind: 'open', paths: [...paths] });
   deliverPendingSourceDocumentOpenRequests();
 };
 
@@ -1603,13 +1614,10 @@ const createSettingsWindow = (section?: SettingsSectionId): BrowserWindow => {
 };
 
 const openSourceDocumentsFromMenu = (): void => {
-  void openSourceDocuments()
-    .then((result) => {
-      if (result.status === 'cancelled') return;
-      activateMainWindow();
-      if (sourceDocumentOpenReceiver && !sourceDocumentOpenReceiver.isDestroyed()) {
-        sourceDocumentOpenReceiver.send(desktopIpcChannels.sourceDocumentOpenRequested, result);
-      }
+  activateMainWindow();
+  void chooseSourceDocuments()
+    .then((paths) => {
+      if (paths) enqueueSourceDocumentOpenRequest(paths);
     })
     .catch(() => {
       if (sourceDocumentOpenReceiver && !sourceDocumentOpenReceiver.isDestroyed()) {
@@ -1621,16 +1629,19 @@ const openSourceDocumentsFromMenu = (): void => {
     });
 };
 
+const newSourceDocumentFromMenu = (): void => {
+  activateMainWindow();
+  pendingSourceDocumentOpenRequests.push({ kind: 'new' });
+  deliverPendingSourceDocumentOpenRequests();
+};
+
 const createApplicationMenu = (): Menu => {
   const fileMenu: MenuItemConstructorOptions = {
     label: mainText('文件'),
     submenu: [
       {
         accelerator: 'CmdOrCtrl+N',
-        click: () => {
-          if (!mainWindow || mainWindow.isDestroyed()) return;
-          mainWindow.webContents.send(desktopIpcChannels.newDocumentRequested);
-        },
+        click: newSourceDocumentFromMenu,
         label: mainText('新建 Markdown'),
       },
       {
@@ -1768,6 +1779,7 @@ const createApplicationMenu = (): Menu => {
 const applyApplicationLocale = (preferences: ReaderPreferences): void => {
   activeUiLocale = resolveUiLocale(preferences.language, systemLocale);
   app.setName(productName(activeUiLocale));
+  desktopTray?.updateLocale(activeUiLocale);
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.setTitle(mainText('浮现设置'));
   }
@@ -1785,6 +1797,7 @@ app.on('before-quit', () => {
   appUpdateScheduler?.stop();
   if (!allowMainWindowClose) appQuitRequested = true;
 });
+app.on('will-quit', () => desktopTray?.destroy());
 
 if (!app.isPackaged && process.env.NODE_ENV === 'test' && process.env.FUXIAN_E2E_SESSION_FILE) {
   app.setPath('userData', `${process.env.FUXIAN_E2E_SESSION_FILE}.user-data`);
@@ -1994,6 +2007,31 @@ if (!hasSingleInstanceLock) {
     applicationMenuReady = true;
     Menu.setApplicationMenu(createApplicationMenu());
     createWindow();
+    if (!isE2ERuntime || process.env.FUXIAN_E2E_TRAY === '1') {
+      try {
+        const testTrayFactory = isE2ERuntime
+          ? (globalThis as { fuxianCreateTestTray?: DesktopTrayFactory }).fuxianCreateTestTray
+          : undefined;
+        desktopTray = createDesktopTray({
+          platform: process.platform,
+          resourcesDirectory: join(currentDirectory, '../../resources'),
+          locale: activeUiLocale,
+          ...(testTrayFactory ? { createTray: testTrayFactory } : {}),
+          showMainWindow: activateMainWindow,
+          newDocument: newSourceDocumentFromMenu,
+          openDocuments: openSourceDocumentsFromMenu,
+          openSettings: () => {
+            createSettingsWindow();
+          },
+          quit: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) revealInteractiveWindow(mainWindow, true);
+            app.quit();
+          },
+        });
+      } catch (error) {
+        diagnostics?.failure('tray.initialize-failed', error);
+      }
+    }
     appUpdateScheduler = scheduleAppUpdateChecks({
       reportError: (error) => diagnostics?.failure('update.scheduled-check-failed', error),
       check: () => appUpdateService?.checkForUpdates(),

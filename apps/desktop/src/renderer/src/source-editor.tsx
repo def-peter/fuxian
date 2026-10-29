@@ -67,10 +67,12 @@ export function SourceEditor({
   source,
 }: SourceEditorProps): React.JSX.Element {
   const { t } = useLocalization();
+  const label = t('Markdown 源码编辑器');
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView>(null);
   const editable = useRef(new Compartment());
-  const initial = useRef({ autoFocus, readOnly, selection, source });
+  const accessibleLabel = useRef(new Compartment());
+  const initial = useRef({ autoFocus, label, readOnly, selection, source });
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
 
@@ -99,7 +101,9 @@ export function SourceEditor({
           markdown(),
           EditorView.lineWrapping,
           sourceEditorTheme,
-          EditorView.contentAttributes.of({ 'aria-label': t('Markdown 源码编辑器') }),
+          accessibleLabel.current.of(
+            EditorView.contentAttributes.of({ 'aria-label': initialState.label }),
+          ),
           editable.current.of(EditorState.readOnly.of(initialState.readOnly)),
           keymap.of([
             {
@@ -130,7 +134,15 @@ export function SourceEditor({
       editor.current = null;
       view.destroy();
     };
-  }, [t]);
+  }, []);
+
+  useEffect(() => {
+    editor.current?.dispatch({
+      effects: accessibleLabel.current.reconfigure(
+        EditorView.contentAttributes.of({ 'aria-label': label }),
+      ),
+    });
+  }, [label]);
 
   useEffect(() => {
     editor.current?.dispatch({

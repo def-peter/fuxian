@@ -85,6 +85,9 @@ export const verifyPackagedApp = async (outputDirectory) => {
       '/apps/desktop/out/main/index.js',
       '/apps/desktop/out/preload/index.cjs',
       '/apps/desktop/out/renderer/index.html',
+      '/apps/desktop/resources/trayTemplate.png',
+      '/apps/desktop/resources/trayTemplate@2x.png',
+      '/apps/desktop/resources/tray.ico',
       '/package.json',
     ];
     for (const entry of requiredEntries) {

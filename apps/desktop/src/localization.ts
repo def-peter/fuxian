@@ -1,6 +1,7 @@
 import type { UiLocale } from '@fuxian/shared-types';
 
 const englishMessages = {
+  显示主窗口: 'Show Main Window',
   '新建 Markdown': 'New Markdown',
   未命名: 'Untitled',
   '未命名 {number}': 'Untitled {number}',

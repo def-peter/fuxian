@@ -130,6 +130,8 @@ Right side:
 
 The operating system owns window controls and the application menu. macOS keeps its system menu visible; Windows permanently hides the native menu bar to preserve vertical space. The menu remains installed internally so accelerators and native editing roles continue to work, while settings, updates, and the project homepage remain available in the application shell. The content layout should remain consistent across platforms.
 
+While running, Fuxian also provides a macOS menu-bar icon and a Windows notification-area icon. Their native menus offer Show Main Window, New Markdown, Open Markdown, Settings, and Quit. macOS uses a monochrome template mark that follows the system menu-bar appearance; Windows uses a multi-resolution color application icon, with a primary click restoring the main window and a right-click opening the menu. Menu labels and the tooltip follow the interface language. New and Open recreate the main window when needed and wait for session restoration; document guards still apply. These are shortcuts, not a new background-residency mode: window closing and quitting retain their existing behavior, and no login-startup registration is added. See ADR 0036.
+
 ## Confirmed Prototype Decisions
 
 - Reading starts on a continuous document surface. The toolbar labels its compact mode switch `无界 / 纸张`, with `连续阅读` and `A4 分页预览` tooltips respectively; paper preview fragments the same finished document into explicit A4 portrait pages before PDF export. View mode is transient and startup always returns to continuous reading.

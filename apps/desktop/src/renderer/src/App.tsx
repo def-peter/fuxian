@@ -32,7 +32,7 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -782,6 +782,7 @@ export function App(): React.JSX.Element {
     };
   }, []);
 
+  const restorationText = useEffectEvent(t);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -804,7 +805,9 @@ export function App(): React.JSX.Element {
             return {
               status: 'unavailable' as const,
               reference: item.reference,
-              message: t('“{name}”的内容暂时无法呈现。', { name: item.reference.name }),
+              message: restorationText('“{name}”的内容暂时无法呈现。', {
+                name: item.reference.name,
+              }),
               reason: 'unreadable' as const,
             };
           }
@@ -856,7 +859,7 @@ export function App(): React.JSX.Element {
       } catch {
         if (!cancelled) {
           window.fuxian.reportDiagnostic({ event: 'session.restore-failed' });
-          setBlockingError(t('无法恢复上次文档会话。你仍可以重新打开文档。'));
+          setBlockingError(restorationText('无法恢复上次文档会话。你仍可以重新打开文档。'));
         }
       } finally {
         if (!cancelled) {
@@ -868,7 +871,7 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [commitSourceEdit, t]);
+  }, [commitSourceEdit]);
 
   useEffect(() => {
     if (restorationStatus !== 'ready') {
@@ -1585,6 +1588,7 @@ export function App(): React.JSX.Element {
   requestSourceActionRef.current = requestSourceAction;
 
   useEffect(() => {
+    if (restorationStatus !== 'ready') return;
     const requestNew = (): void => requestSourceActionRef.current({ kind: 'new' });
     const unsubscribe = window.fuxian.onNewDocumentRequested(requestNew);
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -1598,7 +1602,7 @@ export function App(): React.JSX.Element {
       unsubscribe();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [restorationStatus]);
 
   useEffect(
     () =>

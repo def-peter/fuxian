@@ -42,6 +42,16 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 const pendingSourceDocumentOpenResults: OpenSourceDocumentsResult[] = [];
 const sourceDocumentOpenListeners = new Set<(result: OpenSourceDocumentsResult) => void>();
+const newDocumentListeners = new Set<() => void>();
+let pendingNewDocumentRequests = 0;
+
+ipcRenderer.on(desktopIpcChannels.newDocumentRequested, () => {
+  if (newDocumentListeners.size === 0) {
+    pendingNewDocumentRequests += 1;
+  } else {
+    for (const listener of newDocumentListeners) listener();
+  }
+});
 
 ipcRenderer.on(
   desktopIpcChannels.sourceDocumentOpenRequested,
@@ -142,9 +152,11 @@ const bridge: FuxianDesktopBridge = Object.freeze({
       ipcRenderer.removeListener(desktopIpcChannels.activeDocumentCloseRequested, handleClose);
   },
   onNewDocumentRequested: (listener: () => void): (() => void) => {
-    const handleNew = (): void => listener();
-    ipcRenderer.on(desktopIpcChannels.newDocumentRequested, handleNew);
-    return () => ipcRenderer.removeListener(desktopIpcChannels.newDocumentRequested, handleNew);
+    newDocumentListeners.add(listener);
+    const pending = pendingNewDocumentRequests;
+    pendingNewDocumentRequests = 0;
+    for (let index = 0; index < pending; index += 1) listener();
+    return () => newDocumentListeners.delete(listener);
   },
   onAppCloseRequested: (listener: (request: AppCloseRequest) => void): (() => void) => {
     const handleCloseRequested = (
